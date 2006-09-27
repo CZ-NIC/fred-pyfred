@@ -1,139 +1,35 @@
- Generator zonoveho souboru
-----------------------------
+README file for client of zone generator
+----------------------------------------
 
-Ukol:
-	Ukolem je vygenerovat zonove soubory pro domeny .cz, .0.2.4.e164.arpa a
-	0.2.4.c.e164.arpa.
-
-Pozadavky na reseni:
-	*) Komunikace prostrednictvim CORBY se serverovou casti, ktera
-	teprv pristupuje do databaze s daty
-	*) Transfer dat pres CORBU probiha v jednom velkem bloku (strukture)
-	*) Moznost generovani zonovych souboru v ruznych formatech
-	(pro ted staci format BINDu)
+Content:
+    1. Introduction
+    2. Description of files
+    3. Configuration
+    4. Run
 
 
-Implementace
--------------
+1. Introduction
 
-Program je rozclenen do nasledujicich casti:
-	*) Serverova cast
-	*) Cast komunikujici z predchozi casti pres CORBU
+genzone is client-side of zone generator. It communicates with server-side
+through CORBA calls. The interface is described elsewhere and is not part
+of this program. For description of communication protocol in more depth
+see README.genzone in server's directory. The client is responsible for
+formatting of received data in manner which is acceptable by DNS server.
+The only currently availabel output format is a format of BIND DNS server.
 
-Oba celky spolu komunikuji prostrednictvim CORBY pres interface, ktery
-obsahuje definici vyjimky (ktera se pouziva pro signalizaci vsech chyb
-ktere se mohou vyskytnout na strane serveru) a jedinou funkci a ma
-nasledujici podobu:
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-// interface (zatim jen) pro generovani zony
-  interface ZoneGenerator {
+2. Description of files
 
-    exception ZoneGeneratorError {
-      string message;
-    };
+In alpabetical order:
+    genzone_client.py - A script implementing client-side of zone generator.
+    genzones.sh       - A script automating zone generation.
+    skels             - Examples of additional configuration files influencing
+                        operation of genzones.sh. These files are described
+                        in detail in Configuration section of this README.
 
-    // returns domains and their nameservers
-    ZoneSeq getZoneData(in string zonename,
-      out long ttl,
-      out string hostmaster,
-      out string serial,
-      out long refresh,
-      out long update_retr,
-      out long expiry,
-      out long minimum,
-      out string ns_fqdn, // fqdn of primary server
-      out InetAddress ns_addrs, // addresses of prim. server
-      out DNSHost nameservers // secondary nameservers
-      ) raises (ZoneGeneratorError);
-  };
+3. Configuration
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section is about configuration of genzones.sh, which automates zone
+generation and is ment to be run from cron.
 
-Definice stezejniho typu ZoneSeq, struktury ktera obsahuje data nutna
-pro vygenerovani potrebnych zaznamu pro domeny patricich do zony, je v
-IDL nasledujici:
-
-struct ZoneItem
-{
-	string name;	// fqdn
-	DNSHost nameservers;	// seznam nameserveru vcetne jejich adres
-				// pokud jsou potrebne (GLUE RR)
-};
-typedef sequence<ZoneItem> ZoneSeq;
-
-Struktura ZoneItem reprezentuje prave jednu domenu (vsechna data potrebna
-k vygenerovani potrebnych DNS zaznamu pro danou domenu). Struktury DNSHost
-a InetAddress jsou v IDL uz definovany.
-
-Klientska cast je napsana v jazyce python. Zvazeno bylo pouziti knihovny
-dnspython, coz bylo posleze zamitnuto ze dvou duvodu:
-
-	*) dnspython nema API na postupne vytvareni objektu Zone. Objekt Zone
-	muze byt vytvoren jednorazove na zaklade zonoveho souboru, transferu
-	zony nebo stringu obsahujiciho zonu.
-
-	*) Vytvoreni zonoveho souboru na zaklade strukturovanych dat z
-	CORBY je na tolik trivialni, ze pouziti nejake knihovny by jenom
-	zvysilo slozitost kodu a zpomalilo proces generovani.
-
-Schema souboru vygenerovaneho klientem ve formatu BIND je nasledovne
-(pro domenu .cz):
-
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-$TTL 1d ; default TTL for zone
-cz.		IN	SOA	ns1.niccz.com.	hostmaster.tld.cz. (
-			  2006080900 ; serial number
-			  12h        ; refresh
-			  15m        ; update retry
-			  3w         ; expiry
-			  3h         ; minimum
-			  )
-		; seznam nameserveru pro domenu .cz
-		IN	NS	ns1.niccz.com.
-		IN	NS	ns2.niccz.net.
-		IN	NS	ns3.niccz.cz.
-		;pripadne GLUE pro nameservery
-ns3.niccz.cz.	IN	A	123.32.23.1
-		;
-		; ted prichazi na radu dynamicky generovana cast
-		;
-domain1.cz.	IN	NS	ns.bazmek.net.
-domain1.cz.	IN	NS	ns2.bazmek.net.
-domain2.cz.	IN	NS	ns.divny.net.
-domain2.cz.	IN	NS	ns.domain2.cz.
-domain2.cz.	IN	NS	ns.domain2.cz.
-ns.domain2.cz.	IN	A	123.32.32.2	; glue record
-		; a tak dale domena po domene ...
-
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Udaje, ktere se nemeni prilis casto se v programu nazyvaji staticke (i kdyz jsou
-take nacitany z databaze na strane serveru) a jsou
-to udaje v SOA zaznamu a nameservery zony. Nameservery zony prochazeji stejnou
-kontrolou na strane serveru (na GLUE zaznamy) jako ostatni domeny v zone.
-Klient obsahuje srozumitelnou napovedu pouziti, ktera muze byt vypsana zadanim
-prepinace --help na prikazove radce. Klient nema konfiguracni soubor, mozne
-konfiguracni volby se nastavuji prepinaci na prikazove radce. Priklad spusteni
-klienta za ucelem vygenerovani zony cz do souboru zona s CORBA nameservice
-bezici na hostu host.org:
-
-    $ python genzone_client --output zona --ns host.org cz
-
-Poslednim parametrem na prikazove radce se voli, jaka zona se bude generovat.
-Bez udani vystupniho souboru je zona vypsana na standardni vystup.
-
-Vystupni zonovy soubor je vhodne zvalidovat pomoci nejakeho nastroje (Debiani
-zone-check-file se neosvecil - veci ktere byly chybne nenahlasil a naopak
-veci ktere BIND podporuje oznacil jako chybu, proto doporucuji pouzit primo
-validator dodavany s BINDem), to vsak neni soucasti realizace a spolecne
-s jinymi bezpecnostimi mechanismy (jako diff zonovych souboru) je veci
-administratoru.
-
-S generovanim vystupu se ceka az kdyz jsou prijata vsechna data od serveru
-pres CORBU. Pote se zacne staticky generovanou casti a pote jsou generovana
-data pro jednotlive domeny tak jak jsou ulozeny v sekvenci ziskane z CORBY.
-Soucasne schema nepodporuje podepisovani zony. Presto toto pripadne rozsireni
-nebude obtizne. Vygenerovana zona se nacte pomoci knihovny dnspython (kterou
-jsme pro ted zavrhli), dnspython se postara o preusporadani zaznamu a podpis
-zony.
+...

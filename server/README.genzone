@@ -1,0 +1,65 @@
+README file for server side of zone generator
+---------------------------------------------
+
+Content:
+    1. Introduction
+    2. CORBA part
+    3. Database part
+
+
+1. Introduction
+
+Goal of server-side zone generator is to send all data needed for zone
+file creation to client. It is a task of client to format data in a way
+the DNS server understands to. The task of server is:
+
+         *) Retreive data from database.
+         *) Check the validity and decide whether particular data should
+            go in zone or not.
+         *) Send resulting data through CORBA interface to client.
+
+
+2. CORBA part
+
+Data sets are ussually very large (tens or hundreds of MBs). Transferring
+such a large data at once (in one CORBA call) is uncomfortable for both
+client and server. Not to mention that ORB needs a higher limit for data
+transferred in one call than is the default to be set in configuration.
+Therefore client can tell server how many items he is willing to accept
+in one CORBA call. Generally the protocol looks like this:
+
+         1) Client requests a transfer of a zone.
+         2) Server sends back data needed for construction of a SOA record,
+            nameservers for that zone and most important, a session number
+            which identifies just started transfer.
+         3) Client requests data (= domains from zone) in incremental manner
+            until all data are transferred.
+         4) Client closes transfer which is signal for the server to release
+            all resources associated with that transfer.
+
+Transfer may be closed by the client at any time during zone transfer. It
+is especially important to close transfers in any case. Otherwise the
+resources will not be freed and the server may soon die becauseof memory
+contention. The exact form of functions and structures used in the protocol
+outlined above is written in an IDL file, which is not part of this program,
+but managed separately with other IDL files.
+
+
+3. Database part
+
+There is one table with zones, another table holding data used in SOA records,
+table with nameservers for zones and offcourse table with domains and their
+nameservers.  Sorry for brevity of this part. If you want to know table and
+column names, used SELECTs and other details look at source code.
+
+These constrains must be met in order for domain to be placed in zone:
+
+         *) Domain must have at least one valid nameserver.
+         *) Domain must not be expired.
+         *) If domain falls in category of enum domains, validation of
+            enum number must not be expired.
+
+A nameserver which requires GLUE by DNS standard is considered valid
+only if it has one. On other side if nameserver has a GLUE and the GLUE
+is not required, the GLUE is not passed to client but the nameserver is.
+

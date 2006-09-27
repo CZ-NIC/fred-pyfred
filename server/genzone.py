@@ -137,9 +137,15 @@ This class implements interface used for generation of zone file.
 			# put together domains and their nameservers
 			cur.execute("SELECT domain_temp.fqdn, host.fqdn, host.ipaddr FROM "
 					"domain_temp, host WHERE domain_temp.nsset = host.nssetid")
+			# destroy temporary table
+			#  this would be done automatically upon connection closure, but
+			#  since we use proxy managing pool of connections, we cannot be
+			#  sure. Therefore we will rather explicitly drop the temporary
+			#  table.
+			cur.execute("DROP TABLE domain_temp")
+			# well done
 			self.l.log(self.l.DEBUG, "Number of records to process: %d" %
 					cur.rowcount)
-			# well done
 			conn.close()
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "Database error: %s\n" % e);

@@ -1,111 +1,49 @@
- Generator zonoveho souboru
-----------------------------
+README file for pyccreg server
+------------------------------
 
-Ukol:
-	Ukolem je vygenerovat zonove soubory pro domeny .cz, .0.2.4.e164.arpa a
-	0.2.4.c.e164.arpa.
-
-Pozadavky na reseni:
-	*) Komunikace prostrednictvim CORBY se serverovou casti, ktera
-	teprv pristupuje do databaze s daty
-	*) Transfer dat pres CORBU probiha v jednom velkem bloku (strukture)
-	*) Moznost generovani zonovych souboru v ruznych formatech
-	(pro ted staci format BINDu)
+Content:
+    1. Introduction
+    2. Description of files
+    3. Configuration
+    4. Run
 
 
-Implementace
--------------
+1. Introduction
 
-Program je rozclenen do nasledujicich casti:
-	*) Serverova cast
-	*) Cast komunikujici z predchozi casti pres CORBU
+pyccreg server is part of central registry written in python. Server has
+modular architecture. There is one file which serves as a framework for
+modules and other files which implement modules. Every module implements
+one CORBA object which is registered in CORBA nameservice upon startup
+of server.
 
-Oba celky spolu komunikuji prostrednictvim CORBY pres interface, ktery
-obsahuje definici vyjimky (ktera se pouziva pro signalizaci vsech chyb
-ktere se mohou vyskytnout na strane serveru) a jedinou funkci a ma
-nasledujici podobu:
+Additional info about zone generator module can be found in README.genzone.
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-// interface (zatim jen) pro generovani zony
-  interface ZoneGenerator {
 
-    exception ZoneGeneratorError {
-      string message;
-    };
+2. Description of files
 
-    // returns domains and their nameservers
-    ZoneSeq getZoneData(in string zonename,
-      out long ttl,
-      out string hostmaster,
-      out string serial,
-      out long refresh,
-      out long update_retr,
-      out long expiry,
-      out long minimum,
-      out string ns_fqdn, // fqdn of primary server
-      out InetAddress ns_addrs, // addresses of prim. server
-      out DNSHost nameservers // secondary nameservers
-      ) raises (ZoneGeneratorError);
-  };
+In alphabetical order:
+    ccreg_util.py - utility functions shared accross the modules
+    genzone.py    - module for zone generation
+    pyccReg_modules.conf - tells which modules should be loaded upon
+                    server startup
+    pyccReg.py    - the main server (starts modules)
+    pyccReg.sh    - start/stop script for pyccreg (not usable)
+    whois.py      - module implementing whois server
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Definice stezejniho typu ZoneSeq, struktury ktera obsahuje data nutna
-pro vygenerovani potrebnych zaznamu pro domeny patricich do zony, je v
-IDL nasledujici:
+3. Configuration
 
-struct ZoneItem
-{
-	string name;	// fqdn
-	DNSHost nameservers;	// seznam nameserveru vcetne jejich adres
-				// pokud jsou potrebne (GLUE RR)
-};
-typedef sequence<ZoneItem> ZoneSeq;
+The server looks for ccReg.conf in current, /etc, /usr/etc directories in
+this order. There are provided defaults for all configuration directives
+which are used if config file is not found or if a directive is not set
+in config file. Other configuration file is pyccReg_modules.conf looked
+up in the same directories as ccReg.conf. This file configures modules
+which should be loaded upon server startup.
 
-Struktura ZoneItem reprezentuje prave jednu domenu (vsechna data potrebna
-k vygenerovani potrebnych DNS zaznamu pro danou domenu). Struktury DNSHost
-a InetAddress jsou v IDL uz definovany.
 
-Serverova cast je napsana v jazyce python zduvodu obecne rychlosti vyvoje
-aplikaci a konkretne pohodlne prace s CORBOU.  Teziste prace spociva v
-implementaci obsluzne rutiny GetZoneData jejiz prototyp je definovan v IDL.
-Tato rutina vyziska vsechna potrebna data z databaze. Konkretne se jedna o
-nazvy domen patricich do dane zony, seznam jejich nameserveru i s pripadnymi
-adresami a udaje k vygenerovani SOA zaznamu pro zonu. Hodi se vypichnout ze
-pokud udaj 'serial' u zony v databazi je neznama hodnota (NULL), tak server
-vygeneruje serial podle zablehleho schematu YYYYMMDDHH (rok, mesic, den,
-hodina). Z toho vyplyva, ze zona muze byt generovana s nejvetsi frekvenci
-kazdou hodinu. Soucasti naplneni struktury Zone definovane v IDL je i overeni
-GLUE zaznamu.  Kazdy nameserver domeny, jehoz fqdn je subdomenou domeny k niz
-nalezi, musi byt vybaven aspon jednou ip adresou. To je jednoducha kontrola
-implementovana jako porovnani suffixu stringu (nazvu domeny s predrazenou
-teckou a nazvu nameserveru).  Jen pokud je domena s predrazenou teckou
-suffixem nameserveru, je prilozena take adresa nameserveru do struktury, jinak
-je ignorovana. Pokud ma byt adresa prilozena, ale v databazi neni uvedena
-(nekonzistentni data v databazi), je nameserver ignorovan a pokud domena nema
-ani jeden validni zaznam o jmennem serveru, tak je ignorovana cela domena a
-neni vubec poslana pres CORBU na klientskou stranu.  Pripadna chybova hlaseni
-jsou zaznamenavany do logu centralniho registru. Logovani se deje pres syslog,
-tim docilime toho, ze existujici centralni registr a serverova cast generovani
-zony muze mit spolecny log soubor.
+4. Run
 
-Serverova cast byla v prubehu kodovani zobecnena tak, aby bylo mozne pomoci
-volitelnych modulu (pluginu) rozsirovat funkcionalitu serveru. Jadro serveru
-se pouze stara o nacteni konfiguracniho souboru, ktery sdili s centralnim
-registrem, inicializaci modulu a jejich naslednou registraci v jmenne
-sluzbe CORBY. Pridani modulu do frameworku je tak jednoduche jako pridani
-radky z nazven modulu do souboru modules.conf a definice metody init v
-samotnem modulu, ktera vraci referenci na CORBA objekt a nazev, pod kterym
-ma byt objekt registrovan. Konfiguracni soubor obsahuje udaje potrebne pro
-pripojeni k databazi, identifikaci CORBA jmenne sluzby a nastaveni logovani.
+The simplest way, which might not work in all cases depending on
+environment and configuration is:
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# Priklad konfiguracniho souboru modules.conf
-# komentare zacinaji #, na kazdem radku muze byt jeden komentar
-#   nebo jeden nazev modulu
-
-# toto zpusobi nahrani python modulu ze souboru genzone.py, ktery
-# zajistuje ziskani dat pro generovani zonoveho souboru
-genzone
-
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          $ python pyccReg.py
