@@ -1,7 +1,8 @@
 2006-09-27 Jan Kryl <jan.kryl@nic.cz>
 
 	* Zalozeni tohoto ChangeLogu pro lepsi prehled o provedenych
-	zmenach verze od verze.
+	zmenach verze od verze. ChangeLog je spolecny pro cely pyccReg,
+	tj. obsahuje zmeny serveru i v klientech.
 
 	* Pridani README, README.genzone souboru do serverove casti, ktere
 	aspon v hrubych rysech objasnuji cinnost a strukturu projektu.

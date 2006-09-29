@@ -1,0 +1,14 @@
+
+This whois script implements a client from CORBA's point of view, because
+it connects to CORBA whois server, but it is a server from whois client's
+view, because it listens on port 43 and serves whois requests. We will refer
+to this script as client in this README file.
+
+The client is written as simply as possible. It is NOT PRODUCTION READY and
+is used only for testing purposes or in emergency cases. It has no
+configuration file, everything is hardwired in source code. It is very
+slow, because only one request is served at one time.
+
+Before you run whois client, type "make" (or "make idl") to statically
+generate IDL stubs.
+

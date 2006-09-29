@@ -1,4 +1,5 @@
-IDLDIR      = idl
+TOP_REPOS    = ../../..
+IDLDIR       = ${TOP_REPOS}/idl/trunk
 GENZONE      = ZoneGenerator
 WHOIS        = Whois
 INSTALL      = ./install-sh

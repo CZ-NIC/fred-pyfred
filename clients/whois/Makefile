@@ -1,6 +1,7 @@
-IDL     = "../../cr/idl/Whois.idl"
+TOP_REPOS = ../../../..
+IDL       = ${TOP_REPOS}/idl/trunk/Whois.idl
 
-.PHONY: idl install clean
+.PHONY: idl clean
 
 idl:
 	omniidl -bpython -Wbinline ${IDL}

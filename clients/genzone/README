@@ -5,7 +5,7 @@ Content:
     1. Introduction
     2. Description of files
     3. Configuration
-    4. Run
+    4. How to run the client
 
 
 1. Introduction
@@ -25,11 +25,32 @@ In alpabetical order:
     genzones.sh       - A script automating zone generation.
     skels             - Examples of additional configuration files influencing
                         operation of genzones.sh. These files are described
-                        in detail in Configuration section of this README.
+                        in Configuration section of this README.
+
 
 3. Configuration
 
 This section is about configuration of genzones.sh, which automates zone
-generation and is ment to be run from cron.
+generation and is ment to be run most of the time from cron. The script
+is configurable by env variables, which are expected to be found in
+/etc/default/genzones file (the example of this file is in directory skels).
+The most important envs are:
 
-...
+    ZONES: defines zone names for which will be generated zone files
+    GENZONE_COMMAND: command which executes genzone_client.py
+    NAMESERVER_RESTART_COMMAND: command which restarts BIND DNS server
+
+For detailes of zone file generation, zone file backups and zone disclaimer
+see a source code of the script.
+
+
+4. How to run the client
+
+If CORBA nameservice is located at localhost and we want to generate zone file
+for tld cz, we run following commands in this directory:
+
+    $ make
+    $ python genzone_client.py --ns localhost cz
+
+The make will generate static IDL stubs. The zone is generated to stdout.
+

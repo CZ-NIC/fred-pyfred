@@ -1,5 +1,6 @@
-IDL     = "../../cr/idl/ZoneGenerator.idl"
-DESTDIR = "/usr/local/ccRegUtils" 
+TOP_REPOS = ../../../..
+IDL       = ${TOP_REPOS}/idl/trunk/ZoneGenerator.idl
+DESTDIR   = /usr/local/ccRegUtils
  
 .PHONY: idl install clean 
  
@@ -13,6 +14,9 @@ install:
 	cp -f genzone_client.py ${DESTDIR} 
 	cp -f genzones.sh ${DESTDIR} 
  
+uninstall:
+	- rm -rf $(DESTDIR)
+
 clean: 
 	rm -fr ccReg 
 	rm -fr ccReg__POA 
