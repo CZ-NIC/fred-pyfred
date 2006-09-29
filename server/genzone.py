@@ -137,12 +137,17 @@ This class implements interface used for generation of zone file.
 			# put together domains and their nameservers
 			cur.execute("SELECT domain_temp.fqdn, host.fqdn, host.ipaddr FROM "
 					"domain_temp, host WHERE domain_temp.nsset = host.nssetid")
+			# safe dynamic data for later processing (do not close cursor)
+			row = cur.fetchone() # prefetch first record
+			self.transfers[cur_seq] = [cur, row]
 			# destroy temporary table
 			#  this would be done automatically upon connection closure, but
 			#  since we use proxy managing pool of connections, we cannot be
 			#  sure. Therefore we will rather explicitly drop the temporary
 			#  table.
+			cur = conn.cursor()
 			cur.execute("DROP TABLE domain_temp")
+			cur.close()
 			# well done
 			self.l.log(self.l.DEBUG, "Number of records to process: %d" %
 					cur.rowcount)
@@ -152,9 +157,6 @@ This class implements interface used for generation of zone file.
 			if conn: conn.close()
 			if cur: cur.close()
 			raise ccReg.ZoneGenerator.ZoneGeneratorError("Database error");
-		# safe dynamic data for later processing (do not close cursor)
-		row = cur.fetchone() # prefetch first record
-		self.transfers[cur_seq] = [cur, row]
 		return (cur_seq, # id of transfer
 			soa_ttl,
 			soa_hostmaster,

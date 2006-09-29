@@ -19,7 +19,7 @@ install:
 	${INSTALL} -m 0644 whois.py ${DESTDIR}
 	${INSTALL} -m 0644 ccreg_util.py ${DESTDIR}
 	${INSTALL} -m 0755 pyccReg.py ${DESTDIR}
-	${INSTALL} -m 0644 modules.conf ${DESTDIR}
+	${INSTALL} -m 0644 pyccReg_modules.conf ${DESTDIR}
 	${INSTALL} -m 0755 pyccReg.sh ${DESTDIR}
 	${INSTALL} -m 0755 omniNames.sh ${DESTDIR}
 
