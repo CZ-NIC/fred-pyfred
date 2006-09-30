@@ -137,6 +137,20 @@ do {
   fi
   MESSAGE="${MESSAGE} OK";
 
+  MESSAGE="${MESSAGE}\n${PREFIX} Checking validity of '${ZONE}' file:";
+  DEBUG_TMP=`named-checkzone ${ZONE} ${ZONE_FILE_TMP}`
+  STATUS=$?;
+
+  if [ ${STATUS} -ne 0 ];
+    then
+    {
+      MESSAGE="${MESSAGE} FAILED (with returned status ${STATUS})";
+      DEBUG="${DEBUG}\n${PREFIX}\n${DEBUG_TMP}";
+      ERROR=1;
+      continue;
+    }
+  fi
+  MESSAGE="${MESSAGE} OK";
 
   ##### Move output file to the real path
   MESSAGE="${MESSAGE}\n${PREFIX} Moving zone's '${ZONE}' temporary file to the real path:";
