@@ -117,11 +117,14 @@ formating obtained data when dump() method is called.
 				raise ZoneException("CORBA failure, original exception is: %s" % e)
 			for domain in domains:
 				for ns in domain.nameservers:
-					output.write("%s.\tIN\tNS\t%s.\n" %
-							(domain.name, ns.fqdn))
+					output.write("%s.\tIN\tNS\t%s" % (domain.name, ns.fqdn))
+					# if the nameserver's fqdn is already terminated by a dot
+					# we don't add another one - ugly check which is necessary
+					# becauseof error in CR (may be removed in future)
+					if not ns.fqdn.endswith("."): output.write(".\n")
+					else: output.write("\n")
 					for addr in ns.inet:
-						output.write("%s.\tIN\tA\t%s\n" %
-								(domain.name, addr))
+						output.write("%s.\tIN\tA\t%s\n" % (domain.name, addr))
 		if closeit: output.close()
 		if self.verbose: sys.stderr.write(" done\n")
 
