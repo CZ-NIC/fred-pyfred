@@ -138,7 +138,7 @@ do {
   MESSAGE="${MESSAGE} OK";
 
   MESSAGE="${MESSAGE}\n${PREFIX} Checking validity of '${ZONE}' file:";
-  DEBUG_TMP=`named-checkzone ${ZONE} ${ZONE_FILE_TMP}`
+  DEBUG_TMP=`/usr/sbin/named-checkzone ${ZONE} ${ZONE_FILE_TMP}`
   STATUS=$?;
 
   if [ ${STATUS} -ne 0 ];
