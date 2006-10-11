@@ -1,9 +1,12 @@
-2006-09-27 Jan Kryl <jan.kryl@nic.cz>
+2006-09-27 Jan Kryl (version 1.2.0)
 
 	* Zalozeni tohoto ChangeLogu pro lepsi prehled o provedenych
 	zmenach verze od verze. ChangeLog je spolecny pro cely pyccReg,
 	tj. obsahuje zmeny serveru i v klientech.
 
-	* Pridani README, README.genzone souboru do serverove casti, ktere
-	aspon v hrubych rysech objasnuji cinnost a strukturu projektu.
+	* Pridani README souboru aspon tam, kde nejvic chybely.
+
+	* Zmenila se struktura databaze, ubyl sloupec na ip adresu
+	primarniho nameserveru v tabulce zone_soa. Primarni nameserver
+	musi od ted byt vyjmenovat v tabulce zone_ns.
 
