@@ -137,6 +137,8 @@ do {
   fi
   MESSAGE="${MESSAGE} OK";
 
+
+  ##### check validity of the generated zone file
   MESSAGE="${MESSAGE}\n${PREFIX} Checking validity of '${ZONE}' file:";
   DEBUG_TMP=`/usr/sbin/named-checkzone ${ZONE} ${ZONE_FILE_TMP}`
   STATUS=$?;
@@ -151,6 +153,7 @@ do {
     }
   fi
   MESSAGE="${MESSAGE} OK";
+
 
   ##### Move output file to the real path
   MESSAGE="${MESSAGE}\n${PREFIX} Moving zone's '${ZONE}' temporary file to the real path:";
