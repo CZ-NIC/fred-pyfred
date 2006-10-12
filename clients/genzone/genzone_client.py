@@ -13,7 +13,11 @@ only one format (bind) is supported, which is the default format.
 
 import sys, getopt
 from omniORB import CORBA
-import CosNaming, ccReg
+import CosNaming
+
+# update import path
+sys.path.insert(0, "/usr/lib/pyccReg")
+import ccReg
 
 class ZoneException(Exception):
 	"""
