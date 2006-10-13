@@ -104,6 +104,10 @@ while 1:
 """
 	try:
 		(domain, timestamp) = whois_obj.getDomain(domainName)
+		if domain.enum_domain:
+			link = "Not Available"
+		else:
+			link = "Please visit webbased whois at http://enum.nic.cz/whois/ for more information."
 		resp += \
 """%% Timestamp: %s
 
@@ -111,8 +115,7 @@ Domain:       %s
 Status:       REGISTERED
 Registered:   %s
 Expiration:   %s
-Registrant:
-    Please visit webbased whois at http://www.nic.cz/ for more information.
+Registrant:   %s
 
 Registrar:
      Name:    %s
@@ -120,6 +123,7 @@ Registrar:
 
 Technical Contact:
 """ % (timestamp, domain.fqdn, domain.created, domain.expired,
+		link,
 		domain.registrarName, domain.registrarUrl)
      		for tech in domain.tech:
 			resp += "     %s\n" % tech

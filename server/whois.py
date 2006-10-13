@@ -54,24 +54,24 @@ This class implements whois interface.
 			cur = conn.cursor()
 			if cl == domainClass.CLASSIC:
 				# Get information about classic domain
-				cur.execute("SELECT nsset, clid, "
+				cur.execute("SELECT fqdn, nsset, clid, "
 						"extract(epoch from crdate), "
 						"extract(epoch from exdate) FROM domain "
 						"WHERE fqdn = %s" % pgdb._quote(domain_name))
 			else:
 				# Get information about enum domain
-				cur.execute("SELECT nsset, clid, "
+				cur.execute("SELECT fqdn, nsset, clid, "
 						"extract(epoch from crdate), "
 						"extract(epoch from exdate) FROM domain WHERE "
-						"(%s LIKE '%'||fqdn) OR (fqdn LIKE '%'||%s)" %
-						pgdb._quote(domain_name), pgdb._quote(domain_name))
+						"(%s LIKE '%%'||fqdn) OR (fqdn LIKE '%%'||%s)" %
+						(pgdb._quote(domain_name), pgdb._quote(domain_name)))
 			if cur.rowcount == 0:
 				cur.close()
 				conn.close()
 				self.l.log(self.l.DEBUG, "Domain '%s' is FREE." % domain_name)
 				raise ccReg.Whois.DomainError(strtime(), ccReg.WE_NOTFOUND)
 			# rename domain data
-			nssetid, regid, crtimestamp, extimestamp, notused = cur.fetchone()
+			(fqdn, nssetid, regid, crtimestamp, extimestamp) = cur.fetchone()
 			# get nameservers and technical contacts
 			nameservers  = []
 			techcontacts = []
@@ -126,7 +126,7 @@ This class implements whois interface.
 		else:
 			status = ccReg.WHOIS_ACTIVE
 		# return data
-		return ccReg.DomainWhois(status, crdate, exdate, reg_name, reg_url,
+		return ccReg.DomainWhois(fqdn, (cl == domainClass.ENUM), status, crdate, exdate, reg_name, reg_url,
 				nameservers, techcontacts), strtime()
 
 def init(dbconf, logger):
