@@ -49,8 +49,10 @@ see a source code of the script.
 If CORBA nameservice is located at localhost and we want to generate zone file
 for tld cz, we run following commands in this directory:
 
-    $ make
+    $ cd ../../share && make build
+    $ cd -
     $ python genzone_client.py --ns localhost cz
 
-The make will generate static IDL stubs. The zone is generated to stdout.
+The "make build" will generate static IDL stubs. The zone is generated to
+stdout. For client installation use Makefile in 'share' directory.
 

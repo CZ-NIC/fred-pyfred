@@ -136,10 +136,16 @@ returned to caller.
 # main
 #
 if __name__ == "__main__":
+	# if server should detach from terminal after startup
+	detach = 1
 	# default places where to look for configs
 	configs = ["/etc/ccReg.conf", "/usr/local/etc/ccReg.conf"]
-	# append explicit config location if present on command line
-	if len(sys.argv) > 1: configs.insert(0, sys.argv[-1])
+	for arg in sys.argv[1:]:
+		if arg == "-d":
+			detach = 0
+		else:
+			# append explicit config location if present on command line
+			configs.insert(0, arg)
 	# get configuration
 	conf = getConfiguration(configs)
 
@@ -147,7 +153,9 @@ if __name__ == "__main__":
 	modulenames = getModuleNames(["/etc/pyccReg_modules.conf",
 			"/usr/local/etc/pyccReg_modules.conf", "pyccReg_modules.conf"])
 	# update import path
-	sys.path.insert(0, "/usr/lib/pyccReg")
+	sys.path.insert(0, "idl")
+	sys.path.insert(0, "/usr/lib/pyccReg/share")
+	sys.path.insert(0, "/usr/lib/pyccReg/server")
 	# load all modules
 	modules = []
 	for mname in modulenames:
@@ -229,10 +237,15 @@ if __name__ == "__main__":
 	poaManager = poa._get_the_POAManager()
 	poaManager.activate()
 
-	# close stdin, stdout, stderr. Since now we will use only syslog
-	#sys.stdin.close()
-	#sys.stdout.close()
-	#sys.stderr.close()
+	# redirect stdin, stdout, stderr to /dev/null. Since now we will use 
+	# only syslog
+	if detach:
+		sys.stdin.close()
+		sys.stdout.close()
+		sys.stderr.close()
+		sys.stdin  = open("/dev/null", "r")
+		sys.stdout = open("/dev/null", "w")
+		sys.stderr = open("/dev/null", "w")
 	syslog.syslog(syslog.LOG_NOTICE, "Python ccReg Server started.")
 	syslog.syslog(syslog.LOG_INFO, "Loaded modules: %s" % modulenames)
 	# Block for ever (or until the ORB is shut down)

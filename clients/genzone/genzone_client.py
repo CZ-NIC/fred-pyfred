@@ -16,7 +16,8 @@ from omniORB import CORBA
 import CosNaming
 
 # update import path
-sys.path.insert(0, "/usr/lib/pyccReg")
+sys.path.insert(0, "idl")
+sys.path.insert(0, "/usr/lib/pyccReg/share")
 import ccReg
 
 class ZoneException(Exception):
@@ -165,10 +166,10 @@ options:
 	--output (-o) file    Generate output to file instead of standard output.
 	--verbose (-v)        Print progress graf to stderr.
 	--test (-t)           Test a server-side of zone generator. Tester sends a
-	                      request for zone transfer and then closes the
-	                      transfer without transfering any data (only SOA
-						  record is transferred as result of openning
-						  transaction).
+                          request for zone transfer and then closes the
+                          transfer without transfering any data (only SOA
+                          record is transferred as result of openning
+                          transaction).
 """ % sys.argv[0])
 
 #
@@ -228,8 +229,9 @@ if __name__ == "__main__":
 		zoneObj = Zone(zonename, ns, chunk, verbose)
 	except ZoneException, e:
 		if test:
-			print "FAILED - initialization of transfer failed"
-		sys.stderr.write("Zone Generator initialization failed (%s)\n" % e)
+			print "GENZONE CRITICAL - initialization of transfer failed: %s" % e
+		else:
+			sys.stderr.write("Zone Generator initialization failed (%s)\n" % e)
 		sys.exit(1)
 	ret = 0
 	# run the transfer of data only if not in test mode
@@ -245,9 +247,10 @@ if __name__ == "__main__":
 		zoneObj.cleanup()
 	except ZoneException, e:
 		if test:
-			print "FAILED - finalization of transfer failed"
-		sys.stderr.write("Cleanup of transfer failed (%s)\n" % e)
+			print "GENZONE FAILED - finalization of transfer failed: %s" % e
+		else:
+			sys.stderr.write("Cleanup of transfer failed (%s)\n" % e)
 		sys.exit(1)
 	if test:
-		print "OK (transfer id = %d)" % zoneObj.session
+		print "GENZONE OK - transfer id = %d" % zoneObj.session
 	sys.exit(ret)

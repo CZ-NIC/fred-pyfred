@@ -9,6 +9,6 @@ is used only for testing purposes or in emergency cases. It has no
 configuration file, everything is hardwired in source code. It is very
 slow, because only one request is served at one time.
 
-Before you run whois client, type "make" (or "make idl") to statically
-generate IDL stubs.
+Before you run whois client, type "make build" in ../../share directory to 
+statically generate IDL stubs. Use the same Makefile to install client.
 

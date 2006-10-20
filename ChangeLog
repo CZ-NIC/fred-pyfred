@@ -1,3 +1,8 @@
+2006-10-20 Jan Kryl (version 1.2.x)
+
+	* Prizpusobeni vystupu klienta generatoru zony tak, aby vyhovoval
+	vystupu ktery ocekava Nagios od testovaciho skriptu.
+
 2006-09-27 Jan Kryl (version 1.2.0)
 
 	* Zalozeni tohoto ChangeLogu pro lepsi prehled o provedenych
@@ -10,3 +15,6 @@
 	primarniho nameserveru v tabulce zone_soa. Primarni nameserver
 	musi od ted byt vyjmenovat v tabulce zone_ns.
 
+	* Jak soubory a adresare v repozitari tak instalacni mista byly
+	naprosto prekopany novym lepsim zpusobem. Makefile byl taktez
+	v souvislosti s temito zmenami napsat temer od znovu.
