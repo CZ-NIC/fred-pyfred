@@ -1,6 +1,6 @@
-PREFIX       = /tmp/root
-TOP_REPOS    = ../../../..
-IDLDIR       = ${TOP_REPOS}/idl/tags/1.2.0
+PREFIX       =
+TOP_REPOS    = ../../..
+IDLDIR       = ${TOP_REPOS}/idl/trunk
 INSTALL      = ./install-sh
 GENZONE      = ZoneGenerator
 WHOIS        = Whois
