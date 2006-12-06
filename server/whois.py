@@ -6,19 +6,19 @@ Code of whois server.
 
 import ccReg, ccReg__POA
 import pgdb
-from ccreg_util import strtime, isExpired, classify, domainClass
+from pyfred_util import strtime, isExpired, classify, domainClass
 
 class Whois_i (ccReg__POA.Whois):
 	"""
 This class implements whois interface.
 	"""
-	def __init__(self, db_pars, logger):
+	def __init__(self, logger, db):
 		"""
 	Initializer saves db_pars (which is later used for opening database
 	connection) and logger (used for logging).
 		"""
 		# ccReg__POA.Whois doesn't have constructor
-		self.db_pars = db_pars # db connection string
+		self.db = db # db connection string
 		self.l = logger # syslog functionality
 		self.l.log(self.l.DEBUG, "Object initialized")
 
@@ -47,10 +47,7 @@ This class implements whois interface.
 		cur = None
 		try:
 			# connect to database
-			conn = pgdb.connect(host = self.db_pars["host"],
-					database = self.db_pars["dbname"],
-					user = self.db_pars["user"],
-					password = self.db_pars["passwd"])
+			conn = self.db.getConn()
 			cur = conn.cursor()
 			if cl == domainClass.CLASSIC:
 				# Get information about classic domain
@@ -67,7 +64,7 @@ This class implements whois interface.
 						(pgdb._quote(domain_name), pgdb._quote(domain_name)))
 			if cur.rowcount == 0:
 				cur.close()
-				conn.close()
+				self.db.releaseConn(conn)
 				self.l.log(self.l.DEBUG, "Domain '%s' is FREE." % domain_name)
 				raise ccReg.Whois.DomainError(strtime(), ccReg.WE_NOTFOUND)
 			# rename domain data
@@ -102,7 +99,7 @@ This class implements whois interface.
 					regid)
 			if cur.rowcount == 0:
 				cur.close()
-				conn.close()
+				self.db.releaseConn(conn)
 				self.l.log(self.l.ERR, "Registrar with id %d for domain "
 						"'%s' does not exist!" % (regid, domain_name))
 				raise ccReg.Whois.WhoisError("Registrar for domain not found")
@@ -110,11 +107,11 @@ This class implements whois interface.
 			if reg_name == None: reg_name = "unknown"
 			if reg_url == None: reg_url = "unknown"
 			cur.close()
-			conn.close()
+			self.db.releaseConn(conn)
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "Database error: %s\n" % e);
-			if conn: conn.close()
 			if cur: cur.close()
+			if conn: self.db.releaseConn(conn)
 			raise ccReg.Whois.WhoisError("Database error");
 		# transform creation date
 		crdate = strtime(crtimestamp)
@@ -129,11 +126,11 @@ This class implements whois interface.
 		return ccReg.DomainWhois(fqdn, (cl == domainClass.ENUM), status, crdate, exdate, reg_name, reg_url,
 				nameservers, techcontacts), strtime()
 
-def init(dbconf, logger):
+def init(logger, db, nsref, conf, joblist, rootpoa):
 	"""
 Function which creates, initializes and returns servant Whois.
 	"""
 	# Create an instance of Whois_i and an Whois object ref
-	servant = Whois_i(dbconf, logger)
+	servant = Whois_i(logger, db)
 	return servant, "PyWhois"
 

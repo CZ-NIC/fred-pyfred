@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-import socket
+import socket, sys
 from omniORB import CORBA
 import CosNaming
 
 # update import path
 sys.path.insert(0, "idl")
-sys.path.insert(0, "/usr/lib/pyccReg/share")
+sys.path.insert(0, "/usr/lib/pyfred/share")
 import ccReg
 
 MAX_MSG_LEN = 1024
@@ -48,15 +48,17 @@ while 1:
 	obj = orb.resolve_initial_references("NameService")
 	rootContext = obj._narrow(CosNaming.NamingContext)
 	if rootContext is None:
-		raise ZoneException("Failed to narrow the root naming context")
-	# Resolve the name "ccReg.context/ZoneGenerator.Object"
-	name = [CosNaming.NameComponent("ccReg", "context"),
+		sys.stderr.write("Failed to narrow the root naming context\n")
+		sys.exit(1)
+	# Resolve the name "fred.context/PyWhois.Object"
+	name = [CosNaming.NameComponent("fred", "context"),
 			CosNaming.NameComponent("PyWhois", "Object")]
 	obj = rootContext.resolve(name)
 	# Narrow the object to an ccReg::Whois
 	whois_obj = obj._narrow(ccReg.Whois)
 	if (whois_obj is None):
-		raise ZoneException("Object reference is not an ccReg::Whois")
+		sys.stderr.write("Object reference is not an ccReg::Whois\n")
+		sys.exit(1)
 	#
 	#
 	#response

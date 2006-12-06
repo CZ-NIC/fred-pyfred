@@ -7,7 +7,7 @@ Code of server-side of zone generator.
 import time
 import ccReg, ccReg__POA
 import pgdb
-from ccreg_util import ipaddrs2list
+from pyfred_util import clusterrows, ipaddrs2list
 
 class ZoneGenerator_i (ccReg__POA.ZoneGenerator):
 	"""
@@ -15,18 +15,18 @@ This class implements interface used for generation of zone file.
 	"""
 	MAX_TRANSFERS = 10 # maximum number of concurrent transfers
 
-	def __init__(self, db_pars, logger):
+	def __init__(self, logger, db):
 		"""
-	Initializer saves db_pars (which is later used for opening database
+	Initializer saves db object (which is later used for opening database
 	connection) and logger (used for logging). Transfer sequencer is
 	initialized to 0 and dict of transfers is initialized to empty dict.
 		"""
 		# ccReg__POA.ZoneGenerator doesn't have constructor
-		self.db_pars = db_pars # db connection string
+		self.db = db  # db object
 		self.l = logger # syslog functionality
-		self.l.log(self.l.DEBUG, "Object initialized")
 		self.seq = 0 # transfer sequencer
 		self.transfers = {} # dictionary of transfers
+		self.l.log(self.l.DEBUG, "Object initialized")
 
 	def _createNs(self, zonename, nsFqdn, addrs):
 		"""
@@ -73,18 +73,14 @@ This class implements interface used for generation of zone file.
 		cur = None
 		try:
 			# connect to database
-			conn = pgdb.connect(
-					host = self.db_pars["host"],
-					database = self.db_pars["dbname"],
-					user = self.db_pars["user"],
-					password = self.db_pars["passwd"])
+			conn = self.db.getConn()
 			cur = conn.cursor()
 			# Select id and enum status of the zone
 			cur.execute("SELECT id, enum_zone FROM zone WHERE fqdn = %s" %
 					pgdb._quote(zonename))
 			if cur.rowcount == 0:
 				cur.close()
-				conn.close()
+				self.db.releaseConn(conn)
 				self.l.log(self.l.ERR, "Zone '%s' not found in db." % zonename)
 				raise ccReg.ZoneGenerator.ZoneGeneratorError("Unknown zone "
 						"name")
@@ -99,7 +95,7 @@ This class implements interface used for generation of zone file.
 					"WHERE zone = %d" % zoneid)
 			if cur.rowcount == 0:
 				cur.close()
-				conn.close()
+				self.db.releaseConn(conn)
 				self.l.log(self.l.CRIT, "Zone '%s' does not have SOA record "
 						"in db" % zonename)
 				raise ccReg.ZoneGenerator.ZoneGeneratorError("Zone does not "
@@ -128,18 +124,23 @@ This class implements interface used for generation of zone file.
 			#    and for enum domains, the validation must not be expired
 			if isenum:
 				cur.execute("SELECT fqdn, nsset INTO TEMP TABLE domain_temp "
-					"FROM domain, enumval WHERE zone = %d and domainid = id "
-					"and domain.exdate > now() and enumval.exdate > now()" %
-					zoneid)
+					"FROM domain, enumval WHERE zone = %d AND domainid = id "
+					"AND domain.exdate > now() AND enumval.exdate > now() "
+					% zoneid)
 			else:
 				cur.execute("SELECT fqdn, nsset INTO TEMP TABLE domain_temp "
 					"FROM domain WHERE zone = %d and exdate > now()" % zoneid)
 			# put together domains and their nameservers
-			cur.execute("SELECT domain_temp.fqdn, host.fqdn, host.ipaddr FROM "
-					"domain_temp, host WHERE domain_temp.nsset = host.nssetid")
+			cur.execute("SELECT domain_temp.fqdn, host.fqdn, "
+					"host_ipaddr_map.ipaddr FROM domain_temp, host LEFT JOIN "
+					"host_ipaddr_map ON (host.id = host_ipaddr_map.hostid) "
+					"WHERE domain_temp.nsset = host.nssetid ORDER BY "
+					"domain_temp.fqdn, host.fqdn, host_ipaddr_map.ipaddr")
 			# safe dynamic data for later processing (do not close cursor)
 			row = cur.fetchone() # prefetch first record
-			self.transfers[cur_seq] = [cur, row]
+			self.transfers[cur_seq] = [cur, row, zonename]
+			self.l.log(self.l.DEBUG, "Number of records to process: %d" %
+					cur.rowcount)
 			# destroy temporary table
 			#  this would be done automatically upon connection closure, but
 			#  since we use proxy managing pool of connections, we cannot be
@@ -149,24 +150,28 @@ This class implements interface used for generation of zone file.
 			cur.execute("DROP TABLE domain_temp")
 			cur.close()
 			# well done
-			self.l.log(self.l.DEBUG, "Number of records to process: %d" %
-					cur.rowcount)
-			conn.close()
+			self.db.releaseConn(conn)
+			return (cur_seq, # id of transfer
+				soa_ttl,
+				soa_hostmaster,
+				soa_serial,
+				soa_refresh,
+				soa_update_retr,
+				soa_expiry,
+				soa_minimum,
+				soa_ns_fqdn,# prim. nameserver
+				secnss) # secondary nameservers
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "Database error: %s\n" % e);
-			if conn: conn.close()
 			if cur: cur.close()
+			if conn: self.db.releaseConn(conn)
 			raise ccReg.ZoneGenerator.ZoneGeneratorError("Database error");
-		return (cur_seq, # id of transfer
-			soa_ttl,
-			soa_hostmaster,
-			soa_serial,
-			soa_refresh,
-			soa_update_retr,
-			soa_expiry,
-			soa_minimum,
-			soa_ns_fqdn,# prim. nameserver
-			secnss) # secondary nameservers
+		except ccReg.ZoneGenerator.ZoneGeneratorError, e:
+			raise
+		except Exception, e:
+			self.l.log(self.l.ERR, "Unexpected exception caught: %s:%s" %
+					(sys.exc_info()[0], e))
+			raise ccReg.ZoneGenerator.ZoneGeneratorError("Unexpected error")
 
 	def getZoneData(self, transferid, count):
 		"""
@@ -176,67 +181,45 @@ This class implements interface used for generation of zone file.
 	If end of data is encountered, eof (second return value) is set to true
 	and transfer is deleted from list of transfers.
 		"""
-		# retreive db cursor
 		try:
-			cur = self.transfers[transferid][0]
-		except IndexError, e:
-			self.l.log(self.l.ERR, "Unknown transfer id (%d)\n" % transferid);
-			raise ccReg.ZoneGenerator.ZoneGeneratorError("Unknown transaction id")
-		# check count
-		if count < 1:
-			self.l.log(self.l.ERR, "Invalid count of domains requested (%d)" %
-					count)
-			raise ccReg.ZoneGenerator.ZoneGeneratorError("Invalid count")
-		# transform data from db cursor into structure which will be sent
-		# back to client. Theese data are called dynamic since they keep
-		# changing
-		dyndata = []
-		# retrieve leftover from last call
-		row = self.transfers[transferid][1]
-		if row == None: # test end of data
-			return []
-		lastdomain = row[0]
-		ns = self._createNs(lastdomain, row[1], ipaddrs2list(row[2]))
-		if ns:
-			nameservers = [ns]
-		else:
-			nameservers = []
-		# main loop
-		for i in range(count):
-			# loop for processing nameservers of one domain
-			while True:
-				row = cur.fetchone()
-				if row == None: # check end of data
-					break
-				newdomain = row[0]
-				nsFqdn = row[1]
-				nsAddrs = ipaddrs2list(row[2])
-				if lastdomain != newdomain:
-					break # proceed to next domain
-				# add nameservers to current domain
-				ns = self._createNs(lastdomain, nsFqdn, nsAddrs)
-				if ns:
-					nameservers.append(ns)
-			# insert domain processed in previous 'while' in a list
-			if nameservers:
-				dyndata.append( ccReg.ZoneItem(lastdomain, nameservers) )
-			else:
-				self.l.log(self.l.ERR, "Domain '%s' has no valid nameservers "
-						"(this should never happen!)" % lastdomain)
-			if row == None: # check end of data
-				break
-			# initialize next run of 'while' cycle
-			lastdomain = newdomain
-			ns = self._createNs(lastdomain, nsFqdn, nsAddrs)
-			if ns:
-				nameservers = [ns]
-			else:
-				nameservers = []
-		# save not processed leftover
-		self.transfers[transferid][1] = row
-		self.l.log(self.l.DEBUG, "Returned %d domains (session %d)" %
-				(len(dyndata), transferid))
-		return dyndata
+			# check count
+			if count < 1:
+				self.l.log(self.l.ERR, "Invalid count of domains requested (%d)"
+						% count)
+				raise ccReg.ZoneGenerator.ZoneGeneratorError("Invalid count")
+
+			# retreive db cursor
+			try:
+				cur, leftover, zonename = self.transfers[transferid]
+			except IndexError, e:
+				self.l.log(self.l.ERR, "Unknown transfer id (%d)\n" % transferid)
+				raise ccReg.ZoneGenerator.ZoneGeneratorError("Unknown transaction id")
+			# transform data from db cursor into structure which will be sent
+			# back to client. These data are called dynamic since they keep
+			# changing
+			dyndata = []
+			if leftover == None: # test end of data
+				return []
+			for i in range(count):
+				result, leftover = clusterrows(cur, leftover)
+
+				# transform result in corba structures
+				for domain in result:
+					for ns in domain[1]:
+						nameservers.append(self._createNs(zonename, ns[0],ns[1]))
+					dyndata.append( ccReg.ZoneItem(domain[0], nameservers) )
+
+			self.transfers[transferid][1] = leftover
+			self.l.log(self.l.DEBUG, "Returned %d domains (session %d)" %
+					(len(dyndata), transferid))
+			return dyndata
+
+		except ccReg.ZoneGenerator.ZoneGeneratorError, e:
+			raise
+		except Exception, e:
+			self.l.log(self.l.ERR, "Unexpected exception caught: %s:%s" %
+					(sys.exc_info()[0], e))
+			raise ccReg.ZoneGenerator.ZoneGeneratorError("Unexpected error")
 
 	def transferDelete(self, transferid):
 		"""
@@ -244,20 +227,27 @@ This class implements interface used for generation of zone file.
 		"""
 		self.l.log(self.l.INFO, "Transfer %d closed" % transferid)
 		try:
-			cur = self.transfers[transferid][0]
-		except IndexError, e:
-			self.l.log(self.l.ERR, "Unknown transfer id (%d)\n" % transferid);
-			raise ccReg.ZoneGenerator.ZoneGeneratorError("Unknown "
-					"transaction id")
-		# close db cursor
-		cur.close()
-		del(self.transfers[transferid])
+			try:
+				cur = self.transfers[transferid][0]
+			except IndexError, e:
+				self.l.log(self.l.ERR, "Unknown transfer id (%d)\n" % transferid)
+				raise ccReg.ZoneGenerator.ZoneGeneratorError("Unknown transaction id")
+			# close db cursor
+			cur.close()
+			del(self.transfers[transferid])
+
+		except ccReg.ZoneGenerator.ZoneGeneratorError, e:
+			raise
+		except Exception, e:
+			self.l.log(self.l.ERR, "Unexpected exception caught: %s:%s" %
+					(sys.exc_info()[0], e))
+			raise ccReg.ZoneGenerator.ZoneGeneratorError("Unexpected error")
 
 
-def init(dbconf, logger):
+def init(logger, db, nsref, conf, joblist, rootpoa):
 	"""
 Function which creates, initializes and returns object ZoneGenerator.
 	"""
 	# Create an instance of ZoneGenerator_i and an ZoneGenerator object ref
-	servant = ZoneGenerator_i(dbconf, logger)
+	servant = ZoneGenerator_i(logger, db)
 	return servant, "ZoneGenerator"

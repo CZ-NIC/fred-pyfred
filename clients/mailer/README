@@ -1,0 +1,3 @@
+
+Simple client to Mailer daemon tests basic functionality of the daemon.
+It is ment to be used for debugging and monitoring.

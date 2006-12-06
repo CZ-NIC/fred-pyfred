@@ -1,7 +1,21 @@
-2006-10-20 Jan Kryl (version 1.2.x)
+2006-11-24 Jan Kryl (version 1.3.0)
+
+	* Prejmenovani nazvu 'pyccReg' na 'pyfred'.
+
+	* Pridani vlastniho konfiguracniho souboru (uz neni sdilen s CR v C++)
+	a zmena jeho formatu a konfiguracnich direktiv.
+
+	* O pripojeni k databazi se stara pyfred a nikoliv moduly samotne.
+
+	* Pridani mailer daemona k existujicim modulum. Vyzaduje clearsilver
+	sdilenou knihovnu.
+
+2006-10-20 Jan Kryl (version 1.2.1)
 
 	* Prizpusobeni vystupu klienta generatoru zony tak, aby vyhovoval
 	vystupu ktery ocekava Nagios od testovaciho skriptu.
+
+	* pyccReg ma od nynejska statickej port kvuli firewallu
 
 2006-09-27 Jan Kryl (version 1.2.0)
 

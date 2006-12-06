@@ -1,0 +1,94 @@
+README file for mailer daemon
+--------------------------------
+
+Content:
+    1. Introduction
+    2. Configuration
+    3. Templating
+    4. Further reading
+
+
+1. Introduction
+
+Mailer daemon is responsible for delivering and archiving email messages.
+It is a CORBA server with interface consisting of two parts:
+
+    1. User interface is one function for viewing and sending of emails.
+    2. Admin interface is a set of functions for mailarchive searching.
+
+Part of configuration is stored in database and part in a configuration file.
+Mailer specific configuration can be found under section "Mailer". Sending
+of email consists of following steps:
+
+    1) Merging client provided mail headers and defaults stored in database.
+
+    2) Running data set provided by client through template stored in database.
+       Client selects template by identifier (name of template). Client may
+       specify more than one template. Each template will produce part of
+       multipart email message of MIME type text/*.
+
+    3) The so far generated email is archived in database in text form together
+       with some meta information (creation date, associated handles, ...).
+
+    4) Attachments not intended to be templated are retrieved from file
+       manager daemon, base64-encoded and attached to existing email message.
+
+    5) At the end the whole MIME multipart email message is transformed to
+       text and sent by sendmail program. The sendmail return status is
+       recorded in mail archive.
+
+Searching of mail archive for an email is based on "filter" and method of
+incremental transfers. Filter is a structure which specifies constraints,
+which must be fulfilled by email message in order to be chosen for retrieval.
+The set of results is then transfered in chunks, of which size can be specified
+by client. When all data are transfered or they are not wanted anymore, the
+transfer must be closed!!! Otherwise the resources bound to transfer on server
+side had not been released.
+
+
+2. Configuration
+
+In Mailer section are expected following configuration directives. None of
+these is mandatory, default values are shown here.
+
+    testmode = off
+    tester   = email@address.tld
+    sendmail = /usr/sbin/sendmail
+
+If 'testmode' is enabled, the emails are not really sent to appropriate
+recipients, but to address(es) specified by 'tester' directive. This is useful
+when debugging the mailer. 'testmode' is by default off. 'sendmail' is a path
+to binary compatible with original sendmail program (just functionality for
+sending of emails is required).
+
+
+3. Templating
+
+As template system is used clearsilver, which is shared library, which can
+be used from C and Python. Clearsilver templates are considerably easier
+to use than xslt and at the same time have equal expression capabilities.
+Information how to write clearsilver templates can be found at:
+http://www.clearsilver.net/docs/man_templates.hdf. We will give just a few
+examples, which should be sufficient for 99% of email templates, since
+email templates aren't expected to be much complicated.
+
+All substitution commands are enclosed in '<?cs' and '?>'.
+
+  <?cs var:foo ?>    This will output variable 'foo' if it is defined.
+
+  <?cs if:bar ?><?cs var:bar ?><?cs else ?>There is nothing to see<?cs /if ?>
+  This is example of condition. If variable 'bar' is True then content of
+  it is displayed. Otherwise the text after else is displayed.
+
+  TODO iterations ...
+
+The values for variables (in our case 'foo' and 'bar') are provided by
+parameter of function for sending email, which is a list of key-value
+structures.
+
+4. Further reading
+
+Details of corba interface are specified in IDL file Mailer.idl. Look there
+for email headers which may be overwritten, exceptions which can be raised
+and useful parameters to functions.
+

@@ -17,7 +17,7 @@ import CosNaming
 
 # update import path
 sys.path.insert(0, "idl")
-sys.path.insert(0, "/usr/lib/pyccReg/share")
+sys.path.insert(0, "/usr/lib/pyfred/share")
 import ccReg
 
 class ZoneException(Exception):
@@ -55,11 +55,11 @@ formating obtained data when dump() method is called.
 			rootContext = obj._narrow(CosNaming.NamingContext)
 			if rootContext is None:
 				raise ZoneException("Failed to narrow the root naming context")
-			# Resolve the name "ccReg.context/ZoneGenerator.Object"
-			name = [CosNaming.NameComponent("ccReg", "context"),
+			# Resolve the name "fred.context/ZoneGenerator.Object"
+			name = [CosNaming.NameComponent("fred", "context"),
 					CosNaming.NameComponent("ZoneGenerator", "Object")]
 			obj = rootContext.resolve(name)
-			# Narrow the object to an ccReg::ZoneGenerator
+			# Narrow the object to an fred::ZoneGenerator
 			self.zo = obj._narrow(ccReg.ZoneGenerator)
 			if (self.zo is None):
 				raise ZoneException("Object reference is not an ccReg::ZoneGenerator")

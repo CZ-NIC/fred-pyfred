@@ -1,49 +1,76 @@
-README file for pyccreg server
+README file for pyfred server
 ------------------------------
 
 Content:
     1. Introduction
     2. Description of files
     3. Configuration
-    4. Run
+    4. Dependencies
+    5. Execution and Instalation
 
 
 1. Introduction
 
-pyccreg server is part of central registry written in python. Server has
+pyfred server is part of central registry written in python. Server has
 modular architecture. There is one file which serves as a framework for
 modules and other files which implement modules. Every module implements
 one CORBA object which is registered in CORBA nameservice upon startup
 of server.
 
-Additional info about zone generator module can be found in README.genzone.
+Additional info about zone generator module can be found in README.genzone,
+about mail notification module in README.mailer. Module whois is experimental
+and must not be used in production.
 
 
 2. Description of files
 
 In alphabetical order:
-    ccreg_util.py - utility functions shared accross the modules
+    fred_util.py  - utility functions shared accross the modules
     genzone.py    - module for zone generation
-    pyccReg_modules.conf - tells which modules should be loaded upon
+    mailer.py     - module for email notifications
+    pyfred_modules.conf - tells which modules should be loaded upon
                     server startup
-    pyccReg.py    - the main server (starts modules)
-    pyccReg.sh    - start/stop script for pyccreg (not usable)
+    pyfred.py     - the main server (starts modules)
+    pyfred.sh     - start/stop script for pyfred (not usable)
     whois.py      - module implementing whois server
 
 
 3. Configuration
 
-The server looks for ccReg.conf in current, /etc, /usr/etc directories in
-this order. There are provided defaults for all configuration directives
+The server looks for pyfred.conf in current, /etc, /usr/local/etc directories
+in this order. There are provided defaults for all configuration directives
 which are used if config file is not found or if a directive is not set
-in config file. Other configuration file is pyccReg_modules.conf looked
-up in the same directories as ccReg.conf. This file configures modules
+in config file. Other configuration file is pyfred_modules.conf looked
+up in the same directories as pyfred.conf. This file configures modules
 which should be loaded upon server startup.
 
 
-4. Run
+4. Dependencies
+
+General dependency is omniORB module for python. Additionally mailer
+module depends on clearsilver python module.
+
+
+5. Execution and Instalation
+
+At first we have to statically generate python modules from IDL files.
+This must be done in directory share (the generated files are shared
+by server and clients - therefore the name).
+
+          $ cd ../share
+	  $ make
+	  $ cd ../server
 
 The simplest way, which might not work in all cases depending on
 environment and configuration is:
 
-          $ python pyccReg.py
+          $ python pyfred.py
+
+For instalation of pyfred server, you must be in directory 'share',
+where the Makefile resides. Then type just (as root):
+
+          # make install
+
+This will install all modules and all clients available in pyfred.
+For finer control over what will be installed and what not, are
+provided special makefile targets. See Makefile's content.

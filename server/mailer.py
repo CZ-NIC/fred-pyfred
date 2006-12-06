@@ -1,0 +1,626 @@
+#!/usr/bin/env python
+# vim:set ts=4 sw=4:
+"""
+Code of mailer daemon.
+"""
+
+import os, sys, time, random, ConfigParser
+import pgdb
+# corba stuff
+from omniORB import CORBA, PortableServer
+import CosNaming
+import ccReg, ccReg__POA
+# template stuff
+import neo_cgi # must be included before neo_cs and neo_util
+import neo_cs, neo_util
+# email stuff
+import email.Charset
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEBase import MIMEBase
+from email.MIMEText import MIMEText
+from email.Utils import formatdate
+from email import Encoders
+
+
+class Mailer_i (ccReg__POA.Mailer):
+	"""
+This class implements Mailer interface.
+	"""
+	def __init__(self, logger, db, nsref, conf, joblist, rootpoa):
+		"""
+	Initializer saves db_pars (which is later used for opening database
+	connection) and logger (used for logging).
+		"""
+		# ccReg__POA.Mailer doesn't have constructor
+		self.db = db # db connection string
+		self.l = logger # syslog functionality
+		self.nsref = nsref # nameservice reference
+		self.search_objects = [] # list of created search objects
+		self.rootpoa = rootpoa # root poa for new servants
+
+		# this avoids base64 encoding for utf-8 messages
+		email.Charset.add_charset( 'utf-8', email.Charset.SHORTEST, None, None )
+
+		# default configuration
+		self.testmode = False
+		self.tester = ""
+		self.sendmail = "/usr/sbin/sendmail"
+		self.fm_ns = "localhost"
+		self.fm_object = "FileManager"
+		self.idletreshold = 3600
+		self.checkperiod = 60
+		# Parse Mailer-specific configuration
+		if conf.has_section("Mailer"):
+			# testmode
+			try:
+				testmode = conf.get("Mailer", "testmode")
+				if testmode.upper() in ("YES", "ON", "1"):
+					self.l.log(self.l.DEBUG, "Test mode is turned on.")
+					self.testmode = True
+			except ConfigParser.NoOptionError, e:
+				pass
+			# tester email address
+			try:
+				tester = conf.get("Mailer", "tester")
+				if tester:
+					self.l.log(self.l.DEBUG, "Tester's address is %s." % tester)
+					self.tester = tester
+			except ConfigParser.NoOptionError, e:
+				pass
+			# sendmail path
+			try:
+				sendmail = conf.get("Mailer", "sendmail")
+				if sendmail:
+					self.l.log(self.l.DEBUG, "Path to sendmail is %s."% sendmail)
+					self.sendmail = sendmail
+			except ConfigParser.NoOptionError, e:
+				pass
+			# filemanager object's name
+			try:
+				fm_object = conf.get("Mailer", "filemanager_object")
+				if fm_object:
+					self.l.log(self.l.DEBUG, "Name under which to look for "
+							"filemanager is %s."% fm_object)
+					self.fm_object = fm_object
+			except ConfigParser.NoOptionError, e:
+				pass
+			# check period
+			try:
+				checkperiod = conf.get("Mailer", "checkperiod")
+				if checkperiod:
+					self.l.log(self.l.DEBUG, "checkperiod is set to '%s'." %
+							checkperiod)
+					try:
+						self.checkperiod = int(checkperiod)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for checkperiod "
+								"configuration directive.")
+						raise
+
+			except ConfigParser.NoOptionError, e:
+				pass
+			# idle treshold
+			try:
+				idletreshold = conf.get("Mailer", "idletreshold")
+				if idletreshold:
+					self.l.log(self.l.DEBUG, "idletreshold is set to '%s'." %
+							idletreshold)
+					try:
+						self.idletreshold = int(idletreshold)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for idletreshold"
+								" configuration directive.")
+						raise
+			except ConfigParser.NoOptionError, e:
+				pass
+
+		# check configuration consistency
+		if (self.testmode and not self.tester) or (not self.testmode and self.tester):
+			self.l.log(self.l.WARNING, "For proper operation testmode and "
+					"tester must be set or both must be unset.")
+		# schedule regular cleanup
+		joblist.append( { "callback":self.__search_cleaner, "context":None,
+			"period":self.checkperiod, "ticks":1 } )
+		self.l.log(self.l.INFO, "Object initialized")
+
+	def __search_cleaner(self, ctx):
+		"""
+	Method deletes closed or idle search objects.
+		"""
+		self.l.log(self.l.INFO, "Regular maintance procedure.")
+		remove = []
+		for item in self.search_objects:
+			# test idleness of object
+			if time.time() - item.lastuse > self.idletreshold:
+				item.status = item.IDLE
+
+			# schedule objects to be deleted
+			if item.status == item.CLOSED:
+				self.l.log(self.l.DEBUG, "Closed search-object with id %d "
+						"destroyed." % item.id)
+				remove.append(item)
+			elif item.status == item.IDLE:
+				self.l.log(self.l.DEBUG, "Idle search-object with id %d "
+						"destroyed." % item.id)
+				remove.append(item)
+		# delete objects scheduled for deletion
+		for item in remove:
+			id = self.rootpoa.servant_to_id(item)
+			self.rootpoa.deactivate_object(id)
+			self.search_objects.remove(item)
+
+	def __getFileManagerObject(self):
+		"""
+	Method retrieves FileManager object from nameservice.
+		"""
+		# Resolve the name "fred.context/FileManager.Object"
+		name = [CosNaming.NameComponent("fred", "context"),
+				CosNaming.NameComponent(self.fm_object, "Object")]
+		obj = self.nsref.resolve(name)
+		# Narrow the object to an ccReg::FileManager
+		filemanager_obj = obj._narrow(ccReg.FileManager)
+		return filemanager_obj
+
+	def __dbGetMailTypeData(self, conn, mailtype):
+		"""
+	Method returns subject template, attachment templates and their content
+	types.
+		"""
+		cur = conn.cursor()
+		# get mail type data
+		cur.execute("SELECT id, subject FROM mail_type WHERE name = %s " %
+				pgdb._quote(mailtype))
+		if cur.rowcount == 0:
+			cur.close()
+			self.l.log(self.l.ERR, "Mail type '%s' was not found in db." %
+					mailtype)
+			raise ccReg.Mailer.UnknownMailType(mailtype)
+
+		id, subject = cur.fetchone()
+
+		# get templates belonging to mail type
+		cur.execute("SELECT contenttype, template FROM mail_type_template_map, "
+				"mail_templates WHERE typeid = %d AND "
+				"templateid = mail_templates.id" % id)
+		if cur.rowcount == 0:
+			self.l.log(self.l.WARNING, "Request for mail type ('%s') with no "
+					"associated templates." % mailtype)
+			templates = []
+		else:
+			templates = [ {"type":row[0], "template":row[1]} for row in cur.fetchall() ]
+		cur.close()
+		return subject, templates
+
+	def __dbSetHeaders(self, conn, subject, header, msg, mailid):
+		"""
+	Method creates email object and initializes headers.
+		"""
+		cur = conn.cursor()
+		cur.execute("SELECT h_from, h_replyto, h_errorsto, h_organization, "
+				"h_contentencoding, h_messageidserver FROM mail_header_defaults")
+		defaults = cur.fetchone()
+		msg["Subject"] = subject
+		msg["To"] = header.h_to
+		msg["Cc"] = header.h_cc
+		msg["Bcc"] = header.h_bcc
+		msg["Date"] = formatdate(localtime=True)
+		msg["Message-ID"] = "%d.%d@%s" % (mailid, int(time.time()), defaults[5])
+		if header.h_from:
+			msg["From"] = header.h_from
+		else:
+			msg["From"] = defaults[0]
+		if header.h_reply_to:
+			msg["Reply-to"] = header.h_reply_to
+		else:
+			msg["Reply-to"] = defaults[1]
+		if header.h_errors_to:
+			msg["Errors-to"] = header.h_errors_to
+		else:
+			msg["Errors-to"] = defaults[2]
+		if header.h_organization:
+			msg["Organization"] = header.h_organization
+		else:
+			msg["Organization"] = defaults[3]
+		cur.close()
+
+	def __dbNewEmailId(self, conn):
+		"""
+	Get next available ID of email. This ID is used in message-id header and
+	when archiving email.
+		"""
+		cur = conn.cursor()
+		cur.execute("SELECT nextval('mail_archive_id_seq')")
+		id = cur.fetchone()[0]
+		cur.close()
+		return int(id)
+
+	def __dbArchiveEmail(self, conn, id, mail, handles, attachs = []):
+		"""
+	Method archives email in database.
+		"""
+		cur = conn.cursor()
+		cur.execute("INSERT INTO mail_archive (id, message) VALUES (%d, %s)" %
+				(id, pgdb._quote(mail)) )
+		for attach in attachs:
+			cur.execute("INSERT INTO mail_attachments (mailid, attachid) VALUES "
+					"(%d, %s)" % (id, pgdb._quote(attach)))
+		for handle in handles:
+			cur.execute("INSERT INTO mail_handles (mailid, associd) VALUES "
+					"(%d, %s)" % (id, pgdb._quote(handle)))
+		cur.close()
+
+	def __dbUpdateStatus(self, conn, mailid, status):
+		"""
+	Set status value in mail archive to specified number.
+		"""
+		cur = conn.cursor()
+		cur.execute("UPDATE mail_archive SET status = %d WHERE id = %d" %
+				(status, mailid))
+		cur.close()
+
+	def __dbGetDefaults(self, conn):
+		"""
+	Retrieve defaults from database.
+		"""
+		cur = conn.cursor()
+		cur.execute("SELECT name, value FROM mail_defaults")
+		pairs = [ (line[0], line[1]) for line in cur.fetchall() ]
+		cur.close()
+		return pairs
+
+	def __constructEmail(self, conn, mailtype, header, data, handles, attachs):
+		"""
+	Method creates the whole email message, ready to be send by sendmail
+	(or printed). This includes following steps:
+
+		1) Create HDF dataset (base of templating)
+		2) Template subject
+		3) Create email headers
+		4) Run templating for all wanted templates and attach them
+		5) Archive email
+		6) Attach non-templated attachments
+		7) Dump email in string form
+		"""
+		# Create email object and init headers
+		msg = MIMEMultipart()
+
+		# Get new email id (derived from id in mailarchive table)
+		mailid = self.__dbNewEmailId(conn)
+
+		hdf = neo_util.HDF()
+		# pour defaults in data set
+		for pair in self.__dbGetDefaults(conn):
+			hdf.setValue("defaults." + pair[0], pair[1])
+		# pour user provided values in data set
+		for pair in data:
+			hdf.setValue(pair.key, pair.value)
+
+		subject_tpl, templates = self.__dbGetMailTypeData(conn, mailtype)
+		# render subject
+		cs = neo_cs.CS(hdf)
+		cs.parseStr(subject_tpl)
+		subject = cs.render()
+		# init email header
+		self.__dbSetHeaders(conn, subject, header, msg, mailid)
+		# render text attachments
+		for item in templates:
+			cs = neo_cs.CS(hdf)
+			cs.parseStr(item["template"])
+			mimetext = MIMEText(cs.render(), item["type"])
+			mimetext.set_charset("utf-8")
+			msg.attach(mimetext)
+
+		# archive email (without non-templated attachments)
+		self.__dbArchiveEmail(conn, mailid, msg.as_string(), handles, attachs)
+
+		filemanager = None
+		# attach not templated attachments (i.e. pdfs)
+		for attachment in attachs:
+			# initialize filemanager if it is first iteration
+			if not filemanager:
+				try:
+					filemanager = self.__getFileManagerObject()
+				except CosNaming.NamingContext.NotFound, e:
+					self.l.log(self.l.ERR, "<%d> Could not get File Manager's "
+							"reference: %s" % (mailid, e))
+					raise ccReg.Mailer.InternalError("Attachment retrieval error")
+				if filemanager == None:
+					self.l.log(self.l.ERR, "<%d> FileManager reference is not "
+							"filemanager." % mailid)
+					raise ccReg.Mailer.InternalError("Attachment retrieval error")
+			# get attachment from file manager
+			self.l.log(self.l.DEBUG, "<%d> Sending request for attachement '%s'"%
+					(mailid, attachment))
+			try:
+				rawattach, mimetype = filemanager.load(attachment)
+			except ccReg.FileManager.InvalidName, e:
+				self.l.log(self.l.ERR, "<%d> Invalid attachment '%s' specified."%
+						(mailid, attachment))
+				raise ccReg.Mailer.AttachmentNotFound(attachment)
+			except ccReg.FileManager.FileNotFound, e:
+				self.l.log(self.l.ERR, "<%d> Attachment '%s' not found." %
+						(mailid, attachment))
+				raise ccReg.Mailer.AttachmentNotFound(attachment)
+			except ccReg.FileManager.InternalError, e:
+				self.l.log(self.l.ERR, "<%d> Internal error on FileManager's "
+						"side: %s" % (mailid, e.message))
+				raise ccReg.Mailer.InternalError("Attachment '%s' caused unknown"
+						" error." % attachment)
+
+			maintype, subtype = mimetype.split("/")
+			# create attachment
+			part = MIMEBase(maintype, subtype)
+			part.set_payload(rawattach)
+			# encode attachment
+			Encoders.encode_base64(part)
+			msg.attach(part)
+		return msg.as_string(), mailid
+
+	def mailNotify(self, mailtype, header, data, handles, attachs, preview):
+		"""
+	Method from IDL interface. It runs data through appropriate templates
+	and generates an email. The text of the email and operation status must
+	be archived in database.
+		"""
+		try:
+			mailid = 0 # 0 means uninitialized (defined because of exceptions)
+			self.l.log(self.l.DEBUG, "Email-Notification request received "
+					"(preview = %s)" % preview)
+
+			# connect to database
+			conn = self.db.getConn()
+
+			# construct email
+			mail, mailid = self.__constructEmail(conn, mailtype, header,
+					data, handles, attachs)
+			self.l.log(self.l.DEBUG, "<%d> Email was successfully generated "
+					"(length = %d bytes)." % (mailid, len(mail)))
+
+			if preview:
+				# if it is a preview, we don't commit changes in archive table
+				return mailid, mail
+
+			# commit changes in mail archive, no matter if sendmail will fail
+			conn.commit()
+
+			# send email
+			if self.testmode:
+				p = os.popen("%s %s" % (self.sendmail, self.tester), "w")
+			else:
+				p = os.popen("%s -t" % self.sendmail, "w")
+			p.write(mail)
+			status = p.close()
+			if status is None: status = 0 # ok
+			else: status = int(status) # sendmail failed
+
+			# archive email and status
+			self.__dbUpdateStatus(conn, mailid, status)
+			conn.commit()
+			self.db.releaseConn(conn)
+
+			# check sendmail status
+			if status == 0:
+				self.l.log(self.l.DEBUG, "<%d> Email was successfully sent." %
+					mailid)
+			else:
+				self.l.log(self.l.ERR, "<%d> Sendmail exited with failure "
+					"(rc = %d)" % (mailid, status))
+				raise ccReg.Mailer.SendMailError()
+			return mailid, ""
+
+		except ccReg.Mailer.SendMailError, e:
+			raise
+		except ccReg.Mailer.InternalError, e:
+			raise
+		except ccReg.Mailer.UnknownMailType, e:
+			raise
+		except ccReg.Mailer.AttachmentNotFound, e:
+			raise
+		except neo_util.ParseError, e:
+			self.l.log(self.l.ERR, "<%d> Error when parsing template: %s\n" %
+					(mailid, e))
+			raise ccReg.Mailer.InternalError("Template error")
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "<%d> Database error: %s\n" % (mailid, e))
+			raise ccReg.Mailer.InternalError("Database error")
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s\n" %
+					(mailid, sys.exc_info()[0], e))
+			raise ccReg.Mailer.InternalError("Unexpected error")
+
+	def createSearchObject(self, filter):
+		"""
+	This is universal mail archive lookup function. It returns object reference
+	which can be used to access data.
+		"""
+		try:
+			id = random.randint(1, 9999)
+			self.l.log(self.l.INFO, "<%d> Search create request received." % id)
+
+			# construct SQL query coresponding to filter constraints
+			conditions = []
+			if filter.mailid != -1:
+				conditions.append("mail_archive.id = %d" % filter.mailid)
+			if filter.status != -1:
+				conditions.append("mail_archive.status = %d" % filter.status)
+			if filter.handle:
+				conditions.append("mail_handles.associd = %s" %
+						pgdb._quote(filter.handle))
+			if filter.attachment:
+				conditions.append("mail_attachments.attachid = %s" %
+						pgdb._quote(filter.attachment))
+			if len(conditions) == 0:
+				cond = ""
+			else:
+				cond = "WHERE (%s)" % conditions[0]
+				for condition in conditions[1:]:
+					cond += " AND (%s)" % condition
+
+			# connect to database
+			conn = self.db.getConn()
+			cur = conn.cursor()
+
+			self.l.log(self.l.DEBUG, "<%d> Search WHERE clause is: %s" %
+					(id, cond))
+			# execute MEGA GIGA query :(
+			cur.execute("SELECT mail_archive.id, mail_archive.crdate, "
+					"mail_archive.moddate, mail_archive.status, "
+					"mail_archive.message, mail_attachments.attachid, "
+					"mail_handles.associd FROM mail_archive LEFT JOIN "
+					"mail_handles ON (mail_archive.id = mail_handles.mailid) "
+					"LEFT JOIN mail_attachments ON (mail_archive.id = "
+					"mail_attachments.mailid) %s ORDER BY mail_archive.id" %
+					cond)
+			self.db.releaseConn(conn)
+			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
+					(id, cur.rowcount))
+
+			# Create an instance of MailSearch_i and an MailSearch object ref
+			searchobj = MailSearch_i(id, cur, self.l)
+			self.search_objects.append(searchobj)
+			searchref = self.rootpoa.servant_to_reference(searchobj)
+			return searchref
+
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "Database error: %s" % e)
+			raise ccReg.Mailer.InternalError("Database error")
+		except Exception, e:
+			self.l.log(self.l.ERR, "Unexpected exception: %s:%s" %
+					(sys.exc_info()[0], e))
+			raise ccReg.Mailer.InternalError("Unexpected error")
+
+
+class MailSearch_i (ccReg__POA.MailSearch):
+	"""
+Class encapsulating results of search.
+	"""
+
+	# statuses of search object
+	ACTIVE = 1
+	CLOSED = 2
+	IDLE = 3
+
+	def __init__(self, id, cursor, log):
+		"""
+	Initializes search object.
+		"""
+		self.l = log
+		self.id = id
+		self.cursor = cursor
+		self.status = self.ACTIVE
+		self.crdate = time.time()
+		self.lastuse = None
+		self.lastrow = cursor.fetchone()
+
+	def __get_one_search_result(self):
+		"""
+	Fetch one mail from archive. The problem is that attachments and handles
+	must be transformed from cursor rows to lists.
+		"""
+		if not self.lastrow:
+			return None
+		prev = self.lastrow
+		curr = self.cursor.fetchone()
+		id = prev[0]
+		crdate = prev[1]
+		if prev[2]: # moddate may be NULL
+			moddate = prev[2]
+		else:
+			moddate = ""
+		if prev[3]: # status may be NULL
+			status = prev[3]
+		else:
+			status = -1
+		message = prev[4]
+		if prev[5]: # attachment may be NULL
+			attachs = [prev[5]]
+		else:
+			attachs = []
+		if prev[6]: # handle may be NULL
+			handles = [prev[6]]
+		else:
+			handles = []
+		# process all rows with the same id
+		while curr and id == curr[0]: # while the ids are same
+			if curr[5]:
+				if curr[5] not in attachs:
+					attachs.append(curr[5])
+			if curr[6]:
+				if curr[6] not in handles:
+					handles.append(curr[6])
+			curr = self.cursor.fetchone() # move to next row
+		# save leftover
+		self.lastrow = curr
+		return id, crdate, moddate, status, message, handles, attachs
+
+	def getNext(self, count):
+		"""
+	Get result of search.
+		"""
+		try:
+			self.l.log(self.l.INFO, "<%d> Get search results request received." %
+					self.id)
+
+			# check count
+			if count < 1:
+				self.l.log(self.l.WARNING, "Invalid count of domains requested "
+						"(%d). Default value (1) is used." % count)
+				count = 1
+
+			# check status
+			if self.status != self.ACTIVE:
+				self.l.log(self.l.WARNING, "<%d> Search object is not active "
+						"anymore." % self.id)
+				raise ccReg.MailSearch.NotActive()
+
+			# update last use timestamp
+			self.lastuse = time.time()
+
+			# get 'count' results
+			maillist = []
+			for i in range(count):
+				if not self.lastrow:
+					break
+				id, crdate, moddate, status, message, handles, attachs = \
+						self.__get_one_search_result()
+				# create email structure
+				maillist.append( ccReg.Mail(id, crdate, moddate, status,
+					message, handles, attachs) )
+
+			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d" %
+					(self.id, len(maillist)))
+			return maillist
+
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
+					(self.id, sys.exc_info()[0], e))
+			raise ccReg.MailSearch.InternalError("Unexpected error")
+
+	def destroy(self):
+		"""
+	Mark object as ready to be destroyed.
+		"""
+		try:
+			if self.status != self.ACTIVE:
+				self.l.log(self.l.WARNING, "<%d> An attempt to close non-active "
+						"search." % self.id)
+				return
+
+			self.status = self.CLOSED
+			self.l.log(self.l.INFO, "<%d> Search closed." % self.id)
+			# close db cursor
+			self.cursor.close()
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
+					(self.id, sys.exc_info()[0], e))
+			raise ccReg.MailSearch.InternalError("Unexpected error")
+
+
+def init(logger, db, nsref, conf, joblist, rootpoa):
+	"""
+Function which creates, initializes and returns servant Mailer.
+	"""
+	# Create an instance of Mailer_i and an Mailer object ref
+	servant = Mailer_i(logger, db, nsref, conf, joblist, rootpoa)
+	return servant, "Mailer"
+
