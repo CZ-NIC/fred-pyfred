@@ -42,8 +42,8 @@ incremental transfers. Filter is a structure which specifies constraints,
 which must be fulfilled by email message in order to be chosen for retrieval.
 The set of results is then transfered in chunks, of which size can be specified
 by client. When all data are transfered or they are not wanted anymore, the
-transfer must be closed!!! Otherwise the resources bound to transfer on server
-side had not been released.
+transfer should be closed. Server has mechanism for auto-cleaning of transfers,
+which are too old.
 
 
 2. Configuration
@@ -54,12 +54,17 @@ these is mandatory, default values are shown here.
     testmode = off
     tester   = email@address.tld
     sendmail = /usr/sbin/sendmail
+    filemanager_object = FileManager
+    idletreshold = 3600
+    checkperiod = 10
 
 If 'testmode' is enabled, the emails are not really sent to appropriate
 recipients, but to address(es) specified by 'tester' directive. This is useful
 when debugging the mailer. 'testmode' is by default off. 'sendmail' is a path
 to binary compatible with original sendmail program (just functionality for
-sending of emails is required).
+sending of emails is required). Filemanager is object responsible for managing
+binary attachments. idletreshold and checkperiod influence auto-cleaning
+algorithm.
 
 
 3. Templating

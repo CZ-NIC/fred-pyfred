@@ -19,8 +19,32 @@ from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
 from email.Utils import formatdate
+from email import quopriMIME
 from email import Encoders
 
+def infinite(datetime):
+	"""
+Decide if the date is invalid. If it is invalid, it is counted as infinite.
+	"""
+	if datetime.date.month < 1:
+		return True
+	if datetime.date.day < 1:
+		return True
+	return False
+
+def qp_str(string):
+	"""
+Function checks if the string contains characters, which need to be "quoted
+printable" and if there are any, it will encode the string. This function
+is used for headers of email.
+	"""
+	need = False
+	for c in string:
+		if quopriMIME.header_quopri_check(c):
+			need = True
+	if need:
+		string = quopriMIME.header_encode(string, charset="utf-8")
+	return string
 
 class Mailer_i (ccReg__POA.Mailer):
 	"""
@@ -32,7 +56,7 @@ This class implements Mailer interface.
 	connection) and logger (used for logging).
 		"""
 		# ccReg__POA.Mailer doesn't have constructor
-		self.db = db # db connection string
+		self.db = db # db object for accessing database
 		self.l = logger # syslog functionality
 		self.nsref = nsref # nameservice reference
 		self.search_objects = [] # list of created search objects
@@ -54,9 +78,10 @@ This class implements Mailer interface.
 			# testmode
 			try:
 				testmode = conf.get("Mailer", "testmode")
-				if testmode.upper() in ("YES", "ON", "1"):
-					self.l.log(self.l.DEBUG, "Test mode is turned on.")
-					self.testmode = True
+				if testmode:
+					if testmode.upper() in ("YES", "ON", "1"):
+						self.l.log(self.l.DEBUG, "Test mode is turned on.")
+						self.testmode = True
 			except ConfigParser.NoOptionError, e:
 				pass
 			# tester email address
@@ -127,7 +152,7 @@ This class implements Mailer interface.
 		"""
 	Method deletes closed or idle search objects.
 		"""
-		self.l.log(self.l.INFO, "Regular maintance procedure.")
+		self.l.log(self.l.DEBUG, "Regular maintance procedure.")
 		remove = []
 		for item in self.search_objects:
 			# test idleness of object
@@ -189,7 +214,7 @@ This class implements Mailer interface.
 		else:
 			templates = [ {"type":row[0], "template":row[1]} for row in cur.fetchall() ]
 		cur.close()
-		return subject, templates
+		return id, subject, templates
 
 	def __dbSetHeaders(self, conn, subject, header, msg, mailid):
 		"""
@@ -199,7 +224,7 @@ This class implements Mailer interface.
 		cur.execute("SELECT h_from, h_replyto, h_errorsto, h_organization, "
 				"h_contentencoding, h_messageidserver FROM mail_header_defaults")
 		defaults = cur.fetchone()
-		msg["Subject"] = subject
+		msg["Subject"] = qp_str(subject)
 		msg["To"] = header.h_to
 		msg["Cc"] = header.h_cc
 		msg["Bcc"] = header.h_bcc
@@ -218,9 +243,9 @@ This class implements Mailer interface.
 		else:
 			msg["Errors-to"] = defaults[2]
 		if header.h_organization:
-			msg["Organization"] = header.h_organization
+			msg["Organization"] = qp_str(header.h_organization)
 		else:
-			msg["Organization"] = defaults[3]
+			msg["Organization"] = qp_str(defaults[3])
 		cur.close()
 
 	def __dbNewEmailId(self, conn):
@@ -234,19 +259,19 @@ This class implements Mailer interface.
 		cur.close()
 		return int(id)
 
-	def __dbArchiveEmail(self, conn, id, mail, handles, attachs = []):
+	def __dbArchiveEmail(self, conn, id, mailtypeid, mail, handles, attachs =[]):
 		"""
 	Method archives email in database.
 		"""
 		cur = conn.cursor()
-		cur.execute("INSERT INTO mail_archive (id, message) VALUES (%d, %s)" %
-				(id, pgdb._quote(mail)) )
-		for attach in attachs:
-			cur.execute("INSERT INTO mail_attachments (mailid, attachid) VALUES "
-					"(%d, %s)" % (id, pgdb._quote(attach)))
+		cur.execute("INSERT INTO mail_archive (id, mailtype, message) VALUES "
+				"(%d, %d, %s)" % (id, mailtypeid, pgdb._quote(mail)) )
 		for handle in handles:
 			cur.execute("INSERT INTO mail_handles (mailid, associd) VALUES "
 					"(%d, %s)" % (id, pgdb._quote(handle)))
+		for attachid in attachs:
+			cur.execute("INSERT INTO mail_attachments (mailid, attachid) VALUES "
+					"(%d, %s)" % (id, attachid))
 		cur.close()
 
 	def __dbUpdateStatus(self, conn, mailid, status):
@@ -267,6 +292,16 @@ This class implements Mailer interface.
 		pairs = [ (line[0], line[1]) for line in cur.fetchall() ]
 		cur.close()
 		return pairs
+
+	def __dbGetMailTypes(self, conn):
+		"""
+	Get mapping between ids and names of mailtypes.
+		"""
+		cur = conn.cursor()
+		cur.execute("SELECT id, name FROM mail_type")
+		result = cur.fetchall()
+		cur.close()
+		return result
 
 	def __constructEmail(self, conn, mailtype, header, data, handles, attachs):
 		"""
@@ -295,7 +330,7 @@ This class implements Mailer interface.
 		for pair in data:
 			hdf.setValue(pair.key, pair.value)
 
-		subject_tpl, templates = self.__dbGetMailTypeData(conn, mailtype)
+		mtid, subject_tpl, templates = self.__dbGetMailTypeData(conn, mailtype)
 		# render subject
 		cs = neo_cs.CS(hdf)
 		cs.parseStr(subject_tpl)
@@ -310,12 +345,12 @@ This class implements Mailer interface.
 			mimetext.set_charset("utf-8")
 			msg.attach(mimetext)
 
-		# archive email (without non-templated attachments)
-		self.__dbArchiveEmail(conn, mailid, msg.as_string(), handles, attachs)
+		# save text of email without non-templated attachments
+		text_msg = msg.as_string()
 
 		filemanager = None
 		# attach not templated attachments (i.e. pdfs)
-		for attachment in attachs:
+		for attachid in attachs:
 			# initialize filemanager if it is first iteration
 			if not filemanager:
 				try:
@@ -329,32 +364,42 @@ This class implements Mailer interface.
 							"filemanager." % mailid)
 					raise ccReg.Mailer.InternalError("Attachment retrieval error")
 			# get attachment from file manager
-			self.l.log(self.l.DEBUG, "<%d> Sending request for attachement '%s'"%
-					(mailid, attachment))
+			self.l.log(self.l.DEBUG, "<%d> Sending request for attachement with "
+					"id %d" % (mailid, attachid))
 			try:
-				rawattach, mimetype = filemanager.load(attachment)
-			except ccReg.FileManager.InvalidName, e:
-				self.l.log(self.l.ERR, "<%d> Invalid attachment '%s' specified."%
-						(mailid, attachment))
-				raise ccReg.Mailer.AttachmentNotFound(attachment)
+				# get MIME type of attachment
+				attachinfo = filemanager.info(attachid)
+				# get raw data of attachment
+				rawattach = filemanager.load(attachid)
+			except ccReg.FileManager.IdNotFound, e:
+				self.l.log(self.l.ERR, "<%d> Non-existing id of attachment %d." %
+						(mailid, attachid))
+				raise ccReg.Mailer.AttachmentNotFound(attachid)
 			except ccReg.FileManager.FileNotFound, e:
-				self.l.log(self.l.ERR, "<%d> Attachment '%s' not found." %
-						(mailid, attachment))
-				raise ccReg.Mailer.AttachmentNotFound(attachment)
+				self.l.log(self.l.ERR, "<%d> For attachment with id %d is "
+						"missing file." % (mailid, attachid))
+				raise ccReg.Mailer.InternalError("FileManager's inconsistency "
+						"detected.")
 			except ccReg.FileManager.InternalError, e:
 				self.l.log(self.l.ERR, "<%d> Internal error on FileManager's "
 						"side: %s" % (mailid, e.message))
 				raise ccReg.Mailer.InternalError("Attachment '%s' caused unknown"
 						" error." % attachment)
 
-			maintype, subtype = mimetype.split("/")
+			maintype, subtype = attachinfo.mimetype.split("/")
 			# create attachment
 			part = MIMEBase(maintype, subtype)
+			if attachinfo.name:
+				part.add_header('content-disposition', 'attachment',
+						filename=attachinfo.name)
 			part.set_payload(rawattach)
 			# encode attachment
 			Encoders.encode_base64(part)
 			msg.attach(part)
-		return msg.as_string(), mailid
+
+		# archive email (without non-templated attachments)
+		self.__dbArchiveEmail(conn, mailid, mtid, text_msg, handles, attachs)
+		return mailid, msg.as_string()
 
 	def mailNotify(self, mailtype, header, data, handles, attachs, preview):
 		"""
@@ -364,14 +409,14 @@ This class implements Mailer interface.
 		"""
 		try:
 			mailid = 0 # 0 means uninitialized (defined because of exceptions)
-			self.l.log(self.l.DEBUG, "Email-Notification request received "
+			self.l.log(self.l.INFO, "Email-Notification request received "
 					"(preview = %s)" % preview)
 
 			# connect to database
 			conn = self.db.getConn()
 
 			# construct email
-			mail, mailid = self.__constructEmail(conn, mailtype, header,
+			mailid, mail = self.__constructEmail(conn, mailtype, header,
 					data, handles, attachs)
 			self.l.log(self.l.DEBUG, "<%d> Email was successfully generated "
 					"(length = %d bytes)." % (mailid, len(mail)))
@@ -417,15 +462,37 @@ This class implements Mailer interface.
 		except ccReg.Mailer.AttachmentNotFound, e:
 			raise
 		except neo_util.ParseError, e:
-			self.l.log(self.l.ERR, "<%d> Error when parsing template: %s\n" %
+			self.l.log(self.l.ERR, "<%d> Error when parsing template: %s" %
 					(mailid, e))
 			raise ccReg.Mailer.InternalError("Template error")
 		except pgdb.DatabaseError, e:
-			self.l.log(self.l.ERR, "<%d> Database error: %s\n" % (mailid, e))
+			self.l.log(self.l.ERR, "<%d> Database error: %s" % (mailid, e))
 			raise ccReg.Mailer.InternalError("Database error")
 		except Exception, e:
-			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s\n" %
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
 					(mailid, sys.exc_info()[0], e))
+			raise ccReg.Mailer.InternalError("Unexpected error")
+
+	def getMailTypes(self):
+		"""
+	Return mapping between ids of email types and their names.
+		"""
+		try:
+			id = random.randint(1, 9999)
+			self.l.log(self.l.INFO, "<%d> get-mailtypes request received." % id)
+
+			# connect to database
+			conn = self.db.getConn()
+			codelist = self.__dbGetMailTypes(conn)
+			self.db.releaseConn(conn)
+			return [ ccReg.MailTypeCode(item[0], item[1]) for item in codelist ]
+
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "Database error: %s" % e)
+			raise ccReg.Mailer.InternalError("Database error")
+		except Exception, e:
+			self.l.log(self.l.ERR, "Unexpected exception: %s:%s" %
+					(sys.exc_info()[0], e))
 			raise ccReg.Mailer.InternalError("Unexpected error")
 
 	def createSearchObject(self, filter):
@@ -441,14 +508,37 @@ This class implements Mailer interface.
 			conditions = []
 			if filter.mailid != -1:
 				conditions.append("mail_archive.id = %d" % filter.mailid)
+			if filter.mailtype != -1:
+				conditions.append("mail_archive.mailtype = %d" % filter.mailtype)
 			if filter.status != -1:
 				conditions.append("mail_archive.status = %d" % filter.status)
 			if filter.handle:
 				conditions.append("mail_handles.associd = %s" %
 						pgdb._quote(filter.handle))
-			if filter.attachment:
-				conditions.append("mail_attachments.attachid = %s" %
-						pgdb._quote(filter.attachment))
+			if filter.attachid != -1:
+				conditions.append("mail_attachments.attachid = %d" %
+						filter.attachid)
+			fromdate = filter.crdate._from
+			if not infinite(fromdate):
+				conditions.append("mail_archive.crdate > '%d-%d-%d %d:%d:%d'" %
+						(fromdate.date.year,
+						fromdate.date.month,
+						fromdate.date.day,
+						fromdate.hour,
+						fromdate.minute,
+						fromdate.second))
+			todate = filter.crdate.to
+			if not infinite(todate):
+				conditions.append("mail_archive.crdate < '%d-%d-%d %d:%d:%d'" %
+						(todate.date.year,
+						todate.date.month,
+						todate.date.day,
+						todate.hour,
+						todate.minute,
+						todate.second))
+			if filter.fulltext:
+				conditions.append("mail_archive.message LIKE '%%%s%%'" %
+						pgdb._quote(filter.fulltext)[1:-1])
 			if len(conditions) == 0:
 				cond = ""
 			else:
@@ -463,12 +553,13 @@ This class implements Mailer interface.
 			self.l.log(self.l.DEBUG, "<%d> Search WHERE clause is: %s" %
 					(id, cond))
 			# execute MEGA GIGA query :(
-			cur.execute("SELECT mail_archive.id, mail_archive.crdate, "
-					"mail_archive.moddate, mail_archive.status, "
-					"mail_archive.message, mail_attachments.attachid, "
-					"mail_handles.associd FROM mail_archive LEFT JOIN "
-					"mail_handles ON (mail_archive.id = mail_handles.mailid) "
-					"LEFT JOIN mail_attachments ON (mail_archive.id = "
+			cur.execute("SELECT mail_archive.id, mail_archive.mailtype, "
+					"mail_archive.crdate, mail_archive.moddate, "
+					"mail_archive.status, mail_archive.message, "
+					"mail_attachments.attachid, mail_handles.associd "
+					"FROM mail_archive LEFT JOIN mail_handles ON "
+					"(mail_archive.id = mail_handles.mailid) LEFT JOIN "
+					"mail_attachments ON (mail_archive.id = "
 					"mail_attachments.mailid) %s ORDER BY mail_archive.id" %
 					cond)
 			self.db.releaseConn(conn)
@@ -522,36 +613,37 @@ Class encapsulating results of search.
 		prev = self.lastrow
 		curr = self.cursor.fetchone()
 		id = prev[0]
-		crdate = prev[1]
-		if prev[2]: # moddate may be NULL
-			moddate = prev[2]
+		mtid = prev[1]
+		crdate = prev[2]
+		if prev[3]: # moddate may be NULL
+			moddate = prev[3]
 		else:
 			moddate = ""
-		if prev[3]: # status may be NULL
-			status = prev[3]
+		if prev[4]: # status may be NULL
+			status = prev[4]
 		else:
 			status = -1
-		message = prev[4]
-		if prev[5]: # attachment may be NULL
-			attachs = [prev[5]]
+		message = prev[5]
+		if prev[6]: # attachment may be NULL
+			attachs = [prev[6]]
 		else:
 			attachs = []
-		if prev[6]: # handle may be NULL
-			handles = [prev[6]]
+		if prev[7]: # handle may be NULL
+			handles = [prev[7]]
 		else:
 			handles = []
 		# process all rows with the same id
 		while curr and id == curr[0]: # while the ids are same
-			if curr[5]:
-				if curr[5] not in attachs:
-					attachs.append(curr[5])
 			if curr[6]:
-				if curr[6] not in handles:
-					handles.append(curr[6])
+				if curr[6] not in attachs:
+					attachs.append(curr[6])
+			if curr[7]:
+				if curr[7] not in handles:
+					handles.append(curr[7])
 			curr = self.cursor.fetchone() # move to next row
 		# save leftover
 		self.lastrow = curr
-		return id, crdate, moddate, status, message, handles, attachs
+		return id, mtid, crdate, moddate, status, message, handles, attachs
 
 	def getNext(self, count):
 		"""
@@ -581,13 +673,13 @@ Class encapsulating results of search.
 			for i in range(count):
 				if not self.lastrow:
 					break
-				id, crdate, moddate, status, message, handles, attachs = \
-						self.__get_one_search_result()
+				(id, mailtypeid, crdate, moddate, status, message, handles,
+						attachs) = self.__get_one_search_result()
 				# create email structure
-				maillist.append( ccReg.Mail(id, crdate, moddate, status,
-					message, handles, attachs) )
+				maillist.append( ccReg.Mail(id, mailtypeid, crdate, moddate,
+					status, message, handles, attachs) )
 
-			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d" %
+			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %
 					(self.id, len(maillist)))
 			return maillist
 

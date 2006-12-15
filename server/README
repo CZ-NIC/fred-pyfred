@@ -19,36 +19,39 @@ of server.
 
 Additional info about zone generator module can be found in README.genzone,
 about mail notification module in README.mailer. Module whois is experimental
-and must not be used in production.
+and cannot be used in production.
 
 
 2. Description of files
 
 In alphabetical order:
-    fred_util.py  - utility functions shared accross the modules
-    genzone.py    - module for zone generation
-    mailer.py     - module for email notifications
+    fred_util.py   - utility functions shared accross the modules
+    filemanager.py - module for storage of file attachments
+    genzone.py     - module for zone generation
+    mailer.py      - module for email notifications
     pyfred_modules.conf - tells which modules should be loaded upon
-                    server startup
-    pyfred.py     - the main server (starts modules)
-    pyfred.sh     - start/stop script for pyfred (not usable)
-    whois.py      - module implementing whois server
+                     server startup
+    pyfred.py      - the main server (starts modules)
+    pyfred.sh      - start/stop script for pyfred (not usable)
+    whois.py       - module implementing whois server
 
 
 3. Configuration
 
 The server looks for pyfred.conf in current, /etc, /usr/local/etc directories
 in this order. There are provided defaults for all configuration directives
-which are used if config file is not found or if a directive is not set
-in config file. Other configuration file is pyfred_modules.conf looked
+if configuration file is not found. Configuration file has sections. One
+general for pyfred.py and several others for individual modules.
+
+Other configuration file is pyfred_modules.conf looked
 up in the same directories as pyfred.conf. This file configures modules
 which should be loaded upon server startup.
 
 
 4. Dependencies
 
-General dependency is omniORB module for python. Additionally mailer
-module depends on clearsilver python module.
+General dependency is omniORB module for python and pgdb module for postgresql.
+Additionally mailer module depends on clearsilver python module.
 
 
 5. Execution and Instalation

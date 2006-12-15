@@ -1,0 +1,45 @@
+README file for mailer daemon
+--------------------------------
+
+Content:
+
+    1. Overview
+    2. Configuration
+
+
+1. Overview
+
+FileManager daemon is capable of storing and loading of a file. FileManager
+stores files on filesystem under directory which is given in configuration.
+FileManager does actually more than just storing or loading file. It keeps
+some other information about managed files in database. Currently it is:
+
+  * Numeric id of file
+  * Date of creation of record (file's upload date)
+  * Human readable and friendly name of file
+  * MIME type of file
+  * Size of file in bytes
+  * Path to file on filesystem in repository
+
+This file meta information can be retrieved by separate corba method call.
+For details of CORBA interface see _FileManager.idl file in IDL repository.
+The daemon uses just one table in database to hold all information about
+file. Administration interface is not yet in place for this module, but
+hopefully will be soon.
+
+The files in repository are not stored in flat manner, but are distributed
+in subdirectories in order not to overfill a directory. The relative path
+is created as:
+
+     {year}/{month}/{day}/{id},
+
+where year, month and day are deduced from current date when file is uploaded
+to filemanager. The name of the file, id, is id of file's record in database.
+
+
+2. Configuration
+
+Daemon has just one configuration directive 'rootdir', by which you can set
+default path to file repository, where filemanager stores all files. Be sure
+to make this directory accessible to daemon. If it does not exist, it is
+created.

@@ -46,7 +46,8 @@ def main():
 		sys.exit(1)
 	#
 	# Initialise the ORB
-	orb = CORBA.ORB_init(["-ORBInitRef", "NameService=corbaname::" + ns],
+	orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
+			"-ORBInitRef", "NameService=corbaname::" + ns],
 			CORBA.ORB_ID)
 	# Obtain a reference to the root naming context
 	obj = orb.resolve_initial_references("NameService")

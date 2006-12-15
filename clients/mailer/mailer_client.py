@@ -54,7 +54,7 @@ def main():
 	sendmail = False
 	for o, a in opts:
 		if o in ("-a", "--attachment"):
-			attachs.append(a)
+			attachs.append(int(a))
 		elif o in ("-d", "--data"):
 			dfile = a
 		elif o in ("-e", "--header"):
@@ -125,7 +125,8 @@ def main():
 
 	#
 	# Initialise the ORB
-	orb = CORBA.ORB_init(["-ORBInitRef", "NameService=corbaname::" + ns],
+	orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
+			"-ORBInitRef", "NameService=corbaname::" + ns],
 			CORBA.ORB_ID)
 	# Obtain a reference to the root naming context
 	obj = orb.resolve_initial_references("NameService")
@@ -163,9 +164,6 @@ def main():
 	except ccReg.Mailer.UnknownMailType, e:
 		sys.stderr.write("Unknown mail type '%s'\n" % e.typename)
 		sys.exit(10)
-	except ccReg.Mailer.BadTemplate, e:
-		sys.stderr.write("Bad template: %s\n" % e.message)
-		sys.exit(11)
 	except ccReg.Mailer.InternalError, e:
 		sys.stderr.write("Internal error on server: %s\n" % e.message)
 		sys.exit(12)

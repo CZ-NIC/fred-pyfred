@@ -203,8 +203,8 @@ def main(argv):
 		# Initialise the ORB and find the root POA
 		nsname = "NameService=corbaname::" + conf.get("General", "nshost") + \
 				":" + conf.get("General", "nsport")
-		orb = CORBA.ORB_init(["-ORBInitRef", nsname,
-				"-ORBendPoint", ":::" + conf.get("General", "port")],
+		orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8", "-ORBInitRef",
+				nsname, "-ORBendPoint", ":::" + conf.get("General", "port")],
 				CORBA.ORB_ID)
 		rootpoa = orb.resolve_initial_references("RootPOA")
 		# create persistent poa

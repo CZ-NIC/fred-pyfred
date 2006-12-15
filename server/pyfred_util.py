@@ -47,55 +47,6 @@ empty list is returned.
 	if list[0] == "": return []
 	return list
 
-def clusterrows(cursor, firstrow, index = 0):
-	"""
-This is a utility function for grouping of db rows in recursive lists.
-Example:
-    SQL rows: 1. A B C 11
-              2. A B D 11
-              3. A E C 56
-              4. B G B 01
-              ...
-    Result when index = 0 is:
-[ (A, [ (B, [ (C, [ (11, []) ]), (D, [(11, [])]) ]), (E, [(C, [(56, [])] )] )] )]
-    And left over 4th row is returned to be used in next call.
-	"""
-	cols = len(cursor.description)
-	result = []
-	# create first recursive list in result set
-	list = result
-	for col in range(cols - 1):
-		if not firstrow[col]: # null values will not be in result set
-			break
-		list.append( (firstrow[col], []) )
-		list = list[-1][1]
-	if curr[col]: list.append(firstrow[col])
-	# add items in result set untill there are no data or neighbours differ
-	# in significant column (which column is significant is defined by index par)
-	prev = firstrow
-	curr = cursor.fetchone()
-	while True:
-		if not curr: # no more data?
-			break
-		for col in range(cols): # get differing column
-			if prev[col] != curr[col]:
-				break
-		if col <= index: # is the column significant
-			break
-		if prev[col] != curr[col]: # we ignore completly identical rows
-			list = result
-			for i in range(col): # dive into level, where we should add new item
-				list = list[-1][1]
-			for col in range(col, cols - 1):
-				if not curr[col]: # null values will not be in result set
-					break
-				list.append( (curr[col], []) )
-				list = list[-1][1]
-			if curr[col]: list.append( curr[col] )
-		prev = curr
-		curr = cursor.fetchone()
-	return result, curr
-
 class domainClass(object):
 	"""
 Definition of results of domain classification.

@@ -10,6 +10,19 @@
 	* Pridani mailer daemona k existujicim modulum. Vyzaduje clearsilver
 	sdilenou knihovnu.
 
+	* Novy filemanager modul (nutny pro mailera), ale vyuzivany i jinde.
+
+	* Moduly jsou nyni schopne registrovat pravidelne spoustene ulohy.
+
+	* Prepsani genzone modulu (inspirovano mailerem).
+
+	* Dodelani ochranne lhuty a vyrazeni v jednotnou hodinu behem dne
+	pro domeny v generatoru zony.
+
+	* Odstraneni bugu z klienta genzone - negeneroval AAAA pro ipv6.
+
+	* Nastaveni kodovani stringu v ORBu na UTF-8.
+
 2006-10-20 Jan Kryl (version 1.2.1)
 
 	* Prizpusobeni vystupu klienta generatoru zony tak, aby vyhovoval
@@ -32,3 +45,4 @@
 	* Jak soubory a adresare v repozitari tak instalacni mista byly
 	naprosto prekopany novym lepsim zpusobem. Makefile byl taktez
 	v souvislosti s temito zmenami napsat temer od znovu.
+

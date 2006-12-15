@@ -39,7 +39,7 @@ formating obtained data when dump() method is called.
 		"""
 	Initializer sets verbose mode, location of corba nameservice, number of
 	domains transfered in one turn, obtains corba object's reference, calls
-	method transferRequest() on object ZoneGenerator and saves the result of
+	method generateZone() on object ZoneGenerator and saves the result of
 	call in member variables for later use by dump() funtion.
 		"""
 		self.zonename = zonename
@@ -48,7 +48,8 @@ formating obtained data when dump() method is called.
 
 		try:
 			# Initialise the ORB
-			orb = CORBA.ORB_init(["-ORBInitRef", "NameService=corbaname::" + ns],
+			orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
+					"-ORBInitRef", "NameService=corbaname::" + ns],
 					CORBA.ORB_ID)
 			# Obtain a reference to the root naming context
 			obj = orb.resolve_initial_references("NameService")
@@ -63,12 +64,14 @@ formating obtained data when dump() method is called.
 			self.zo = obj._narrow(ccReg.ZoneGenerator)
 			if (self.zo is None):
 				raise ZoneException("Object reference is not an ccReg::ZoneGenerator")
-			(self.session, self.ttl, self.hostmaster, self.serial,
+			(self.zonedata, self.ttl, self.hostmaster, self.serial,
 					self.refresh, self.update_retr, self.expiry,
 					self.minimum, self.ns_fqdn, self.nameservers
-					) = self.zo.transferRequest(self.zonename)
-		except ccReg.ZoneGenerator.ZoneGeneratorError, e:
-			raise ZoneException("Error message from server: %s" % e)
+					) = self.zo.generateZone(self.zonename)
+		except ccReg.ZoneGenerator.UnknownZone, e:
+			raise ZoneException("Unknown zone requested")
+		except ccReg.ZoneGenerator.InternalError, e:
+			raise ZoneException("Internal error on server: %s" % e.message)
 		except CosNaming.NamingContext.NotFound, ex:
 			raise ZoneException("CORBA object named '%s' not found "
 					"(check that the server is running)" % name)
@@ -112,10 +115,12 @@ formating obtained data when dump() method is called.
 		while domains:
 			# Invoke the getZoneData operation
 			try:
-				domains = self.zo.getZoneData(self.session, self.chunk)
+				domains = self.zonedata.getNext(self.chunk)
 				if self.verbose: sys.stderr.write(".")
-			except ccReg.ZoneGenerator.ZoneGeneratorError, e:
-				raise ZoneException("Error message from server: %s" % e)
+			except ccReg.ZoneData.NotActive, e:
+				raise ZoneException("ZoneData object is not active any more.")
+			except ccReg.ZoneData.InternalError, e:
+				raise ZoneException("Internal error on server: %s" % e.message)
 			except CORBA.TRANSIENT, e:
 				raise ZoneException("Is corba server running? (%s)" % e)
 			except CORBA.Exception, e:
@@ -129,7 +134,12 @@ formating obtained data when dump() method is called.
 					if not ns.fqdn.endswith("."): output.write(".\n")
 					else: output.write("\n")
 					for addr in ns.inet:
-						output.write("%s.\tIN\tA\t%s\n" % (domain.name, addr))
+						if addr.find(".") != -1:
+							ipv = "A"
+						else:
+							ipv = "AAAA"
+						output.write("%s.\tIN\t%s\t%s\n" % (domain.name, ipv,
+							addr))
 		if closeit: output.close()
 		if self.verbose: sys.stderr.write(" done\n")
 
@@ -138,7 +148,7 @@ formating obtained data when dump() method is called.
 	Clean up resources allocated for transfer on server's side.
 		"""
 		try:
-			self.zo.transferDelete(self.session)
+			self.zonedata.destroy()
 		except ccReg.ZoneGenerator.ZoneGeneratorError, e:
 			raise ZoneException("Error message from server: %s" % e)
 		except CORBA.TRANSIENT, e:
@@ -252,5 +262,6 @@ if __name__ == "__main__":
 			sys.stderr.write("Cleanup of transfer failed (%s)\n" % e)
 		sys.exit(1)
 	if test:
-		print "GENZONE OK - transfer id = %d" % zoneObj.session
+		print "GENZONE OK"
 	sys.exit(ret)
+

@@ -18,51 +18,78 @@ Print usage information.
 Options:
     -h, --help            Print this help message.
     -i, --input FILE      Send FILE to FileManager.
-    -l, --label NAME      Name under which the file is accessible in FileManager.
-                          Should be a relative path.
     -n, --nameservice HOST[:PORT] Set host where corba nameservice runs.
-    -o, --output FILE     Write data from FileManager to FILE.
+    -o, --output FILE     Write file retrieved from FileManager to FILE.
+    -t, --type MIMETYPE   MIME type of input file (use only with -i).
+    -x, --id              ID of file.
 
+Input and output parameter decides wether a file will be saved or loaded.
+If none of them is specified then meta-info about file is retrieved.
 """)
 
 
-def safefile(fm, label, input):
+def getinfo(fm, id):
+	"""
+Get meta information about file.
+	"""
+	#
+	# Call filemanager's function
+	try:
+		info = fm.info(id)
+	except ccReg.FileManager.InternalError, e:
+		sys.stderr.write("Internal error on server: %s\n" % e.message)
+		sys.exit(10)
+	except ccReg.FileManager.IdNotFound, e:
+		sys.stderr.write("Id %d is not in database.\n" % id)
+		sys.exit(13)
+	except Exception, e:
+		sys.stderr.write("Corba call failed: %s\n" % e)
+		sys.exit(3)
+	print "Meta information about file with id %d:" % id
+	print "  id:       %d" % info.id
+	print "  label:    %s" % info.name
+	print "  mimetype: %s" % info.mimetype
+	print "  created:  %s" % info.crdate
+	print "  size:     %d" % info.size
+	print "  repository path: %s" % info.path
+
+def safefile(fm, type, input):
 	"""
 Save file to filemanager.
 	"""
 	f = open(input, "rb")
 	octets = f.read()
 	f.close()
+	label = os.path.basename(input)
 	#
 	# Call filemanager's function
 	try:
-		fm.save(label, octets)
+		id = fm.save(label, type, octets)
 	except ccReg.FileManager.InternalError, e:
-		sys.stderr.write("Internal error on server: %s\n" % e.message)
+		sys.stderr.write("Internal error on server: %s.\n" % e.message)
 		sys.exit(10)
-	except ccReg.FileManager.InvalidName, e:
-		sys.stderr.write("Invalid name of file: '%s'\n" % e.filename)
-		sys.exit(11)
 	except Exception, e:
-		sys.stderr.write("Corba call failed: %s\n" % e)
+		sys.stderr.write("Corba call failed: %s.\n" % e)
 		sys.exit(3)
-	print "File was successfully saved under name '%s'." % label
+	print "File was successfully saved and has id %d." % id
 
-
-def loadfile(fm, label, output):
+def loadfile(fm, id, output):
 	"""
 Get file from filemanager.
 	"""
 	#
 	# Call filemanager's function
 	try:
-		octets, mimetype = fm.load(label)
+		octets = fm.load(id)
 	except ccReg.FileManager.InternalError, e:
 		sys.stderr.write("Internal error on server: %s\n" % e.message)
 		sys.exit(10)
-	except ccReg.FileManager.InvalidName, e:
-		sys.stderr.write("Invalid name of file: '%s'\n" % e.filename)
-		sys.exit(11)
+	except ccReg.FileManager.IdNotFound, e:
+		sys.stderr.write("Id '%d' is not in database.\n" % id)
+		sys.exit(13)
+	except ccReg.FileManager.FileNotFound, e:
+		sys.stderr.write("File described by id %d is missing.\n" % id)
+		sys.exit(14)
 	except Exception, e:
 		sys.stderr.write("Corba call failed: %s\n" % e)
 		sys.exit(3)
@@ -70,49 +97,53 @@ Get file from filemanager.
 	f.write(octets)
 	f.close()
 	print "File was successfully loaded and saved under name '%s'." % output
-	print "MIME type is '%s'" % mimetype
 
 
 def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:],
-				"hi:l:n:o:",
-				["help", "input", "label", "nameservice",
-					"output"])
+				"hi:n:o:t:x:",
+				["help", "input", "nameservice", "output",
+					"type", "id"])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(1)
 
 	input = ""
-	label = ""
 	ns = "localhost"
 	output = ""
+	type = ""
+	id = None
 	for o, a in opts:
 		if o in ("-h", "--help"):
 			usage()
 			sys.exit()
 		elif o in ("-i", "--input"):
 			input = a
-		elif o in ("-l", "--label"):
-			label = a
 		elif o in ("-n", "--nameservice"):
 			ns = a
 		elif o in ("-o", "--output"):
 			output = a
+		elif o in ("-t", "--type"):
+			type = a
+		elif o in ("-x", "--id"):
+			id = int(a)
 	# options check
-	if (not input and not output) or (input and output):
-		sys.stderr.write("One of options --input, --output "
-				"must be specified.\n")
+	if input and output:
+		sys.stderr.write("--input and --output options cannot be both "
+				"specified.\n")
 		usage()
 		sys.exit(1)
-	if not label:
-		sys.stderr.write("Option --label must be specified.\n")
-		usage()
-		sys.exit(1)
+	elif not input:
+		if not id:
+			sys.stderr.write("ID must be specified.\n")
+			usage()
+			sys.exit(1)
 
 	#
 	# Initialise the ORB
-	orb = CORBA.ORB_init(["-ORBInitRef", "NameService=corbaname::" + ns],
+	orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
+			"-ORBInitRef", "NameService=corbaname::" + ns],
 			CORBA.ORB_ID)
 	# Obtain a reference to the root naming context
 	obj = orb.resolve_initial_references("NameService")
@@ -135,10 +166,12 @@ def main():
 		sys.stderr.write("Object reference is not a ccReg::FileManager\n")
 		sys.exit(2)
 
-	if input:
-		safefile(filemanager_obj, label, input)
+	if not input and not output:
+		getinfo(filemanager_obj, id)
+	elif input:
+		safefile(filemanager_obj, type, input)
 	else:
-		loadfile(filemanager_obj, label, output)
+		loadfile(filemanager_obj, id, output)
 
 
 if __name__ == "__main__":

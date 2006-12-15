@@ -42,7 +42,8 @@ while 1:
 	#
 	#
 	# Initialise the ORB
-	orb = CORBA.ORB_init(["-ORBInitRef", "NameService=corbaname::localhost"],
+	orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
+			"-ORBInitRef", "NameService=corbaname::localhost"],
 			CORBA.ORB_ID)
 	# Obtain a reference to the root naming context
 	obj = orb.resolve_initial_references("NameService")
