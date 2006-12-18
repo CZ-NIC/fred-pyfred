@@ -51,16 +51,21 @@ This class implements whois interface.
 			cur = conn.cursor()
 			if cl == domainClass.CLASSIC:
 				# Get information about classic domain
-				cur.execute("SELECT fqdn, nsset, clid, "
-						"extract(epoch from crdate), "
-						"extract(epoch from exdate) FROM domain "
-						"WHERE fqdn = %s" % pgdb._quote(domain_name))
+				cur.execute("SELECT oreg.name, d.nsset, o.clid, "
+						"extract(epoch from oreg.crdate), "
+						"extract(epoch from d.exdate) FROM "
+						"object_registry oreg, object o, domain d WHERE "
+						"o.id = oreg.id AND o.id = d.id AND oreg.name = %s" %
+						pgdb._quote(domain_name))
 			else:
 				# Get information about enum domain
-				cur.execute("SELECT fqdn, nsset, clid, "
-						"extract(epoch from crdate), "
-						"extract(epoch from exdate) FROM domain WHERE "
-						"(%s LIKE '%%'||fqdn) OR (fqdn LIKE '%%'||%s)" %
+				cur.execute("SELECT oreg.name, d.nsset, o.clid, "
+						"extract(epoch from oreg.crdate), "
+						"extract(epoch from d.exdate) FROM "
+						"object_registry oreg, object o, domain d WHERE "
+						"o.id = oreg.id AND o.id = d.id "
+						"AND (%s LIKE '%%'||oreg.name) OR "
+						"(oreg.name LIKE '%%'||%s)" %
 						(pgdb._quote(domain_name), pgdb._quote(domain_name)))
 			if cur.rowcount == 0:
 				cur.close()
@@ -86,7 +91,7 @@ This class implements whois interface.
 					cur.execute("SELECT contactid FROM nsset_contact_map WHERE "
 							"nssetid = %d" % nssetid)
 				for tech_tuple in cur.fetchall():
-					cur.execute("SELECT handle FROM contact WHERE id = %d" %
+					cur.execute("SELECT name FROM object_registry WHERE id = %d"%
 							tech_tuple[0])
 					if cur.rowcount == 0:
 						self.l.log(self.l.ERR, "Technical contact with id %d "
@@ -123,8 +128,8 @@ This class implements whois interface.
 		else:
 			status = ccReg.WHOIS_ACTIVE
 		# return data
-		return ccReg.DomainWhois(fqdn, (cl == domainClass.ENUM), status, crdate, exdate, reg_name, reg_url,
-				nameservers, techcontacts), strtime()
+		return ccReg.DomainWhois(fqdn, (cl == domainClass.ENUM), status, crdate,
+				exdate, reg_name, reg_url, nameservers, techcontacts), strtime()
 
 def init(logger, db, nsref, conf, joblist, rootpoa):
 	"""

@@ -114,29 +114,6 @@ all directives will contain default values.
 		confparser.add_section("General")
 	return confparser
 
-def getModuleNames(configlist):
-	"""
-Function extracts module names from first found configuration file given
-in list parameter configlist. The comments are dropped and module names
-returned to caller.
-	"""
-	modules = []
-	for configname in configlist:
-		try:
-			fd = open(configname, "r")
-			# read the content
-			lines = [ line.strip() for line in fd.read().split('\n') ]
-			fd.close()
-			# drop comments and empty lines
-			for line in lines:
-				if (len(line) > 0) and (not line.startswith("#")): modules.append(line)
-			print "File %s used as module config file" % configname
-			break
-		except Exception, e:
-			pass #continue
-
-	return modules
-
 #
 # main
 #
@@ -180,8 +157,7 @@ def main(argv):
 			conf.get("General", "dbuser"),
 			conf.get("General", "dbpassword"))
 	# get a list of modules to import
-	modulenames = getModuleNames(["/etc/pyfred_modules.conf",
-			"/usr/local/etc/pyfred_modules.conf", "pyfred_modules.conf"])
+	modulenames = conf.get("General", "modules").split(" ")
 	# update import path
 	sys.path.insert(0, "idl")
 	sys.path.insert(0, "/usr/lib/pyfred/share")

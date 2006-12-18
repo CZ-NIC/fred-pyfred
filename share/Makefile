@@ -1,6 +1,6 @@
 PREFIX       =
 TOP_REPOS    = ../../..
-IDLDIR       = ${TOP_REPOS}/idl/branches/devel
+IDLDIR       = ${TOP_REPOS}/idl/trunk
 INSTALL      = ./install-sh
 GENZONE      = ZoneGenerator
 WHOIS        = Whois
@@ -42,7 +42,6 @@ install-server: \
 		../server/mailer.py \
 		../server/filemanager.py \
 		../server/techcheck.py \
-		../server/pyfred_modules.conf \
 		../server/pyfred.conf
 	@echo Installing pyfred server
 	$(INSTALL) -d $(PREFIX)/usr/bin
@@ -55,14 +54,6 @@ install-server: \
 	$(INSTALL) ../server/mailer.py      $(PREFIX)/usr/lib/pyfred/server
 	$(INSTALL) ../server/filemanager.py $(PREFIX)/usr/lib/pyfred/server
 	$(INSTALL) ../server/techcheck.py   $(PREFIX)/usr/lib/pyfred/server
-	@cmp ../server/pyfred_modules.conf $(PREFIX)/etc/pyfred_modules.conf 2>&1 1>&/dev/null;\
-	  if [ $$? -ne 1 ]; then \
-	    $(INSTALL) ../server/pyfred_modules.conf $(PREFIX)/etc;\
-	    echo Config file $(PREFIX)/etc/pyfred_modules.conf installed;\
-	  else \
-		echo Config file $(PREFIX)/etc/pyfred_modules.conf not;\
-		echo overwritten because of detected changes.;\
-	  fi
 	@cmp ../server/pyfred.conf $(PREFIX)/etc/pyfred.conf 2>&1 1>&/dev/null;\
 	  if [ $$? -ne 1 ]; then \
 	    $(INSTALL) ../server/pyfred.conf $(PREFIX)/etc;\
@@ -151,14 +142,6 @@ uninstall-server:
 	-rm -f $(PREFIX)/usr/lib/pyfred/server/mailer.py
 	-rm -f $(PREFIX)/usr/lib/pyfred/server/techcheck.py
 	@echo File manager's repository must be uninstalled manualy.
-	-@cmp ../server/pyfred_modules.conf $(PREFIX)/etc/pyfred_modules.conf 2>&1 1>&/dev/null;\
-	  if [ $$? -eq 0 ]; then \
-		rm -f $(PREFIX)/etc/pyfred_modules.conf;\
-		echo Config file $(PREFIX)/etc/pyfred_modules.conf deleted;\
-	  else \
-		echo Delete config file $(PREFIX)/etc/pyfred_modules.conf if ;\
-		echo you are not going to reinstall pyfred server.;\
-	  fi
 	-@cmp ../server/pyfred.conf $(PREFIX)/etc/pyfred.conf 2>&1 1>&/dev/null;\
 	  if [ $$? -eq 0 ]; then \
 		rm -f $(PREFIX)/etc/pyfred.conf;\
