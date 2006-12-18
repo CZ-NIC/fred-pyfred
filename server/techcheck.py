@@ -4,7 +4,7 @@
 Code of techcheck daemon.
 """
 
-import sys, pgdb, time, ConfigParser
+import sys, pgdb, time, random, ConfigParser
 import ccReg, ccReg__POA
 
 class TechCheck_i (ccReg__POA.TechCheck):
@@ -191,21 +191,61 @@ This class implements TechCheck interface.
 	def check_recursive4all(self, domain, nslist):
 		return [ True, "" ]
 
-	def __dbArchiveCheck(self, conn, domain, nslist, level, results):
-		return 1
+	def __dbNewCheckId(self, conn):
+		"""
+	Get next available ID of email. This ID is used in message-id header and
+	when archiving email.
+		"""
+		cur = conn.cursor()
+		cur.execute("SELECT nextval('check_domain_history_id_seq')")
+		id = cur.fetchone()[0]
+		cur.close()
+		return int(id)
+
+	def __dbArchiveCheck(self, conn, id, objid, histid, results, reason):
+		"""
+	Archive result of technical test on domain in database.
+		"""
+		if reason == ccReg.CHKR_EPP:
+			reason_enum	= 0
+		elif reason == ccReg.CHKR_MANUAL:
+			reason_enum	= 1
+		elif reason == ccReg.CHKR_REGULAR:
+			reason_enum	= 2
+		else:
+			reason_enum	= 3
+		cur = conn.cursor()
+		cur.execute("INSERT INTO check_domain_history (id, domain_id, "
+				"domain_hid, reason) VALUES (%d, %d, %d, %d)" %
+				(id, objid, histid, reason_enum))
+		# archive results of individual tests
+		for name in results:
+			result = results[name]
+			if result["result"]:
+				raw_result = "TRUE"
+			else:
+				raw_result = "FALSE"
+			if result["note"]:
+				raw_note = pgdb._quote(result["note"])
+			else:
+				raw_note = "NULL"
+			cur.execute("INSERT INTO check_result (checkid, name, result, note) "
+					"VALUES (%d, %s, %s, %s)" %
+					(id, pgdb._quote(name), raw_result, raw_note))
+		cur.close()
 
 	def __dbGetDomainData(self, conn, domain):
 		"""
 	Get all data about domain from database needed for technical checks.
 		"""
 		cur = conn.cursor()
-		cur.execute("SELECT or.historyID, ns.id, ns.checklevel FROM "
-				"object_registry or, object o, domain d WHERE "
-				"or.name = %s AND or.id = o.id AND or.id = d.id "
-				"LEFT JOIN nsset ns ON (d.nsset = ns.id) " % pgdb._quote(domain))
+		cur.execute("SELECT o.id, oreg.historyid, ns.id, ns.checklevel "
+				"FROM object_registry oreg, object o, domain d LEFT JOIN "
+				"nsset ns ON (d.nsset = ns.id) WHERE oreg.name = %s AND "
+				"oreg.id = o.id AND oreg.id = d.id " % pgdb._quote(domain))
 		if cur.rowcount == 0:
 			raise ccReg.TechCheck.DomainNotFound()
-		histid, nssetid, dblevel = cur.fetchone()
+		objid, histid, nssetid, dblevel = cur.fetchone()
 		if not nssetid:
 			raise ccReg.TechCheck.NoAssociatedNsset()
 		cur.execute("SELECT fqdn FROM host WHERE nssetid = %d" % nssetid)
@@ -218,17 +258,17 @@ This class implements TechCheck interface.
 			level = self.CHK_WARNING
 		else:
 			level = self.CHK_NOTICE
-		return histid, nameservers, level
+		return objid, histid, nameservers, level
 
 	def __dbGetAllDomains(self, conn):
 		"""
 	Get all active domains with associated nsset.
 		"""
 		cur = conn.cursor()
-		cur.execute("SELECT or.historyid, o.name, ns.checklevel, h.fqdn "
-				"FROM object_registry or, object o, domain d, nsset ns, host h "
-				"WHERE or.id = o.id AND or.id = d.id AND d.nsset = ns.id AND "
-				"d.nsset = h.nssetid ORDER BY o.name")
+		cur.execute("SELECT o.id, oreg.historyid, oreg.name, ns.checklevel, "
+				"h.fqdn FROM object_registry oreg, object o, domain d, "
+				"nsset ns, host h WHERE oreg.id = o.id AND oreg.id = d.id AND "
+				"d.nsset = ns.id AND d.nsset = h.nssetid ORDER BY oreg.name")
 		return cur
 
 	def __checkDomain(self, id, domain, nslist, level):
@@ -290,24 +330,25 @@ This class implements TechCheck interface.
 	Method from IDL interface. Run all enabled tests for a domain.
 		"""
 		try:
-			id = random.randint(1, 9999)
-			self.l.log(self.l.INFO, "<%d> Request for technical test for domain "
-					"'%s' received" % domain)
+			id = 0
 			# connect to database
 			conn = self.db.getConn()
+			# get unique ID
+			id = self.__dbNewCheckId(conn)
+			self.l.log(self.l.INFO, "<%d> Request for technical test for domain "
+					"'%s' received." % (id, domain))
 
 			# get all data about the domain necessary to perform tech check
-			histid, nslist, level = self.__dbGetDomainData(conn, domain)
+			objid, histid, nslist, level = self.__dbGetDomainData(conn, domain)
 
 			results = self.__checkDomain(id, domain, nslist, level)
 
 			# archive results of check
-			id = self.__dbArchiveCheck(conn, domain, nslist, level, results)
-
+			self.__dbArchiveCheck(conn, id, objid, histid, results, reason)
 			# commit changes in archive
 			conn.commit()
-			self.db.releaseConn(conn)
 
+			self.db.releaseConn(conn)
 			return self.__transfmResult(id, results)
 
 		except ccReg.TechCheck.DomainNotFound, e:
@@ -329,7 +370,6 @@ This class implements TechCheck interface.
 	def regularCheck(self):
 		"""
 	Method goes through all active domains and checks their healthy.
-		"""
 		try:
 			id = random.randint(1, 9999)
 			self.l.log(self.l.INFO, "Regular technical check of domains is "
@@ -344,7 +384,7 @@ This class implements TechCheck interface.
 			while row:
 				results = self.__checkDomain(id, domain, nslist, level)
 				# archive results of check
-				id = self.__dbArchiveCheck(conn, domain, nslist, level, results)
+				self.__dbArchiveCheck(conn, id, domain, results)
 
 			# commit changes in archive
 			conn.commit()
@@ -357,6 +397,8 @@ This class implements TechCheck interface.
 			self.l.log(self.l.ERR, "<%d> Unexpected exception caught: %s:%s" %
 					(id, sys.exc_info()[0], e))
 			raise ccReg.TechCheck.InternalError("Unexpected error")
+		"""
+		pass
 
 def init(logger, db, nsref, conf, joblist, rootpoa):
 	"""

@@ -42,6 +42,7 @@ def main():
 			ns = a
 	# --domain is mandatory argument
 	if not domain:
+		sys.stderr.write("Domain argument is mandatory.\n")
 		usage()
 		sys.exit(1)
 	#
