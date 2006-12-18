@@ -63,11 +63,10 @@ formating obtained data when dump() method is called.
 			# Narrow the object to an fred::ZoneGenerator
 			self.zo = obj._narrow(ccReg.ZoneGenerator)
 			if (self.zo is None):
-				raise ZoneException("Object reference is not an ccReg::ZoneGenerator")
-			(self.zonedata, self.ttl, self.hostmaster, self.serial,
-					self.refresh, self.update_retr, self.expiry,
-					self.minimum, self.ns_fqdn, self.nameservers
-					) = self.zo.generateZone(self.zonename)
+				raise ZoneException("Object reference is not ccReg::ZoneGenerator")
+			(zonename, self.ttl, self.hostmaster, self.serial, self.refresh,
+					self.update_retr, self.expiry, self.minimum, self.ns_fqdn,
+					self.nameservers) = self.zo.getSOA(self.zonename)
 		except ccReg.ZoneGenerator.UnknownZone, e:
 			raise ZoneException("Unknown zone requested")
 		except ccReg.ZoneGenerator.InternalError, e:
@@ -89,7 +88,16 @@ formating obtained data when dump() method is called.
 		#
 		if format != self.BIND:
 			raise ZoneException("Selected output format not supported")
-		# For now make up a list where each item represents one line
+
+		try:
+			self.zonedata = self.zo.generateZone(self.zonename)
+		except ccReg.ZoneGenerator.UnknownZone, e:
+			raise ZoneException("Unknown zone requested")
+		except ccReg.ZoneGenerator.InternalError, e:
+			raise ZoneException("Internal error on server: %s" % e.message)
+		except CORBA.Exception, e:
+			raise ZoneException("CORBA failure, original exception is: %s" % e)
+
 		output.write("$TTL %d ;default TTL for all records in the zone\n"
 				% self.ttl)
 		# SOA record (spans multiple lines)
@@ -149,7 +157,9 @@ formating obtained data when dump() method is called.
 		"""
 		try:
 			self.zonedata.destroy()
-		except ccReg.ZoneGenerator.ZoneGeneratorError, e:
+		except ccReg.ZoneData.NotActive, e:
+			raise ZoneException("ZoneData object is not active anymore")
+		except ccReg.ZoneData.InternalError, e:
 			raise ZoneException("Error message from server: %s" % e)
 		except CORBA.TRANSIENT, e:
 			raise ZoneException("Is corba server running? (%s)" % e)
@@ -243,25 +253,28 @@ if __name__ == "__main__":
 		else:
 			sys.stderr.write("Zone Generator initialization failed (%s)\n" % e)
 		sys.exit(1)
-	ret = 0
 	# run the transfer of data only if not in test mode
 	if not test:
 		try:
 			# this will do the rest of the work
 			zoneObj.dump(output, format, True)
 		except ZoneException, e:
-			sys.stderr.write("Transfer of zone data (%s)\n" % e)
-			ret = 1
-	try:
-		# cleanup
-		zoneObj.cleanup()
-	except ZoneException, e:
-		if test:
-			print "GENZONE FAILED - finalization of transfer failed: %s" % e
-		else:
-			sys.stderr.write("Cleanup of transfer failed (%s)\n" % e)
-		sys.exit(1)
+			if test:
+				print "GENZONE FAILED - transfer of zone data failed: %s" % e
+			else:
+				sys.stderr.write("Transfer of zone data (%s)\n" % e)
+			zoneObj.cleanup()
+			sys.exit(1)
+		try:
+			# cleanup
+			zoneObj.cleanup()
+		except ZoneException, e:
+			if test:
+				print "GENZONE FAILED - finalization of transfer failed: %s" % e
+			else:
+				sys.stderr.write("Cleanup of transfer failed (%s)\n" % e)
+			sys.exit(1)
 	if test:
 		print "GENZONE OK"
-	sys.exit(ret)
+	sys.exit()
 

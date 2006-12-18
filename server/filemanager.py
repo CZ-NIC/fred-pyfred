@@ -4,18 +4,19 @@
 Code of file manager daemon.
 """
 
-import os, sys, random, time
+import os, sys, random, time, ConfigParser
 import pgdb
 # corba stuff
 from omniORB import CORBA, PortableServer
 import ccReg, ccReg__POA
+from pyfred_util import isInfinite
 
 
 class FileManager_i (ccReg__POA.FileManager):
 	"""
 This class implements FileManager interface.
 	"""
-	def __init__(self, logger, db, conf):
+	def __init__(self, logger, db, conf, joblist, rootpoa):
 		"""
 	Initializer saves db (which is later used for opening database
 	connection) and logger (used for logging).
@@ -23,12 +24,15 @@ This class implements FileManager interface.
 		# ccReg__POA.FileManager doesn't have constructor
 		self.db = db # db object for accessing database
 		self.l = logger # syslog functionality
+		self.search_objects = [] # list of created search objects
+		self.rootpoa = rootpoa # poa for creating new objects
 
 		# default configuration
 		self.rootdir = "/var/tmp/filemanager"
+		self.idletreshold = 3600
+		self.checkperiod = 60
 		# Parse FileManager-specific configuration
 		if conf.has_section("FileManager"):
-			# tester email address
 			try:
 				rootdir = conf.get("FileManager", "rootdir")
 				if rootdir:
@@ -36,6 +40,35 @@ This class implements FileManager interface.
 						self.l.log(self.l.ERR, "rootdir must be absolute path")
 						raise Exception()
 					self.rootdit = rootdir
+			except ConfigParser.NoOptionError, e:
+				pass
+			# check period
+			try:
+				checkperiod = conf.get("FileManager", "checkperiod")
+				if checkperiod:
+					self.l.log(self.l.DEBUG, "checkperiod is set to '%s'." %
+							checkperiod)
+					try:
+						self.checkperiod = int(checkperiod)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for checkperiod "
+								"configuration directive.")
+						raise
+
+			except ConfigParser.NoOptionError, e:
+				pass
+			# idle treshold
+			try:
+				idletreshold = conf.get("FileManager", "idletreshold")
+				if idletreshold:
+					self.l.log(self.l.DEBUG, "idletreshold is set to '%s'." %
+							idletreshold)
+					try:
+						self.idletreshold = int(idletreshold)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for idletreshold"
+								" configuration directive.")
+						raise
 			except ConfigParser.NoOptionError, e:
 				pass
 
@@ -52,7 +85,37 @@ This class implements FileManager interface.
 				self.l.log(self.l.ERR, "Cannot create directory for file "
 						"manager: %s" % e)
 				raise
+
+		# schedule regular cleanup
+		joblist.append( { "callback":self.__search_cleaner, "context":None,
+			"period":self.checkperiod, "ticks":1 } )
 		self.l.log(self.l.DEBUG, "Object initialized")
+
+	def __search_cleaner(self, ctx):
+		"""
+	Method deletes closed or idle search objects.
+		"""
+		self.l.log(self.l.DEBUG, "Regular maintance procedure.")
+		remove = []
+		for item in self.search_objects:
+			# test idleness of object
+			if time.time() - item.lastuse > self.idletreshold:
+				item.status = item.IDLE
+
+			# schedule objects to be deleted
+			if item.status == item.CLOSED:
+				self.l.log(self.l.DEBUG, "Closed search-object with id %d "
+						"destroyed." % item.id)
+				remove.append(item)
+			elif item.status == item.IDLE:
+				self.l.log(self.l.DEBUG, "Idle search-object with id %d "
+						"destroyed." % item.id)
+				remove.append(item)
+		# delete objects scheduled for deletion
+		for item in remove:
+			id = self.rootpoa.servant_to_id(item)
+			self.rootpoa.deactivate_object(id)
+			self.search_objects.remove(item)
 
 	def __dbGetId(self, conn):
 		"""
@@ -226,12 +289,173 @@ This class implements FileManager interface.
 					(id, sys.exc_info()[0], e))
 			raise ccReg.FileManager.InternalError("Unexpected error")
 
+	def createSearchObject(self, filter):
+		"""
+	Method creates object which makes accessible results of a search.
+		"""
+		try:
+			# create request id
+			id = random.randint(1, 9999)
+			self.l.log(self.l.INFO, "<%d> Search request received." % id)
+
+			# construct SQL query coresponding to filter constraints
+			conditions = []
+			if filter.id != -1:
+				conditions.append("files.id = %d" % filter.id)
+			if filter.name:
+				conditions.append("files.name = %s" % pgdb._quote(filter.name))
+			if filter.path:
+				conditions.append("files.path = %s" % pgdb._quote(filter.path))
+			if filter.mimetype:
+				conditions.append("files.mimetype = %s" %
+						pgdb._quote(filter.mimetype))
+			fromdate = filter.crdate._from
+			if not isInfinite(fromdate):
+				conditions.append("files.crdate > '%d-%d-%d %d:%d:%d'" %
+						(fromdate.date.year,
+						fromdate.date.month,
+						fromdate.date.day,
+						fromdate.hour,
+						fromdate.minute,
+						fromdate.second))
+			todate = filter.crdate.to
+			if not isInfinite(todate):
+				conditions.append("files.crdate < '%d-%d-%d %d:%d:%d'" %
+						(todate.date.year,
+						todate.date.month,
+						todate.date.day,
+						todate.hour,
+						todate.minute,
+						todate.second))
+			if len(conditions) == 0:
+				cond = ""
+			else:
+				cond = "WHERE (%s)" % conditions[0]
+				for condition in conditions[1:]:
+					cond += " AND (%s)" % condition
+			self.l.log(self.l.DEBUG, "<%d> Search WHERE clause is: %s" %
+					(id, cond))
+
+			# connect to database
+			conn = self.db.getConn()
+			cur = conn.cursor()
+
+			cur.execute("SELECT id, name, path, mimetype, crdate, filesize FROM "
+					"files %s" % cond)
+			# get meta-info from database
+			self.db.releaseConn(conn)
+
+			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
+					(id, cur.rowcount))
+
+			# Create an instance of FileSearch_i and an FileSearch object ref
+			searchobj = FileSearch_i(id, cur, self.l)
+			self.search_objects.append(searchobj)
+			searchref = self.rootpoa.servant_to_reference(searchobj)
+			return searchref
+
+		except ccReg.FileManager.InternalError, e:
+			raise
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
+			raise ccReg.FileManager.InternalError("Database error")
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception caugth: %s:%s" %
+					(id, sys.exc_info()[0], e))
+			raise ccReg.FileManager.InternalError("Unexpected error")
+
+
+class FileSearch_i (ccReg__POA.FileSearch):
+	"""
+Class encapsulating results of search.
+	"""
+
+	# statuses of search object
+	ACTIVE = 1
+	CLOSED = 2
+	IDLE = 3
+
+	def __init__(self, id, cursor, log):
+		"""
+	Initializes search object.
+		"""
+		self.l = log
+		self.id = id
+		self.cursor = cursor
+		self.status = self.ACTIVE
+		self.crdate = time.time()
+		self.lastuse = self.crdate
+		self.lastrow = cursor.fetchone()
+
+	def getNext(self, count):
+		"""
+	Get result of search.
+		"""
+		try:
+			self.l.log(self.l.INFO, "<%d> Get search result request received." %
+					self.id)
+
+			# check count
+			if count < 1:
+				self.l.log(self.l.WARNING, "Invalid count of domains requested "
+						"(%d). Default value (1) is used." % count)
+				count = 1
+
+			# check status
+			if self.status != self.ACTIVE:
+				self.l.log(self.l.WARNING, "<%d> Search object is not active "
+						"anymore." % self.id)
+				raise ccReg.FileSearch.NotActive()
+
+			# update last use timestamp
+			self.lastuse = time.time()
+
+			# get 'count' results
+			filelist = []
+			for i in range(count):
+				if not self.lastrow:
+					break
+				(id, name, path, mimetype, crdate, filesize) = self.lastrow
+				self.lastrow = self.cursor.fetchone()
+				filelist.append( ccReg.FileInfo(id, name, path, mimetype,
+					crdate, filesize) )
+
+			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %
+					(self.id, len(filelist)))
+			return filelist
+
+		except ccReg.FileSearch.NotActive, e:
+			raise
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
+					(self.id, sys.exc_info()[0], e))
+			raise ccReg.FileSearch.InternalError("Unexpected error")
+
+	def destroy(self):
+		"""
+	Mark object as ready to be destroyed.
+		"""
+		try:
+			if self.status != self.ACTIVE:
+				self.l.log(self.l.WARNING, "<%d> An attempt to close non-active "
+						"search." % self.id)
+				return
+
+			self.status = self.CLOSED
+			self.l.log(self.l.INFO, "<%d> Search closed." % self.id)
+			# close db cursor
+			self.cursor.close()
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
+					(self.id, sys.exc_info()[0], e))
+			raise ccReg.FileSearch.InternalError("Unexpected error")
+
 
 def init(logger, db, nsref, conf, joblist, rootpoa):
 	"""
 Function which creates, initializes and returns servant FileManager.
 	"""
-	# Create an instance of Mailer_i and an Mailer object ref
-	servant = FileManager_i(logger, db, conf)
+	# Create an instance of FileManager_i and an FileManager object ref
+	servant = FileManager_i(logger, db, conf, joblist, rootpoa)
 	return servant, "FileManager"
 

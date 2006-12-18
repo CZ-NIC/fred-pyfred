@@ -42,7 +42,8 @@ install-server: \
 		../server/mailer.py \
 		../server/filemanager.py \
 		../server/techcheck.py \
-		../server/pyfred_modules.conf
+		../server/pyfred_modules.conf \
+		../server/pyfred.conf
 	@echo Installing pyfred server
 	$(INSTALL) -d $(PREFIX)/usr/bin
 	$(INSTALL) -d $(PREFIX)/usr/lib/pyfred/server
@@ -60,6 +61,14 @@ install-server: \
 	    echo Config file $(PREFIX)/etc/pyfred_modules.conf installed;\
 	  else \
 		echo Config file $(PREFIX)/etc/pyfred_modules.conf not;\
+		echo overwritten because of detected changes.;\
+	  fi
+	@cmp ../server/pyfred.conf $(PREFIX)/etc/pyfred.conf 2>&1 1>&/dev/null;\
+	  if [ $$? -ne 1 ]; then \
+	    $(INSTALL) ../server/pyfred.conf $(PREFIX)/etc;\
+	    echo Config file $(PREFIX)/etc/pyfred.conf installed;\
+	  else \
+		echo Config file $(PREFIX)/etc/pyfred.conf not;\
 		echo overwritten because of detected changes.;\
 	  fi
 
@@ -148,6 +157,14 @@ uninstall-server:
 		echo Config file $(PREFIX)/etc/pyfred_modules.conf deleted;\
 	  else \
 		echo Delete config file $(PREFIX)/etc/pyfred_modules.conf if ;\
+		echo you are not going to reinstall pyfred server.;\
+	  fi
+	-@cmp ../server/pyfred.conf $(PREFIX)/etc/pyfred.conf 2>&1 1>&/dev/null;\
+	  if [ $$? -eq 0 ]; then \
+		rm -f $(PREFIX)/etc/pyfred.conf;\
+		echo Config file $(PREFIX)/etc/pyfred.conf deleted;\
+	  else \
+		echo Delete config file $(PREFIX)/etc/pyfred.conf if ;\
 		echo you are not going to reinstall pyfred server.;\
 	  fi
 	-rmdir $(PREFIX)/usr/lib/pyfred/server 2>/dev/null

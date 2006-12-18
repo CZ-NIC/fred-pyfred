@@ -151,25 +151,20 @@ This class implements interface used for generation of a zone file.
 	Method returns so-called static data for a zone (don't change often).
 		"""
 		cur = conn.cursor()
-		cur.execute("SELECT id, enum_zone FROM zone WHERE fqdn = %s" %
-				pgdb._quote(zonename))
-		if cur.rowcount == 0:
-			cur.close()
-			raise ccReg.ZoneGenerator.UnknownZone()
-		zoneid, isenum = cur.fetchone()
 		# following data are called static since they are not expected to
 		# change very often. Though they are stored in database and must
 		# be sent back together with dynamic data
-		cur.execute("SELECT ttl, hostmaster, serial, refresh, update_retr, "
-				"expiry, minimum, ns_fqdn FROM zone_soa WHERE zone = %d" %
-				zoneid)
+		cur.execute("SELECT z.id, zs.ttl, zs.hostmaster, zs.serial, zs.refresh, "
+				"zs.update_retr, zs.expiry, zs.minimum, zs.ns_fqdn "
+				"FROM zone z, zone_soa zs WHERE zs.zone = z.id AND z.fqdn = %s" %
+				pgdb._quote(zonename))
 		if cur.rowcount == 0:
 			cur.close()
-			self.l.log(self.l.CRIT, "<%d> Zone '%s' does not have associated "
-					"SOA record." % (id, zonename))
-			raise ccReg.ZoneGenerator.InternalError("No SOA record for zone "
-					"'%s'." % zonename)
-		soa_row = cur.fetchone()
+			self.l.log(self.l.ERR, "<%d> Zone '%s' does not exist or does not "
+					"have associated SOA record." % (id, zonename))
+			raise ccReg.ZoneGenerator.UnknownZone()
+		(zoneid, ttl, hostmaster, serial, refresh, update_retr, expiry, minimum,
+				ns_fqdn) = cur.fetchone()
 		# create a list of nameservers for the zone
 		cur.execute("SELECT fqdn, addrs FROM zone_ns WHERE zone = %d" % zoneid)
 		nameservers = []
@@ -182,39 +177,82 @@ This class implements interface used for generation of a zone file.
 				self.l.log(self.l.WARNING, "<%d> %s" % (id, wmsg))
 			nameservers.append(ns)
 		cur.close()
-		return (zoneid, isenum, soa_row[0], soa_row[1], soa_row[2], soa_row[3],
-				soa_row[4], soa_row[5], soa_row[6], soa_row[7], nameservers)
 
-	def __dbGetDynamicData(self, conn, zoneid, isenum):
+		# if the serial is not given we will construct it on the fly
+		if not serial:
+			# default is unix timestamp
+			serial = int(time.time()).__str__()
+		else:
+			serial = serial.__str__()
+
+		return (ttl, hostmaster, serial, refresh, update_retr, expiry, minimum,
+				ns_fqdn, nameservers)
+
+	def __dbGetDynamicData(self, conn, zonename):
 		"""
 	Method returns so-called dynamic data for a zone (are fluctuant).
 		"""
 		cur = conn.cursor()
+		# get id of zone and its type
+		cur.execute("SELECT id, enum_zone FROM zone WHERE fqdn = %s" %
+				pgdb._quote(zonename))
+		if cur.rowcount == 0:
+			cur.close()
+			raise ccReg.ZoneGenerator.UnknownZone()
+		zoneid, isenum = cur.fetchone()
+
 		# get all domains from the zone into temporary table
 		#    domain must have nsset, must not be expired,
 		#    and for enum domains, the validation must not be expired
 		if isenum:
-			cur.execute("SELECT object.name, domain.nsset INTO TEMP TABLE "
-				"domain_temp FROM object, domain, enumval WHERE "
-				"object.id = domain.id AND enumval.domainid = domain.id AND "
-				"domain.nsset IS NOT NULL AND domain.zone = %d AND "
-				"date_trunc('day', domain.exdate) + interval '%d days' "
-				"+ interval '%d hour' > now() AND "
-				"date_trunc('day', enumval.exdate) + interval '%d hour' > now()"
-				% (zoneid, self.safeperiod, self.exhour, self.exhour))
+			cur.execute("SELECT o.name, d.nsset, o.id, o.historyid, "
+				"CASE "
+					"WHEN d.nsset IS NULL then '3' "
+					"WHEN date_trunc('day', d.exdate) + interval '%d days' + "
+						"interval '%d hour' < now() then '4' "
+					"WHEN date_trunc('day', e.exdate) + interval '%d hour' < "
+						"now() then '5' "
+					"ELSE '1' "
+				"END AS new_status INTO TEMP TABLE domain_stat_tmp "
+				"FROM object_registry o, domain d, enumval e "
+				"WHERE o.id = d.id AND e.domainid = d.id AND d.zone = %d" %
+				(self.safeperiod, self.exhour, self.exhour, zoneid))
 		else:
-			cur.execute("SELECT object.name, domain.nsset INTO TEMP TABLE "
-				"domain_temp FROM object, domain WHERE object.id = domain.id "
-				"AND domain.nsset IS NOT NULL AND domain.zone = %d AND "
-				"date_trunc('day', domain.exdate) + interval '%d days' "
-				"+ interval '%d hour' > now()" %
-				(zoneid, self.safeperiod, self.exhour))
+			cur.execute("SELECT o.name, d.nsset, o.id, o.historyid, "
+				"CASE "
+					"WHEN d.nsset IS NULL then '3' "
+					"WHEN date_trunc('day', d.exdate) + interval '%d days' + "
+						"interval '%d hour' < now() then '4' "
+					"ELSE '1' "
+				"END AS new_status INTO TEMP TABLE domain_stat_tmp "
+				"FROM object_registry o, domain d "
+				"WHERE o.id = d.id AND d.zone = %d" %
+				(self.safeperiod, self.exhour, zoneid))
+
+		cur.execute("SELECT ds.id AS oid, ds.historyid AS ohid, "
+			"CAST(ds.new_status AS INTEGER), zh.id AS zhid INTO TEMP TABLE "
+			"domain_stat_chg_tmp FROM domain_stat_tmp ds LEFT JOIN "
+			"genzone_domain_history zh ON (ds.id=zh.domain_id AND zh.last=true) "
+			"WHERE ds.new_status!=zh.status OR zh.status IS NULL")
+
+		cur.execute("INSERT INTO domain_stat_chg_tmp SELECT zh.domain_id, "
+			"zh.domain_hid, 2, zh.id FROM genzone_domain_history zh "
+			"LEFT JOIN domain_stat_tmp ds ON (zh.domain_id=ds.id) "
+			"WHERE zh.status!=2 AND zh.last=true AND ds.id IS NULL")
+
+		cur.execute("UPDATE genzone_domain_history SET last=false "
+			"WHERE id IN (SELECT zhid FROM domain_stat_chg_tmp)")
+
+		cur.execute("INSERT INTO genzone_domain_history (domain_id, "
+			"domain_hid, status, inzone) SELECT oid, ohid, new_status, "
+			"new_status=1 FROM domain_stat_chg_tmp")
+
 		# put together domains and their nameservers
-		cur.execute("SELECT domain_temp.name, host.fqdn, host_ipaddr_map.ipaddr "
-				"FROM domain_temp, host, host_ipaddr_map "
-				"WHERE domain_temp.nsset = host.nssetid "
+		cur.execute("SELECT ds.name, host.fqdn, host_ipaddr_map.ipaddr "
+				"FROM domain_stat_tmp ds, host, host_ipaddr_map "
+				"WHERE ds.nsset = host.nssetid "
 				"AND host.id = host_ipaddr_map.hostid ORDER BY "
-				"domain_temp.name, host.fqdn, host_ipaddr_map.ipaddr")
+				"ds.name, host.fqdn, host_ipaddr_map.ipaddr")
 		# save cursor for later processing
 		cursor = cur
 		# destroy temporary table
@@ -223,9 +261,53 @@ This class implements interface used for generation of a zone file.
 		#  sure. Therefore we will rather explicitly drop the temporary
 		#  table.
 		cur = conn.cursor()
-		cur.execute("DROP TABLE domain_temp")
 		cur.close()
 		return cursor
+
+	def getSOA(self, zonename):
+		"""
+	Method sends back data needed for SOA record construction (ttl, hostmaster,
+	serial, refresh, update_retr, expiry, minimum, primary nameserver,
+	secondary nameservers).
+		"""
+		try:
+			id = random.randint(1, 9999)
+			self.l.log(self.l.INFO, "<%d> get-SOA request of the zone '%s' "
+					"received." % (id, zonename))
+			# connect to database
+			conn = self.db.getConn()
+
+			(soa_ttl, soa_hostmaster, soa_serial, soa_refresh,
+					soa_update_retr, soa_expiry, soa_minimum, soa_ns_fqdn,
+					nameservers) = self.__dbGetStaticData(conn, zonename, id)
+
+			self.db.releaseConn(conn)
+
+			# well done
+			return (zonename,
+				soa_ttl,
+				soa_hostmaster,
+				soa_serial,
+				soa_refresh,
+				soa_update_retr,
+				soa_expiry,
+				soa_minimum,
+				soa_ns_fqdn,# soa nameserver
+				nameservers) # zone nameservers
+
+		except ccReg.ZoneGenerator.InternalError, e:
+			raise
+		except ccReg.ZoneGenerator.UnknownZone, e:
+			self.l.log(self.l.ERR, "<%d> Zone '%s' does not exist." %
+					(id, zonename))
+			raise
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e));
+			raise ccReg.ZoneGenerator.InternalError("Database error");
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception caught: %s:%s" %
+					(id, sys.exc_info()[0], e))
+			raise ccReg.ZoneGenerator.InternalError("Unexpected error")
 
 	def generateZone(self, zonename):
 		"""
@@ -241,24 +323,12 @@ This class implements interface used for generation of a zone file.
 			# connect to database
 			conn = self.db.getConn()
 
-			# Select id and enum status of the zone
-			cur = conn.cursor()
-			(zoneid, isenum, soa_ttl, soa_hostmaster, soa_serial, soa_refresh,
-					soa_update_retr, soa_expiry, soa_minimum, soa_ns_fqdn,
-					nameservers) = self.__dbGetStaticData(conn, zonename, id)
-
-			# if the serial is not given we will construct it on the fly
-			if not soa_serial:
-				# default is unix timestamp
-				soa_serial = int(time.time()).__str__()
-			else:
-				soa_serial = soa_serial.__str__()
-
 			# now comes the hard part, getting dynamic data (lot of data ;)
-			cursor = self.__dbGetDynamicData(conn, zoneid, isenum)
-			self.db.releaseConn(conn)
+			cursor = self.__dbGetDynamicData(conn, zonename)
+			conn.commit()
 			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d." %
 					(id, cursor.rowcount))
+			self.db.releaseConn(conn)
 
 			# Create an instance of ZoneData_i and an ZoneData object ref
 			zone_obj = ZoneData_i(id, zonename, cursor, self.l)
@@ -266,16 +336,7 @@ This class implements interface used for generation of a zone file.
 			zone_ref = self.rootpoa.servant_to_reference(zone_obj)
 
 			# well done
-			return (zone_ref, # Reference to ZoneData object
-				soa_ttl,
-				soa_hostmaster,
-				soa_serial,
-				soa_refresh,
-				soa_update_retr,
-				soa_expiry,
-				soa_minimum,
-				soa_ns_fqdn,# soa nameserver
-				nameservers) # zone nameservers
+			return zone_ref # Reference to ZoneData object
 
 		except ccReg.ZoneGenerator.InternalError, e:
 			raise
@@ -312,7 +373,7 @@ Class encapsulating zone data.
 		self.cursor = cursor
 		self.status = self.ACTIVE
 		self.crdate = time.time()
-		self.lastuse = None
+		self.lastuse = self.crdate
 		self.lastrow = cursor.fetchone()
 
 	def __get_one_domain(self):

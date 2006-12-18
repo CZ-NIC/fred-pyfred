@@ -6,6 +6,7 @@ Code of mailer daemon.
 
 import os, sys, time, random, ConfigParser
 import pgdb
+from pyfred_util import isInfinite
 # corba stuff
 from omniORB import CORBA, PortableServer
 import CosNaming
@@ -22,15 +23,6 @@ from email.Utils import formatdate
 from email import quopriMIME
 from email import Encoders
 
-def infinite(datetime):
-	"""
-Decide if the date is invalid. If it is invalid, it is counted as infinite.
-	"""
-	if datetime.date.month < 1:
-		return True
-	if datetime.date.day < 1:
-		return True
-	return False
 
 def qp_str(string):
 	"""
@@ -519,7 +511,7 @@ This class implements Mailer interface.
 				conditions.append("mail_attachments.attachid = %d" %
 						filter.attachid)
 			fromdate = filter.crdate._from
-			if not infinite(fromdate):
+			if not isInfinite(fromdate):
 				conditions.append("mail_archive.crdate > '%d-%d-%d %d:%d:%d'" %
 						(fromdate.date.year,
 						fromdate.date.month,
@@ -528,7 +520,7 @@ This class implements Mailer interface.
 						fromdate.minute,
 						fromdate.second))
 			todate = filter.crdate.to
-			if not infinite(todate):
+			if not isInfinite(todate):
 				conditions.append("mail_archive.crdate < '%d-%d-%d %d:%d:%d'" %
 						(todate.date.year,
 						todate.date.month,
@@ -600,7 +592,7 @@ Class encapsulating results of search.
 		self.cursor = cursor
 		self.status = self.ACTIVE
 		self.crdate = time.time()
-		self.lastuse = None
+		self.lastuse = self.crdate
 		self.lastrow = cursor.fetchone()
 
 	def __get_one_search_result(self):
@@ -683,6 +675,8 @@ Class encapsulating results of search.
 					(self.id, len(maillist)))
 			return maillist
 
+		except MailSearch.NotActive, e:
+			raise
 		except Exception, e:
 			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
 					(self.id, sys.exc_info()[0], e))

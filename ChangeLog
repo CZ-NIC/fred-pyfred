@@ -7,21 +7,25 @@
 
 	* O pripojeni k databazi se stara pyfred a nikoliv moduly samotne.
 
+	* Moduly jsou nyni schopne registrovat pravidelne spoustene ulohy.
+
 	* Pridani mailer daemona k existujicim modulum. Vyzaduje clearsilver
 	sdilenou knihovnu.
 
 	* Novy filemanager modul (nutny pro mailera), ale vyuzivany i jinde.
-
-	* Moduly jsou nyni schopne registrovat pravidelne spoustene ulohy.
 
 	* Prepsani genzone modulu (inspirovano mailerem).
 
 	* Dodelani ochranne lhuty a vyrazeni v jednotnou hodinu behem dne
 	pro domeny v generatoru zony.
 
+	* Dodelani ukladani historie generovani do zony pro domenu (credits
+	Jara Talir) a zmena interfacu serveru generatoru zony.
+
 	* Odstraneni bugu z klienta genzone - negeneroval AAAA pro ipv6.
 
-	* Nastaveni kodovani stringu v ORBu na UTF-8.
+	* Nastaveni kodovani stringu v ORBu na UTF-8 v serveru a ve vsech
+	klientech.
 
 2006-10-20 Jan Kryl (version 1.2.1)
 

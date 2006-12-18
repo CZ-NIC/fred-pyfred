@@ -75,3 +75,14 @@ bad zone, too long, invalid name. The valid zones are hardcoded in routine.
 	if re.compile("^.*\.0\.2\.4\.(c\.)?e164\.arpa$", re.IGNORECASE).match(fqdn):
 		return domainClass.ENUM
 	return domainClass.BAD_ZONE
+
+def isInfinite(datetime):
+	"""
+Decide if the date is invalid. If it is invalid, it is counted as infinite.
+	"""
+	if datetime.date.month < 1:
+		return True
+	if datetime.date.day < 1:
+		return True
+	return False
+
