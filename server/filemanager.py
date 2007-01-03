@@ -39,7 +39,7 @@ This class implements FileManager interface.
 					if not os.path.isabs(rootdir):
 						self.l.log(self.l.ERR, "rootdir must be absolute path")
 						raise Exception()
-					self.rootdit = rootdir
+					self.rootdir = rootdir
 			except ConfigParser.NoOptionError, e:
 				pass
 			# check period
