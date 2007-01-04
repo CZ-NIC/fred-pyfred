@@ -26,9 +26,8 @@ written to syslog.
 					(nsFqdn, zonename)
 		return ccReg.DNSHost_str(nsFqdn, addrs), warning
 	else:
-		if addrs:
-			warning = "Ignoring GLUE for nameserver '%s' from zone '%s'." % \
-					(nsFqdn, zonename)
+		# we don't emit warning for GLUE which is not needed, since nsset
+		# can be shared across various zones.
 		return ccReg.DNSHost_str(nsFqdn, []), warning
 
 class ZoneGenerator_i (ccReg__POA.ZoneGenerator):
@@ -242,7 +241,8 @@ This class implements interface used for generation of a zone file.
 		cur.execute("INSERT INTO domain_stat_chg_tmp SELECT zh.domain_id, "
 			"zh.domain_hid, 2, zh.id FROM genzone_domain_history zh "
 			"LEFT JOIN domain_stat_tmp ds ON (zh.domain_id=ds.id) "
-			"WHERE zh.status!=2 AND zh.last=true AND ds.id IS NULL")
+			"WHERE zh.zone_id=%d AND "
+				"zh.status!=2 AND zh.last=true AND ds.id IS NULL" % zoneid)
 
 		# change last flag for domains which are in changeset
 		cur.execute("UPDATE genzone_domain_history SET last=false "
@@ -250,8 +250,8 @@ This class implements interface used for generation of a zone file.
 
 		# finally update zone history
 		cur.execute("INSERT INTO genzone_domain_history (domain_id, "
-			"domain_hid, status, inzone) SELECT oid, ohid, new_status, "
-			"new_status=1 FROM domain_stat_chg_tmp")
+			"domain_hid, zone_id, status, inzone) SELECT oid, ohid, %d, "
+			"new_status, new_status=1 FROM domain_stat_chg_tmp" % zoneid)
 
 		# put together domains and their nameservers
 		cur.execute("SELECT ds.name, host.fqdn, host_ipaddr_map.ipaddr "
