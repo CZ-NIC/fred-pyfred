@@ -205,6 +205,7 @@ This class implements interface used for generation of a zone file.
 		#    domain must have nsset, must not be expired,
 		#    and for enum domains, the validation must not be expired
 		if isenum:
+			# mark all active enum domains by status flag
 			cur.execute("SELECT o.name, d.nsset, o.id, o.historyid, "
 				"CASE "
 					"WHEN d.nsset IS NULL then '3' "
@@ -218,6 +219,7 @@ This class implements interface used for generation of a zone file.
 				"WHERE o.id = d.id AND e.domainid = d.id AND d.zone = %d" %
 				(self.safeperiod, self.exhour, self.exhour, zoneid))
 		else:
+			# mark all active classic domains by status flag
 			cur.execute("SELECT o.name, d.nsset, o.id, o.historyid, "
 				"CASE "
 					"WHEN d.nsset IS NULL then '3' "
@@ -229,20 +231,24 @@ This class implements interface used for generation of a zone file.
 				"WHERE o.id = d.id AND d.zone = %d" %
 				(self.safeperiod, self.exhour, zoneid))
 
+		# select all domains which changed the status or are new
 		cur.execute("SELECT ds.id AS oid, ds.historyid AS ohid, "
 			"CAST(ds.new_status AS INTEGER), zh.id AS zhid INTO TEMP TABLE "
 			"domain_stat_chg_tmp FROM domain_stat_tmp ds LEFT JOIN "
 			"genzone_domain_history zh ON (ds.id=zh.domain_id AND zh.last=true) "
 			"WHERE ds.new_status!=zh.status OR zh.status IS NULL")
 
+		# append all domains which don't exist anymore
 		cur.execute("INSERT INTO domain_stat_chg_tmp SELECT zh.domain_id, "
 			"zh.domain_hid, 2, zh.id FROM genzone_domain_history zh "
 			"LEFT JOIN domain_stat_tmp ds ON (zh.domain_id=ds.id) "
 			"WHERE zh.status!=2 AND zh.last=true AND ds.id IS NULL")
 
+		# change last flag for domains which are in changeset
 		cur.execute("UPDATE genzone_domain_history SET last=false "
 			"WHERE id IN (SELECT zhid FROM domain_stat_chg_tmp)")
 
+		# finally update zone history
 		cur.execute("INSERT INTO genzone_domain_history (domain_id, "
 			"domain_hid, status, inzone) SELECT oid, ohid, new_status, "
 			"new_status=1 FROM domain_stat_chg_tmp")

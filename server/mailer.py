@@ -611,10 +611,10 @@ Class encapsulating results of search.
 			moddate = prev[3]
 		else:
 			moddate = ""
-		if prev[4]: # status may be NULL
-			status = prev[4]
-		else:
+		if prev[4] == None: # status may be NULL
 			status = -1
+		else:
+			status = prev[4]
 		message = prev[5]
 		if prev[6]: # attachment may be NULL
 			attachs = [prev[6]]
