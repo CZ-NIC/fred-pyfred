@@ -16,23 +16,29 @@ Print usage information.
 	sys.stderr.write("""techcheck_client [options]
 
 Options:
+    -a, --all                     Do test of all domains generated in zone.
     -d, --domain NAME             Domain on which should be performed tech test.
     -h, --help                    Print this help message.
     -n, --nameservice HOST[:PORT] Set host where corba nameservice runs.
 
+    Option --all is ment to be used for regular technical checks of all domains
+    in register. It has priority over --domain option.
 """)
 
 def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:],
-				"d:hn:", ["domain", "help", "nameservice"])
+			"ad:hn:", ["all", "domain", "help", "nameservice"])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(1)
 
+	all = False
 	domain = ""
 	ns = "localhost"
 	for o, a in opts:
+		if o in ("-a", "--all"):
+			all = True
 		if o in ("-d", "--domain"):
 			domain = a
 		elif o in ("-h", "--help"):
@@ -40,9 +46,9 @@ def main():
 			sys.exit()
 		elif o in ("-n", "--nameservice"):
 			ns = a
-	# --domain is mandatory argument
-	if not domain:
-		sys.stderr.write("Domain argument is mandatory.\n")
+	# Check consistency of used options
+	if not domain and not all:
+		sys.stderr.write("One of --domain and --all is mandatory.\n")
 		usage()
 		sys.exit(1)
 	#
@@ -66,22 +72,28 @@ def main():
 				"registered? (%s)\n" % e)
 		sys.exit(2)
 	# Narrow the object to an ccReg::TechCheck
-	techcheck_obj = obj._narrow(ccReg.TechCheck)
-	if (techcheck_obj is None):
+	tc_obj = obj._narrow(ccReg.TechCheck)
+	if (tc_obj is None):
 		sys.stderr.write("Object reference is not a ccReg::TechCheck\n")
 		sys.exit(2)
 
 	#
 	# Call techcheck's function
 	try:
-		result = techcheck_obj.checkDomain(domain, ccReg.CHKR_MANUAL)
+		if all:
+			tc_obj.checkAll()
+			return # there nothing to be printed
+		else:
+			result = tc_obj.checkDomain(domain, ccReg.CHKR_MANUAL)
 	except ccReg.TechCheck.InternalError, e:
 		sys.stderr.write("Internal error on server: %s\n" % e.message)
 		sys.exit(10)
-	except ccReg.TechCheck.NoAssociatedNsset, e:
-		sys.stderr.write("Domain has not associated nsset or does not "
-				"exist\n")
+	except ccReg.TechCheck.DomainNotFound, e:
+		sys.stderr.write("Domain does not exist.\n")
 		sys.exit(11)
+	except ccReg.TechCheck.NoAssociatedNsset, e:
+		sys.stderr.write("Domain has not associated nsset.\n")
+		sys.exit(12)
 	except Exception, e:
 		sys.stderr.write("Corba call failed: %s\n" % e)
 		sys.exit(3)
@@ -93,21 +105,13 @@ def main():
 	print "ID of the test: %d" % result.id
 	print "Overall status: %s" % status
 	print "Results of individual tests:"
-	for check in result.results:
-		if check.result: status = "Passed"
+	for test in result.results:
+		if test.result: status = "Passed"
 		else: status = "Failed"
-		if check.level == ccReg.CHECK_ERROR:
-			level = "ERROR"
-		elif check.level == ccReg.CHECK_WARNING:
-			level = "WARNING"
-		elif check.level == ccReg.CHECK_INFO:
-			level = "INFO"
-		else:
-			level = "unknown"
-		print "Test's name:     %s" % check.name
-		print "    Level:       %s" % level
+		print "Test's name:     %s" % test.name
+		print "    Level:       %d" % test.level
 		print "    Status:      %s" % status
-		print "    Note:        %s" % check.note
+		print "    Note:        %s" % test.note
 	print
 	print "--- End of Status report -----------------------------"
 
