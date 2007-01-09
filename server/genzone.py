@@ -254,21 +254,19 @@ This class implements interface used for generation of a zone file.
 			"new_status, new_status=1 FROM domain_stat_chg_tmp" % zoneid)
 
 		# put together domains and their nameservers
-		cur.execute("SELECT ds.name, host.fqdn, host_ipaddr_map.ipaddr "
-				"FROM domain_stat_tmp ds, host, host_ipaddr_map "
-				"WHERE ds.nsset = host.nssetid "
-				"AND host.id = host_ipaddr_map.hostid ORDER BY "
-				"ds.name, host.fqdn, host_ipaddr_map.ipaddr")
-		# save cursor for later processing
-		cursor = cur
+		cur.execute("SELECT ds.name, host.fqdn, a.ipaddr "
+				"FROM domain_stat_tmp ds, host LEFT JOIN host_ipaddr_map a "
+				"ON (host.id = a.hostid) "
+				"WHERE ds.nsset = host.nssetid AND ds.new_status=1 "
+				"ORDER BY ds.name, host.fqdn")
 		# destroy temporary table
 		#  this would be done automatically upon connection closure, but
 		#  since we use proxy managing pool of connections, we cannot be
 		#  sure. Therefore we will rather explicitly drop the temporary
 		#  table.
-		cur = conn.cursor()
-		cur.close()
-		return cursor
+		#                       III not done III
+		# return cursor for later processing
+		return cur
 
 	def getSOA(self, zonename):
 		"""
