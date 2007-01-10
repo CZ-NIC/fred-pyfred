@@ -344,6 +344,7 @@ This class implements Mailer interface.
 			cs.parseStr(item["template"])
 			mimetext = MIMEText(cs.render(), item["type"])
 			mimetext.set_charset("utf-8")
+                        Encoders.encode_7or8bit(mimetext)
 			msg.attach(mimetext)
 
 		# save text of email without non-templated attachments
