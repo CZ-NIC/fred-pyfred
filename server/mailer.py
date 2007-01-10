@@ -22,6 +22,7 @@ from email.MIMEText import MIMEText
 from email.Utils import formatdate
 from email import quopriMIME
 from email import Encoders
+import email.utils
 
 
 def qp_str(string):
