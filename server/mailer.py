@@ -19,10 +19,9 @@ import email.Charset
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
-from email.Utils import formatdate
+from email.Utils import formatdate, parseaddr
 from email import quopriMIME
 from email import Encoders
-import email.utils
 
 
 def qp_str(string):
@@ -432,7 +431,7 @@ This class implements Mailer interface.
 			# commit changes in mail archive, no matter if sendmail will fail
 			conn.commit()
 
-                        (envelope_realname, envelope_sender) = email.util.parseaddr(header.h_from)
+                        (envelope_realname, envelope_sender) = parseaddr(header.h_from)
 
 			# send email
 			if self.testmode:
