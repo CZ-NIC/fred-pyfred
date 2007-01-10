@@ -435,9 +435,9 @@ This class implements Mailer interface.
 
 			# send email
 			if self.testmode:
-				p = os.popen("%s %s -f %s" % (self.sendmail, self.tester, envelope_sender), "w")
+				p = os.popen("%s -f %s %s" % (self.sendmail, envelope_sender, self.tester), "w")
 			else:
-				p = os.popen("%s -t -f %s" % (self.sendmail, envelope_sender), "w")
+				p = os.popen("%s -f %s -t" % (self.sendmail, envelope_sender), "w")
 			p.write(mail)
 			status = p.close()
 			if status is None: status = 0 # ok
