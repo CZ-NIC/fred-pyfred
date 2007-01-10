@@ -225,24 +225,25 @@ This class implements Mailer interface.
                         header.h_errors_to = defaults[2]
                 if not header.h_organization:
                         header.h_organization = defaults[3]
-                if not header.h_content_encoding:
-                        header.h_contentencoding = defaults[4]
-                if not header.h_message_id:
-                        header.h_message_id = defaults[5]
+
 		cur.close()
-                return header
+                return (header, defaults[4], defaults[5])
 
 	def __dbSetHeaders(self, conn, subject, header, msg, mailid):
 		"""
 	Method creates email object and initializes headers.
 		"""
+
+                # FUUUJ
+                (_header, _content_encoding, _message_id) = self.__dbGetHeaderDefaults(conn, header)
+
 		msg["Subject"] = qp_str(subject)
 		msg["To"] = header.h_to
                 if len(header.h_cc) > 0:
 		        msg["Cc"] = header.h_cc
 		msg["Bcc"] = header.h_bcc
 		msg["Date"] = formatdate(localtime=True)
-		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), header.h_message_id)
+		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), _message_id)
                 msg["From"] = header.h_from
                 msg["Reply-to"] = header.h_reply_to
                 msg["Errors-to"] = header.h_errors_to
@@ -415,7 +416,7 @@ This class implements Mailer interface.
 			# connect to database
 			conn = self.db.getConn()
 
-                        header = self.__dbGetHeaderDefaults(conn, header)
+                        (header, content_encoding, message_id) = self.__dbGetHeaderDefaults(conn, header)
 
 			# construct email
 			mailid, mail = self.__constructEmail(conn, mailtype, header,
