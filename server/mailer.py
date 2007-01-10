@@ -208,37 +208,45 @@ This class implements Mailer interface.
 		cur.close()
 		return id, subject, templates
 
-	def __dbSetHeaders(self, conn, subject, header, msg, mailid):
-		"""
-	Method creates email object and initializes headers.
-		"""
+        def __dbGetHeaderDefaults(self, header):
+                """
+                Insert default headers
+                """
 		cur = conn.cursor()
 		cur.execute("SELECT h_from, h_replyto, h_errorsto, h_organization, "
 				"h_contentencoding, h_messageidserver FROM mail_header_defaults")
 		defaults = cur.fetchone()
+
+                if not header.h_from:
+                        header.h_from = defaults[0]
+                if not header.h_reply_to:
+                        header.h_reply_to = defaults[1]
+                if not header.h_errors_to:
+                        header.h_errors_to = defaults[2]
+                if not header.h_organization:
+                        header.h_organization = defaults[3]
+                if not header.h_content_encoding:
+                        header.h_contentencoding = defaults[4]
+                if not header.h_message_id:
+                        header.h_message_id = defaults[5]
+		cur.close()
+                return header
+
+	def __dbSetHeaders(self, conn, subject, header, msg, mailid):
+		"""
+	Method creates email object and initializes headers.
+		"""
 		msg["Subject"] = qp_str(subject)
 		msg["To"] = header.h_to
-		msg["Cc"] = header.h_cc
+                if len(header.h_cc) > 0:
+		        msg["Cc"] = header.h_cc
 		msg["Bcc"] = header.h_bcc
 		msg["Date"] = formatdate(localtime=True)
-		msg["Message-ID"] = "%d.%d@%s" % (mailid, int(time.time()), defaults[5])
-		if header.h_from:
-			msg["From"] = header.h_from
-		else:
-			msg["From"] = defaults[0]
-		if header.h_reply_to:
-			msg["Reply-to"] = header.h_reply_to
-		else:
-			msg["Reply-to"] = defaults[1]
-		if header.h_errors_to:
-			msg["Errors-to"] = header.h_errors_to
-		else:
-			msg["Errors-to"] = defaults[2]
-		if header.h_organization:
-			msg["Organization"] = qp_str(header.h_organization)
-		else:
-			msg["Organization"] = qp_str(defaults[3])
-		cur.close()
+		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), header.h_message_id)
+                msg["From"] = header.h_from
+                msg["Reply-to"] = header.h_reply_to
+                msg["Errors-to"] = header.h_errors_to
+                msg["Organization"] = qp_str(header.h_organization)
 
 	def __dbNewEmailId(self, conn):
 		"""
@@ -407,6 +415,8 @@ This class implements Mailer interface.
 			# connect to database
 			conn = self.db.getConn()
 
+                        header = self.__dbGetHeaderDefaults(header)
+
 			# construct email
 			mailid, mail = self.__constructEmail(conn, mailtype, header,
 					data, handles, attachs)
@@ -420,11 +430,13 @@ This class implements Mailer interface.
 			# commit changes in mail archive, no matter if sendmail will fail
 			conn.commit()
 
+                        (envelope_realname, envelope_sender) = email.util.parseaddr(header.h_from)
+
 			# send email
 			if self.testmode:
-				p = os.popen("%s %s" % (self.sendmail, self.tester), "w")
+				p = os.popen("%s %s -f %s" % (self.sendmail, self.tester, envelope_sender), "w")
 			else:
-				p = os.popen("%s -t" % self.sendmail, "w")
+				p = os.popen("%s -t -f %s" % (self.sendmail, envelope_sender), "w")
 			p.write(mail)
 			status = p.close()
 			if status is None: status = 0 # ok
