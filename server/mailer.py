@@ -208,7 +208,7 @@ This class implements Mailer interface.
 		cur.close()
 		return id, subject, templates
 
-        def __dbGetHeaderDefaults(self, header):
+        def __dbGetHeaderDefaults(self, conn, header):
                 """
                 Insert default headers
                 """
@@ -415,7 +415,7 @@ This class implements Mailer interface.
 			# connect to database
 			conn = self.db.getConn()
 
-                        header = self.__dbGetHeaderDefaults(header)
+                        header = self.__dbGetHeaderDefaults(conn, header)
 
 			# construct email
 			mailid, mail = self.__constructEmail(conn, mailtype, header,
