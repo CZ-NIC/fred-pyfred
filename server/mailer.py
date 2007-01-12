@@ -208,46 +208,38 @@ This class implements Mailer interface.
 		cur.close()
 		return id, subject, templates
 
-        def __dbGetHeaderDefaults(self, conn, header):
-                """
-                Insert default headers
-                """
+	def __dbSetHeaders(self, conn, subject, header, msg, mailid):
+		"""
+	Method initializes headers of email object. Header struct is modified
+	as well, which is important for actual value of envelope sender.
+		"""
+		# get default values from database
 		cur = conn.cursor()
 		cur.execute("SELECT h_from, h_replyto, h_errorsto, h_organization, "
 				"h_contentencoding, h_messageidserver FROM mail_header_defaults")
 		defaults = cur.fetchone()
-
-                if not header.h_from:
-                        header.h_from = defaults[0]
-                if not header.h_reply_to:
-                        header.h_reply_to = defaults[1]
-                if not header.h_errors_to:
-                        header.h_errors_to = defaults[2]
-                if not header.h_organization:
-                        header.h_organization = defaults[3]
-
 		cur.close()
-                return (header, defaults[4], defaults[5])
-
-	def __dbSetHeaders(self, conn, subject, header, msg, mailid):
-		"""
-	Method creates email object and initializes headers.
-		"""
-
-                # FUUUJ
-                (_header, _content_encoding, _message_id) = self.__dbGetHeaderDefaults(conn, header)
-
+		# headers which don't have defaults
 		msg["Subject"] = qp_str(subject)
 		msg["To"] = header.h_to
-                if len(header.h_cc) > 0:
-		        msg["Cc"] = header.h_cc
-		msg["Bcc"] = header.h_bcc
+		if header.h_cc: msg["Cc"] = header.h_cc
+		if header.h_bcc: msg["Bcc"] = header.h_bcc
 		msg["Date"] = formatdate(localtime=True)
-		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), _message_id)
-                msg["From"] = header.h_from
-                msg["Reply-to"] = header.h_reply_to
-                msg["Errors-to"] = header.h_errors_to
-                msg["Organization"] = qp_str(header.h_organization)
+		# modify header struct in place based on default values
+		if not header.h_from:
+			header.h_from = defaults[0]
+		if not header.h_reply_to:
+			header.h_reply_to = defaults[1]
+		if not header.h_errors_to:
+			header.h_errors_to = defaults[2]
+		if not header.h_organization:
+			header.h_organization = defaults[3]
+		# headers which have default values
+		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()),defaults[5])
+		msg["From"] = header.h_from
+		msg["Reply-to"] = header.h_reply_to
+		msg["Errors-to"] = header.h_errors_to
+		msg["Organization"] = qp_str(header.h_organization)
 
 	def __dbNewEmailId(self, conn):
 		"""
@@ -336,7 +328,9 @@ This class implements Mailer interface.
 		cs = neo_cs.CS(hdf)
 		cs.parseStr(subject_tpl)
 		subject = cs.render()
-		# init email header
+		# init email header (BEWARE that header struct is modified in this
+		# call to function, so it is filled with defaults for not provided
+		# headers, which is important for obtaining envelope sender).
 		self.__dbSetHeaders(conn, subject, header, msg, mailid)
 		# render text attachments
 		for item in templates:
@@ -344,7 +338,7 @@ This class implements Mailer interface.
 			cs.parseStr(item["template"])
 			mimetext = MIMEText(cs.render(), item["type"])
 			mimetext.set_charset("utf-8")
-                        Encoders.encode_7or8bit(mimetext)
+			Encoders.encode_7or8bit(mimetext)
 			msg.attach(mimetext)
 
 		# save text of email without non-templated attachments
@@ -401,7 +395,8 @@ This class implements Mailer interface.
 
 		# archive email (without non-templated attachments)
 		self.__dbArchiveEmail(conn, mailid, mtid, text_msg, handles, attachs)
-		return mailid, msg.as_string()
+		# parseaddr returns sender's name and sender's address
+		return mailid, msg.as_string(), parseaddr(header.h_from)[1]
 
 	def mailNotify(self, mailtype, header, data, handles, attachs, preview):
 		"""
@@ -417,11 +412,11 @@ This class implements Mailer interface.
 			# connect to database
 			conn = self.db.getConn()
 
-                        (header, content_encoding, message_id) = self.__dbGetHeaderDefaults(conn, header)
-
 			# construct email
-			mailid, mail = self.__constructEmail(conn, mailtype, header,
-					data, handles, attachs)
+			# envelope_from - must be specified directly to sendmail (it is not
+			#     taken automatically from email text)
+			mailid, mail, envelope_from = self.__constructEmail(conn, mailtype,
+					header, data, handles, attachs)
 			self.l.log(self.l.DEBUG, "<%d> Email was successfully generated "
 					"(length = %d bytes)." % (mailid, len(mail)))
 
@@ -432,13 +427,12 @@ This class implements Mailer interface.
 			# commit changes in mail archive, no matter if sendmail will fail
 			conn.commit()
 
-                        (envelope_realname, envelope_sender) = parseaddr(header.h_from)
-
 			# send email
 			if self.testmode:
-				p = os.popen("%s -f %s %s" % (self.sendmail, envelope_sender, self.tester), "w")
+				p = os.popen("%s -f %s %s" % (self.sendmail, envelope_from,
+					self.tester), "w")
 			else:
-				p = os.popen("%s -f %s -t" % (self.sendmail, envelope_sender), "w")
+				p = os.popen("%s -f %s -t" % (self.sendmail, envelope_from), "w")
 			p.write(mail)
 			status = p.close()
 			if status is None: status = 0 # ok
