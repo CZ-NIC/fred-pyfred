@@ -4,7 +4,8 @@
 Code of techcheck daemon.
 """
 
-import sys, pgdb, time, random, ConfigParser
+import sys, pgdb, time, random, ConfigParser, commands, os, popen2
+from exceptions import SystemExit
 import ccReg, ccReg__POA
 
 def getDomainData(cursor, lastrow):
@@ -54,119 +55,32 @@ This class implements TechCheck interface.
 
 		# default configuration
 		self.scriptdir = ""
+		self.exMsg = 7
 		# Parse TechCheck-specific configuration
 		if conf.has_section("TechCheck"):
 			try:
 				scriptdir = conf.get("TechCheck", "scriptdir")
 				if scriptdir:
-					self.scriptdir = scriptdir
+					self.scriptdir = scriptdir.strip()
+			except ConfigParser.NoOptionError, e:
+				pass
+			try:
+				exMsg = conf.get("TechCheck", "msgLifetime")
+				if exMsg:
+					self.exMsg = int(exMsg)
 			except ConfigParser.NoOptionError, e:
 				pass
 		if not self.scriptdir:
 			raise Exception("Option 'scriptdir' for techcheck daemon is "
 					"mandatory.")
+		if not os.path.isdir(self.scriptdir):
+			raise Exception("Scriptdir '%s' does not exist." % self.scriptdir)
+		if not os.access(self.scriptdir, os.R_OK):
+			raise Exception("Scriptdir '%s' is not readable" % self.scriptdir)
+		# add trailing '/' to scriptdir if not given
+		if self.scriptdir[-1] != '/':
+			self.scriptdir += '/'
 		self.l.log(self.l.INFO, "Object initialized")
-
-	def check_authoritative(self, domain, nslist, ctx):
-		"""
-	Check that nameservers are authoritative for a domain. The test is
-	based on value of bit in DNS answer.
-		"""
-		badlist = ""
-		for ns in ctx:
-			# the sixth bit in flags in DNS answer is "Authoritative bit"
-			if not ctx[ns].flags & (2 ** 5):
-				badlist += ns + " "
-		if badlist:
-			return [ False, "Following nameservers are not authoritative for "
-					"domain '%s': %s" % (domain, badlist) ]
-		return [ True, "" ]
-
-	def check_autonomous(self, domain, nslist, ctx):
-		"""
-	Check that nameserver is not subdomain of the domain.
-		"""
-		badlist = ""
-		for ns in nslist:
-			if ns.endswith(domain):
-				badlist += ns + " "
-		if badlist:
-			return [ False, "Following nameservers for domain '%s' are not "
-					"autonomous: %s" % (domain, badlist) ]
-		return [ True, "" ]
-
-	def check_existance(self, domain, nslist, ctx):
-		"""
-	Method tests DNS server's existance by issuing DNS query for the domain.
-	This test is done for all nameservers of domain. The answer object is
-	used in some of the subsequent tests. GLUEs are tested as well.
-		"""
-		query = dns.message.make_query(domain, "ANY")
-		for ns in nslist:
-			if ns.endswith(domain):
-				if not nslist[ns]:
-					return [ False, "Missing GLUE for nameserver '%s' for "
-							"domain '%s'" % (ns, domain) ]
-				for addr in nslist[ns]:
-					answer = dns.query.udp(query, addr, self.timeout)
-					#except dns.exception.Timeout, e:
-					#	return [ False, "Timeout" ]
-			else:
-				response = dns.resolver.query(ns)
-				for addr in response:
-					answer = dns.query.udp(query, addr, self.timeout)
-					break
-			ctx[ns] = answer
-		return [ True, "" ]
-
-	def check_heterogenous(self, domain, nslist, ctx):
-		return [ True, "" ]
-
-	def check_recursive(self, domain, nslist, ctx):
-		"""
-	Method tests, based on a flag in answer, if server is recursive.
-		"""
-		badlist = ""
-		for ns in ctx:
-			# the 9th bit in flags in DNS answer is "Recursive bit"
-			if not ctx[ns].flags & (2 ** 8):
-				badlist += ns + " "
-		if badlist:
-			return [ False, "Following nameservers for domain '%s' claim to be "
-					"recursive: %s" % (domain, badlist) ]
-		return [ True, "" ]
-
-	def check_recursive4all(self, domain, nslist, ctx):
-		"""
-	Method tests if server is recursive by test.
-		"""
-		if self.bait.endswith(domain):
-			# exclude bait from test
-			return [ True, "" ]
-		badlist = ""
-		query = dns.message.make_query(self.bait, "ANY")
-		for ns in nslist:
-			response = dns.resolver.query(ns)
-			for addr in response:
-				answer = dns.query.udp(query, addr, self.timeout)
-				break
-			if answer.answer:
-				badlist += ns + " "
-		if badlist:
-			return [ False, "Following nameservers for domain '%s' are recursive"
-					" for all: %s" % (domain, badlist) ]
-		return [ True, "" ]
-
-	def __dbNewCheckId(self, conn):
-		"""
-	Get next available ID of email. This ID is used in message-id header and
-	when archiving email.
-		"""
-		cur = conn.cursor()
-		cur.execute("SELECT nextval('check_domain_id_seq')")
-		id = cur.fetchone()[0]
-		cur.close()
-		return id
 
 	def __dbBuildTestSuite(self, conn):
 		"""
@@ -177,8 +91,8 @@ This class implements TechCheck interface.
 		testsuite = {}
 		# Get all enabled tests
 		cur = conn.cursor()
-		cur.execute("SELECT id, name, severity, script FROM check_test WHERE "
-				"disabled = False")
+		cur.execute("SELECT id, name, severity, script, need_domain "
+				"FROM check_test WHERE disabled = False")
 		tests = cur.fetchall()
 		# Get dependencies of tests
 		for test in tests:
@@ -188,29 +102,30 @@ This class implements TechCheck interface.
 				"id" : test[0],
 				"name" : test[1],
 				"level" : test[2],
-				"callback" : test[3],
+				"script" : test[3],
+				"need_domain" : test[4],
 				"requires" : [ item[0] for item in cur.fetchall() ]
 				}
 		cur.close()
 		return testsuite
 
-	def __dbGetDomainData(self, conn, domain):
+	def __dbGetNssetData(self, conn, nsset):
 		"""
-	Get all data about domain from database needed for technical checks.
+	Get all data about nsset from database needed for technical checks.
 		"""
 		cur = conn.cursor()
-		cur.execute("SELECT o.id, oreg.historyid, ns.id, ns.checklevel "
-				"FROM object_registry oreg, object o, domain d LEFT JOIN "
-				"nsset ns ON (d.nsset = ns.id) WHERE oreg.name = %s AND "
-				"oreg.id = o.id AND oreg.id = d.id " % pgdb._quote(domain))
+		# get nsset data (id, history id and checklevel)
+		cur.execute("SELECT oreg.id, oreg.historyid, ns.checklevel "
+				"FROM object_registry oreg, nsset ns "
+				"WHERE upper(oreg.name) = upper(%s) AND oreg.id = ns.id" %
+				pgdb._quote(nsset))
 		if cur.rowcount == 0:
-			raise ccReg.TechCheck.DomainNotFound()
-		objid, histid, nssetid, level = cur.fetchone()
-		if not nssetid:
-			raise ccReg.TechCheck.NoAssociatedNsset()
+			raise ccReg.TechCheck.NssetNotFound()
+		objid, histid, level = cur.fetchone()
+		# get nameservers (fqdns and ip addresses) of hosts belonging to nsset
 		cur.execute("SELECT h.fqdn, ip.ipaddr FROM host h LEFT JOIN "
 				"host_ipaddr_map ip ON (h.id = ip.hostid) WHERE h.nssetid = %d "
-				"ORDER BY h.fqdn" % nssetid)
+				"ORDER BY h.fqdn" % objid)
 		row = cur.fetchone()
 		nameservers = {}
 		while row:
@@ -225,7 +140,7 @@ This class implements TechCheck interface.
 		cur.close()
 		return objid, histid, nameservers, level
 
-	def __dbGetAllDomains(self, conn):
+	def __dbGetAllNssets(self, conn):
 		"""
 	Get all active domains with associated nsset.
 		"""
@@ -244,40 +159,78 @@ This class implements TechCheck interface.
 				"ON (c.hostid = a.hostid) ORDER BY c.id, c.fqdn")
 		return cur
 
-	def __dbArchiveCheck(self, conn, id, objid, histid, status, results, reason):
+	def __dbArchiveCheck(self, conn, histid, fqdns, status, results, reason):
 		"""
 	Archive result of technical test on domain in database.
 		"""
+		# convert IDL code of check-reason to database code
 		if reason == ccReg.CHKR_EPP:
-			reason_enum	= 0
-		elif reason == ccReg.CHKR_MANUAL:
 			reason_enum	= 1
-		elif reason == ccReg.CHKR_REGULAR:
+		elif reason == ccReg.CHKR_MANUAL:
 			reason_enum	= 2
-		else:
+		elif reason == ccReg.CHKR_REGULAR:
 			reason_enum	= 3
+		else:
+			reason_enum	= 0 # code of unknown reason
 		cur = conn.cursor()
-		cur.execute("INSERT INTO check_domain (id, domain_id, domain_hid, "
-				"reason, overallstatus) VALUES (%d, %d, %d, %d, '%s')" %
-				(id, objid, histid, reason_enum, status))
+
+		# get next ID of archive record from database
+		cur.execute("SELECT nextval('check_nsset_id_seq')")
+		archid = cur.fetchone()[0]
+		# insert main archive record
+		cur.execute("INSERT INTO check_domain (id, nsset_hid, reason, "
+					"overallstatus, extra_fqdns) "
+				"VALUES (%d, %d, %d, %d, array%s" %
+				(archid, histid, reason_enum, status, fqdns))
+				# in SQL command above we benefit from equal string
+				# representation of python's list and postgresql's array
 		# archive results of individual tests
 		for resid in results:
 			result = results[resid]
+			# escape note and data strings if there are any
 			if result["note"]:
 				raw_note = pgdb._quote(result["note"])
 			else:
 				raw_note = "NULL"
-			cur.execute("INSERT INTO check_result (checkid, testid, passed, "
-					"note) VALUES (%d, %d, '%s', %s)" %
-					(id, resid, result["result"], raw_note))
+			if result["data"]:
+				raw_data = pgdb._quote(result["data"])
+			else:
+				raw_data = "NULL"
+			cur.execute("INSERT INTO check_result (checkid, testid, status, "
+						"note, data) "
+					"VALUES (%d, %d, '%s', %s)" %
+					(id, resid, result["result"], raw_note, raw_data))
 		cur.close()
 
-	def __checkDomain(self, id, testsuite, domain, nslist, level):
+	def __dbGetRegistrar(self, conn, reghandle):
+		"""
+	Get numeric ID of registrar.
+		"""
+		cur = conn.cursor()
+		cur.execute("SELECT id FROM registrar WHERE handle = %s" %
+				pgdb._quote(reghandle))
+		if cur.rowcount == 0:
+			raise ccReg.TechCheck.RegistrarNotFound()
+		regid = cur.fetchone()[0]
+		cur.close()
+		return regid
+
+	def __dbQueuePollMsg(self, conn, regid, xml_message):
+		"""
+	Insert poll message in database.
+		"""
+		cur = conn.cursor()
+		cur.execute("INSERT INTO message (clid, exdate, message) "
+				"VALUES (%d, now() + interval '%d days', %s)" %
+				(regid, self.exMsg, pgdb._quote(xml_message)))
+		cur.close()
+
+	def __runTests(self, id, testsuite, fqdns, nslist, level):
 		"""
 	Run all enabled tests bellow given level.
 		"""
 		results = {}
-		atLeastOneFailed = False
+		overallstatus = 0 # by default we assume that all tests were passed
 		# perform all enabled tests (the ids must be sorted!)
 		testkeys = testsuite.keys()
 		testkeys.sort()
@@ -299,82 +252,183 @@ This class implements TechCheck interface.
 							"test which is disabled." % (id, test["name"]))
 					continue
 				# check the result of test on which we depend
-				if not results[req]["result"]:
+				# (unknown status is considered as if the test failed)
+				if results[req]["result"] != 0:
 					self.l.log(self.l.DEBUG, "<%d> Omitting test '%s' becauseof "
-							"not fulfilled prerequisity." %
-							(id, test["name"]))
+							"not fulfilled prerequisity." % (id, test["name"]))
 					req_ok = False
 					break
 			if not req_ok:
+				# prerequisities were not satisfied
 				continue
-			# run the test
-			self.l.log(self.l.DEBUG, "<%d> Running test '%s'." %
-					(id, test["name"]))
-			#stat, note = test["callback"](domain, nslist)
-			stat = 0
-			note = ""
-			stat = (stat == 0)
-			if not stat:
-				atLeastOneFailed = True
+			#
+			# command scheduled for execution has following format:
+			#    /scriptdir/script nsFqdn,ipaddr1,ipaddr2,...
+			# last part is repeated as many times as many there are nameservers.
+			# If test requires a domain name(s) they are supplied on stdin.
+			#
+			cmd = "%s%s" % (self.scriptdir, test["script"])
+			for ns in nslist:
+				addrs = nslist[ns]
+				cmd += " %s" % ns
+				for addr in addrs:
+					cmd += ",%s" % addr
+			# run the command
+			child = popen2.Popen3(cmd)
+			# log some debug info
+			self.l.log(self.l.DEBUG, "<%d> Running test %s, command '%s', "
+					"pid %d." % (id, test["name"], cmd, child.pid))
+			self.l.log(self.l.DEBUG, "<%d> List of first 5 supplied domains "
+					"from total %d: %s" % (id, len(fqdns), fqdns[0:5]))
+			# decide if list of domains is needed
+			if test["need_domain"]:
+				# send space separated list of domain fqdns to stdin
+				for fqdn in fqdns:
+					child.tochild.write(fqdn + ' ')
+				child.tochild.close()
+			# before reading the output wait for child to terminate
+			stat = os.WEXITSTATUS(child.wait())
+			# read both standard outputs (stdout, stderr)
+			# the length of strings is limited by available space in database
+			if child.fromchild:
+				data = child.fromchild.read(300)
+			else:
+				data = ''
+			if child.childerr:
+				note = child.childerr.read(300)
+			else:
+				note = ''
+			# Status values:
+			#     0 ... test OK
+			#     1 ... test failed
+			#     2 ... unknown result
+			if stat == 1 and overallstatus != 1:
+				overallstatus = 1
+			elif stat == 2 and overallstatus == 0:
+				overallstatus = 2
 			# save the result
-			results[testid] = { "result" : stat, "note" : note }
-		return not atLeastOneFailed, results
+			results[testid] = { "result" : stat, "note" : note, "data" : data }
+		return overallstatus, results
 
-	def __transfmResult(self, id, testsuite, status, results):
+	def __createPollMsg(self, nsset, fqdn, testsuite, results):
+		"""
+	Save results of technical check in poll message.
+		"""
+		xml_message = """<nsset:testData xmlns:nsset="http://www.nic.cz/xml/epp/nsset-1.1" xsi:schemaLocation="http://www.nic.cz/xml/epp/nsset-1.1 nsset-1.1.xsd"><nsset:id>%s</nsset:id><nsset:name>%s</nsset:name>""" % (nsset, fqdn)
+		for testid in results:
+			test = testsuite[testid]
+			result = results[testid]
+			xml_message += ("""<nsset:result><nsset:name>%s</nsset:name><nsset:status>%s</nsset:status></nsset:result>""" %
+					(test["name"], result["result"] == 0))
+		xml_message += ("</nsset:testData>")
+		return xml_message
+
+	def __transfmResult(self, testsuite, status, results):
 		"""
 	Transform results to IDL result structure.
 		"""
 		idl_results = []
 		for testid in results:
-			result = results[testid]
 			test = testsuite[testid]
-			idl_results.append( ccReg.OneCheckResult(test["name"],
-				result["result"], result["note"], test["level"]) )
-		return ccReg.CheckResult(id, status, idl_results)
+			result = results[testid]
+			idl_results.append(ccReg.OneCheckResult(test["name"],
+				result["result"], result["note"], result["data"], test["level"]))
+		return ccReg.CheckResult(status, idl_results)
 
-	def checkDomain(self, domain, reason):
+	def __checkNsset(self, nsset, level, dig, archive, reason, fqdns, asynch,
+			reghandle):
 		"""
-	Method from IDL interface. Run all enabled tests for a domain.
+	Run tests for a nsset. Flag asynch decides whether the mode of operation
+	is asynchronous or synchronous.
 		"""
 		try:
-			id = 0
+			id = random.randint(1, 9999)
+			self.l.log(self.l.INFO, "<%d> Request for technical test of nsset "
+					"'%s' received (asynchronous=%s)." % (id, nsset, asynch))
 			# connect to database
 			conn = self.db.getConn()
-			# get unique ID
-			id = self.__dbNewCheckId(conn)
-			self.l.log(self.l.INFO, "<%d> Request for technical test of domain "
-					"'%s' received." % (id, domain))
 
-			# get all data about the domain necessary to perform tech check
-			objid, histid, nslist, level = self.__dbGetDomainData(conn, domain)
+			# get all nsset data (including nameservers)
+			objid, histid, nslist, dblevel = self.__dbGetNssetData(conn, nsset)
+			# override level if it is not zero
+			if level == 0: level = dblevel
+			# dig associated domain fqdns if told to do so
+			if dig:
+				# get all fqdns of domains associated with nsset and join
+				# them with provided fqdns
+				all_fqdns = fqdns + self.__dbGetAssocDomains(conn, objid)
+			else:
+				all_fqdns = fqdns
+			# build test suite based on values in database
 			testsuite = self.__dbBuildTestSuite(conn)
-			# perform tests on a domain
-			status, results = self.__checkDomain(id, testsuite, domain, nslist,
-					level)
-			# archive results of check
-			self.__dbArchiveCheck(conn, id, objid, histid, status, results,
-					reason)
-			# commit changes in archive
-			conn.commit()
+			# perform tests on the nsset
+			if asynch:
+				regid = self.__dbGetRegistrar(conn, reghandle)
+				# tests will be done in a new process
+				pid = os.fork()
+				if pid != 0:
+					self.db.releaseConn(conn)
+					return
+				# we have to reopen db connection in child
+				conn = self.db.getConn()
+				status, results = self.__runTests(id, testsuite, all_fqdns,
+						nslist, level)
+				pollmsg = self.__createPollMsg(nsset, fqdns[0], testsuite,
+						results)
+				self.__dbQueuePollMsg(conn, regid, pollmsg)
+				# archive results of check if told to do so
+				if archive:
+					self.__dbArchiveCheck(conn, histid, fqdns, status,
+							results, reason)
+				# commit changes in archive and message queue
+				conn.commit()
+				self.db.releaseConn(conn)
+				sys.exit()
+
+			# if we are here it means that we do synchronous test
+			status, results = self.__runTests(id, testsuite, all_fqdns,
+					nslist, level)
+			# archive results of check if told to do so
+			if archive:
+				self.__dbArchiveCheck(conn, histid, fqdns, status, results,
+						reason)
+				# commit changes in archive
+				conn.commit()
 
 			self.db.releaseConn(conn)
-			return self.__transfmResult(id, testsuite, status, results)
+			return self.__transfmResult(testsuite, status, results)
 
-		except ccReg.TechCheck.DomainNotFound, e:
-			self.l.log(self.l.ERR, "<%d> Domain '%s' does not exist." %
-					(id, domain))
+		except ccReg.TechCheck.NssetNotFound, e:
+			self.l.log(self.l.ERR, "<%d> Nsset '%s' does not exist." %
+					(id, nsset))
 			raise
-		except ccReg.TechCheck.NoAssociatedNsset, e:
-			self.l.log(self.l.ERR, "<%d> Domain '%s' does not have associated "
-					"nsset" % (id, domain))
+		except ccReg.TechCheck.RegistrarNotFound, e:
+			self.l.log(self.l.ERR, "<%d> Registrar '%s' does not exist." %
+					(id, reghandle))
 			raise
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
 			raise ccReg.TechCheck.InternalError("Database error")
+		except SystemExit, e:
+			self.l.log(self.l.DEBUG, "<%d> TechCheck child exited." % id)
+			return
 		except Exception, e:
 			self.l.log(self.l.ERR, "<%d> Unexpected exception caught: %s:%s" %
 					(id, sys.exc_info()[0], e))
 			raise ccReg.TechCheck.InternalError("Unexpected error")
+
+	def checkNsset(self, nsset, level, dig, archive, reason, fqdns):
+		"""
+	Method from IDL interface. Run synchronously tests for a nsset.
+		"""
+		return self.__checkNsset(nsset, level, dig, archive, reason, fqdns,
+				False, None)
+
+	def checkNssetAsynch(self, regid, nsset, level, dig, archive, reason, fqdns):
+		"""
+	Method from IDL interface. Run asynchronously tests for a nsset.
+		"""
+		self.__checkNsset(nsset, level, dig, archive, reason, fqdns, True, regid)
 
 	def checkAll(self):
 		"""
@@ -386,10 +440,12 @@ This class implements TechCheck interface.
 					"is being run." % id)
 			# connect to database
 			conn = self.db.getConn()
+
 			# build testsuite
 			testsuite = self.__dbBuildTestSuite(conn)
-			# get all active domains generated in zone which have nsset
-			cursor = self.__dbGetAllDomains(conn)
+			# get all registered nssets and associated domains
+			'''
+			cursor = self.__dbGetAllNssets(conn)
 			print cursor.rowcount
 			# iterate through all selected domains and test one-by-one
 			lastrow = cursor.fetchone()
@@ -401,7 +457,7 @@ This class implements TechCheck interface.
 				if not data:
 					break
 				(lastrow, objid, histid, domain, nslist, level) = data
-				status, results = self.__checkDomain(id, testsuite, domain,
+				status, results = self.__checkDomain(id, testsuite, nsset,
 					nslist, level)
 				# archive results of tests
 				self.__dbArchiveCheck(conn, checkid, objid, histid, status,
@@ -410,7 +466,9 @@ This class implements TechCheck interface.
 			# finalization
 			cursor.close()
 			conn.commit()
+			'''
 			self.db.releaseConn(conn)
+			raise Exception("Method not implemented")
 
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))

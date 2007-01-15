@@ -119,13 +119,13 @@ all directives will contain default values.
 #
 def main(argv):
 	# if server should detach from terminal after startup
-	detach = 1
+	detach = True
 	# default places where to look for configs
 	configs = ["/etc/pyfred.conf", "/usr/local/etc/pyfred.conf",
 	           "pyfred.conf"]
 	for arg in argv[1:]:
 		if arg == "-d":
-			detach = 0
+			detach = False
 		else:
 			# append explicit config location if present on command line
 			configs.insert(0, arg)

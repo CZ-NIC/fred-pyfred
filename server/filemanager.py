@@ -75,16 +75,13 @@ This class implements FileManager interface.
 		# try to create rootdir if it does not exist
 		if os.path.isdir(self.rootdir):
 			if not os.access(self.rootdir, os.R_OK | os.W_OK):
-				self.l.log(self.l.ERR, "Directory '%s' is not r/w: " %
-						self.rootdir)
-				raise Exception()
+				raise Exception("Directory '%s' is not r/w: " % self.rootdir)
 		else:
 			try:
 				os.makedirs(self.rootdir, 0700)
 			except Exception, e:
-				self.l.log(self.l.ERR, "Cannot create directory for file "
-						"manager: %s" % e)
-				raise
+				raise Exception("Cannot create directory for file manager: %s"
+						% e)
 
 		# schedule regular cleanup
 		joblist.append( { "callback":self.__search_cleaner, "context":None,
