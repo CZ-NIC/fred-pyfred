@@ -8,6 +8,19 @@ import sys, pgdb, time, random, ConfigParser, commands, os, popen2
 from exceptions import SystemExit
 import ccReg, ccReg__POA
 
+def convArray(list):
+	"""
+Converts python list to pg array.
+	"""
+	array = '{'
+	for item in list:
+		array += pgdb._quote(item) + ','
+	# trim ending ','
+	if len(array) > 1:
+		array = array[0:-1]
+	array += '}'
+	return pgdb._quote(array)
+
 def getDomainData(cursor, lastrow):
 	"""
 Assemble data about domain from db rows to logical units.
@@ -56,6 +69,7 @@ This class implements TechCheck interface.
 		# default configuration
 		self.scriptdir = ""
 		self.exMsg = 7
+		self.testmode = False
 		# Parse TechCheck-specific configuration
 		if conf.has_section("TechCheck"):
 			try:
@@ -68,6 +82,14 @@ This class implements TechCheck interface.
 				exMsg = conf.get("TechCheck", "msgLifetime")
 				if exMsg:
 					self.exMsg = int(exMsg)
+			except ConfigParser.NoOptionError, e:
+				pass
+			try:
+				testmode = conf.get("TechCheck", "testmode")
+				if testmode:
+					if testmode.upper() in ("YES", "ON", "1"):
+						self.l.log(self.l.DEBUG, "Test mode is turned on.")
+						self.testmode = True
 			except ConfigParser.NoOptionError, e:
 				pass
 		if not self.scriptdir:
@@ -109,23 +131,38 @@ This class implements TechCheck interface.
 		cur.close()
 		return testsuite
 
-	def __dbGetNssetData(self, conn, nsset):
+	def __dbGetAssocDomains(self, conn, objid):
 		"""
-	Get all data about nsset from database needed for technical checks.
+	Dig all associated domains with nsset from database.
 		"""
 		cur = conn.cursor()
-		# get nsset data (id, history id and checklevel)
-		cur.execute("SELECT oreg.id, oreg.historyid, ns.checklevel "
-				"FROM object_registry oreg, nsset ns "
-				"WHERE upper(oreg.name) = upper(%s) AND oreg.id = ns.id" %
-				pgdb._quote(nsset))
-		if cur.rowcount == 0:
-			raise ccReg.TechCheck.NssetNotFound()
-		objid, histid, level = cur.fetchone()
-		# get nameservers (fqdns and ip addresses) of hosts belonging to nsset
+		cur.execute("SELECT oreg.name FROM domain d, object_registry oreg "
+				"WHERE oreg.type = 3 AND d.id = oreg.id AND d.nsset = %d" %
+				objid)
+		fqdns = [ item[0] for item in cur.fetchall() ]
+		cur.close()
+		return fqdns
+
+	def __dbGetNssets(self, cur, handle = ''):
+		"""
+	Get all active nssets. If handle is not empty string, then get just one
+	nsset with given handle.
+		"""
+		sql = "SELECT oreg.id, oreg.historyid, oreg.name, ns.checklevel " \
+				"FROM object_registry oreg, nsset ns " \
+				"WHERE oreg.id = ns.id AND oreg.type = 2"
+		if handle:
+			sql += " AND upper(oreg.name) = upper(%s)" % pgdb._quote(handle)
+		cur.execute(sql)
+
+	def __dbGetHosts(self, conn, id):
+		"""
+	Get hosts, their ip addresses and domain names associated with nsset.
+		"""
+		cur = conn.cursor()
 		cur.execute("SELECT h.fqdn, ip.ipaddr FROM host h LEFT JOIN "
 				"host_ipaddr_map ip ON (h.id = ip.hostid) WHERE h.nssetid = %d "
-				"ORDER BY h.fqdn" % objid)
+				"ORDER BY h.fqdn" % id)
 		row = cur.fetchone()
 		nameservers = {}
 		while row:
@@ -138,26 +175,22 @@ This class implements TechCheck interface.
 				nameservers[fqdn] = []
 			row = cur.fetchone()
 		cur.close()
-		return objid, histid, nameservers, level
+		return nameservers
 
-	def __dbGetAllNssets(self, conn):
+	def __dbGetNssetData(self, conn, nsset):
 		"""
-	Get all active domains with associated nsset.
+	Get all data about nsset from database needed for technical checks.
 		"""
 		cur = conn.cursor()
-		cur.execute("SELECT oreg.id, oreg.historyid AS hid, oreg.name, "
-					"ns.checklevel, h.fqdn, h.id AS hostid "
-				"INTO TEMP TABLE check_temp "
-				"FROM genzone_domain_history gh, object_registry oreg, domain d,"
-					" nsset ns, host h "
-				"WHERE gh.last = 'True' AND gh.inzone = 'True' AND "
-					"gh.domain_id = oreg.id AND d.id = oreg.id AND "
-					"d.nsset = ns.id AND d.nsset = h.nssetid "
-				"ORDER BY oreg.id, h.fqdn")
-		cur.execute("SELECT c.id, c.hid, c.name, c.checklevel, c.fqdn, a.ipaddr "
-				"FROM check_temp c LEFT JOIN host_ipaddr_map a "
-				"ON (c.hostid = a.hostid) ORDER BY c.id, c.fqdn")
-		return cur
+		# get nsset data (id, history id and checklevel)
+		self.__dbGetNssets(cur, handle = nsset)
+		if cur.rowcount == 0:
+			raise ccReg.TechCheck.NssetNotFound()
+		objid, histid, handle, level = cur.fetchone()
+		cur.close()
+		# get nameservers (fqdns and ip addresses) of hosts belonging to nsset
+		nameservers = self.__dbGetHosts(conn, objid)
+		return objid, histid, nameservers, level
 
 	def __dbArchiveCheck(self, conn, histid, fqdns, status, results, reason):
 		"""
@@ -178,10 +211,10 @@ This class implements TechCheck interface.
 		cur.execute("SELECT nextval('check_nsset_id_seq')")
 		archid = cur.fetchone()[0]
 		# insert main archive record
-		cur.execute("INSERT INTO check_domain (id, nsset_hid, reason, "
+		cur.execute("INSERT INTO check_nsset (id, nsset_hid, reason, "
 					"overallstatus, extra_fqdns) "
-				"VALUES (%d, %d, %d, %d, array%s" %
-				(archid, histid, reason_enum, status, fqdns))
+				"VALUES (%d, %d, %d, %d, %s)" %
+				(archid, histid, reason_enum, status, convArray(fqdns)))
 				# in SQL command above we benefit from equal string
 				# representation of python's list and postgresql's array
 		# archive results of individual tests
@@ -198,8 +231,8 @@ This class implements TechCheck interface.
 				raw_data = "NULL"
 			cur.execute("INSERT INTO check_result (checkid, testid, status, "
 						"note, data) "
-					"VALUES (%d, %d, '%s', %s)" %
-					(id, resid, result["result"], raw_note, raw_data))
+					"VALUES (%d, %d, %d, %s, %s)" %
+					(archid, resid, result["result"], raw_note, raw_data))
 		cur.close()
 
 	def __dbGetRegistrar(self, conn, reghandle):
@@ -229,6 +262,9 @@ This class implements TechCheck interface.
 		"""
 	Run all enabled tests bellow given level.
 		"""
+		# fool the system if testmode is turned on
+		if self.testmode:
+			level = 0
 		results = {}
 		overallstatus = 0 # by default we assume that all tests were passed
 		# perform all enabled tests (the ids must be sorted!)
@@ -278,8 +314,6 @@ This class implements TechCheck interface.
 			# log some debug info
 			self.l.log(self.l.DEBUG, "<%d> Running test %s, command '%s', "
 					"pid %d." % (id, test["name"], cmd, child.pid))
-			self.l.log(self.l.DEBUG, "<%d> List of first 5 supplied domains "
-					"from total %d: %s" % (id, len(fqdns), fqdns[0:5]))
 			# decide if list of domains is needed
 			if test["need_domain"]:
 				# send space separated list of domain fqdns to stdin
@@ -359,6 +393,8 @@ This class implements TechCheck interface.
 				all_fqdns = fqdns + self.__dbGetAssocDomains(conn, objid)
 			else:
 				all_fqdns = fqdns
+			self.l.log(self.l.DEBUG, "<%d> List of first 5 domain fqdns "
+					"from total %d: %s" % (id, len(all_fqdns), all_fqdns[0:5]))
 			# build test suite based on values in database
 			testsuite = self.__dbBuildTestSuite(conn)
 			# perform tests on the nsset
@@ -373,7 +409,10 @@ This class implements TechCheck interface.
 				conn = self.db.getConn()
 				status, results = self.__runTests(id, testsuite, all_fqdns,
 						nslist, level)
-				pollmsg = self.__createPollMsg(nsset, fqdns[0], testsuite,
+				# XXX temporary hack until EPP interface will be changed
+				if not all_fqdns: fqdn = ''
+				else: fqdn = all_fqdns[0]
+				pollmsg = self.__createPollMsg(nsset, fqdn, testsuite,
 						results)
 				self.__dbQueuePollMsg(conn, regid, pollmsg)
 				# archive results of check if told to do so
@@ -443,33 +482,30 @@ This class implements TechCheck interface.
 
 			# build testsuite
 			testsuite = self.__dbBuildTestSuite(conn)
-			# get all registered nssets and associated domains
-			'''
-			cursor = self.__dbGetAllNssets(conn)
-			print cursor.rowcount
-			# iterate through all selected domains and test one-by-one
-			lastrow = cursor.fetchone()
-			iter = 0
-			while True:
-				checkid = self.__dbNewCheckId(conn)
-				# assamble data about one domain
-				data = getDomainData(cursor, lastrow)
-				if not data:
-					break
-				(lastrow, objid, histid, domain, nslist, level) = data
-				status, results = self.__checkDomain(id, testsuite, nsset,
-					nslist, level)
+			# get all registered nssets (just basic info)
+			cursor = conn.cursor()
+			self.__dbGetNssets(cursor)
+			self.l.log(self.l.DEBUG, "<%d> Number of nssets to be checked: %d." %
+					(id, cursor.rowcount))
+			# iterate through all selected nssets and test one-by-one
+			row = cursor.fetchone()
+			while row:
+				(objid, hid, handle, level) = row
+				# XXX here is a bug - there might not be any nameservers
+				# because the nsset might be deleted in meanwhile
+				nameservers = self.__dbGetHosts(conn, objid)
+				fqdns = self.__dbGetAssocDomains(conn, objid)
+				status, results = self.__runTests(id, testsuite, fqdns,
+						nameservers, level)
 				# archive results of tests
-				self.__dbArchiveCheck(conn, checkid, objid, histid, status,
-						results, ccReg.CHKR_REGULAR)
+				self.__dbArchiveCheck(conn, hid, [], status, results,
+						ccReg.CHKR_REGULAR)
+				row = cursor.fetchone()
 				# TODO send accumulated email notification
 			# finalization
 			cursor.close()
 			conn.commit()
-			'''
 			self.db.releaseConn(conn)
-			raise Exception("Method not implemented")
-
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
 			raise ccReg.TechCheck.InternalError("Database error")

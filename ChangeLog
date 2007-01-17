@@ -31,6 +31,11 @@
 	nadale konfiguracni soubor pyfred.conf, kde v sekci general, direktive
 	modules lze zadat nazvy modulu k naloadovani.
 
+	* Novy modul techcheck na vykonovani technickych kontrol nssetu.
+	S tim souvisi pridani sady skriptu realizujicich jednotlive technicke
+	kontroly v adresari techchecks. Skript na kontrolu heterogenity
+	DNS serveru vyzaduje instalaci fpdns perloveho skriptu.
+
 2006-10-20 Jan Kryl (version 1.2.1)
 
 	* Prizpusobeni vystupu klienta generatoru zony tak, aby vyhovoval

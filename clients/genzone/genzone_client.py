@@ -250,8 +250,8 @@ if __name__ == "__main__":
 	except ZoneException, e:
 		if test:
 			print "GENZONE CRITICAL - initialization of transfer failed: %s" % e
-		else:
-			sys.stderr.write("Zone Generator initialization failed (%s)\n" % e)
+			sys.exit(2)
+		sys.stderr.write("Zone Generator initialization failed (%s)\n" % e)
 		sys.exit(1)
 	# run the transfer of data only if not in test mode
 	if not test:

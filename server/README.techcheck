@@ -1,0 +1,79 @@
+README file for techcheck daemon
+--------------------------------
+
+Content:
+    1. Introduction
+    2. Configuration
+
+
+1. Introduction
+
+Techcheck daemon is responsible for testing of nameservers in nsset. There
+are three possible ways how to call out technical check(s).
+
+  1) You can do technical check on a single nsset synchronously. It means
+  that the caller is blocked until the tests are done and then receives
+  results in form of return value from CORBA function.
+
+  2) Another way is to do the test of nsset asynchronously. It means
+  that server returns from CORBA function as soon as it has found all
+  relevant data needed for technical check in database. The registrator
+  is informed about results of technical tests in form of poll message
+  over EPP interface.
+
+  3) You can do test of all registered nssets. This function should be
+  triggered regularly from crontab in order to do regular checks on all
+  nssets. This function has some known temporary limitations. It does not
+  yet send email notifications and it is not yet asynchronous, though it
+  should be probably.
+
+The interface to techcheck daemon is specified by IDL file _TechCheck.idl
+in directory with idls.
+
+The technical check consists of several tests. The tests are highly dynamic
+and are not hardcoded in source code. The possible tests are defined in
+database and at the beginning of testing they are read and so called
+"test suite" is constructed. Test suite is a sequence of technical checks
+which should be applyed if they are not disabled by certain flag in database.
+There are a few attributes of test, the most important is:
+
+  * name of test
+  * level of test (this is seriosity of test 1..10)
+  * information about dependency on another test(s)
+  * a path to script which executes the testing
+
+Basic schema of technical check is as follows:
+
+  1) test is popped from test suite and if the dependencies are satisfied
+  and its level is lower or equal to specified level, the test is executed.
+
+  2) execution is done by execution of appropriate shell script.
+
+  3) from return value of the script is deduced status of the test. Three
+  values are possible: passed, failed, unknown. Unknown denotes that
+  the script failed because of unexpected (unknown) reason.
+
+  4) poll message is generated for registrar if appropriate.
+
+  5) individual results of tests are archived in database if told to do so.
+
+For more detailed information about functioning of technical checks see
+source file techcheck.py.
+
+
+2. Configuration
+
+In TechCheck section are expected following configuration directives.
+
+    testmode = off
+    scriptdir = ./techchecks
+    msgLifetime = 7
+
+If 'testmode' is enabled, the desired level is set to zero no matter which
+level is associated with nsset in database of which level was selected by
+caller of function. This is usefull when running test instance of pyfred.
+'testmode' is by default off. 'scriptdir' is a directory where technical
+check scripts reside. The names of scripts are configured in database.
+'msgLifetime' is expiration interval for poll messages stored in database
+by techcheck daemon with results of technical checks.
+

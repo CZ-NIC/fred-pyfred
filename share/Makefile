@@ -8,6 +8,15 @@ MAILER       = Mailer
 FILEMANAGER  = FileManager
 TECHCHECK    = TechCheck
 
+TECHCHECK_SCRIPTS = \
+	../server/techchecks/authoritative.py \
+	../server/techchecks/autonomous.py \
+	../server/techchecks/existance.py \
+	../server/techchecks/heterogenous.py \
+	../server/techchecks/presence.py \
+	../server/techchecks/recursive4all.py \
+	../server/techchecks/recursive.py
+
 .PHONY: all build clean
 
 all: build
@@ -42,10 +51,12 @@ install-server: \
 		../server/mailer.py \
 		../server/filemanager.py \
 		../server/techcheck.py \
+		$(TECHCHECK_SCRIPTS) \
 		../server/pyfred.conf
 	@echo Installing pyfred server
 	$(INSTALL) -d $(PREFIX)/usr/bin
 	$(INSTALL) -d $(PREFIX)/usr/lib/pyfred/server
+	$(INSTALL) -d $(PREFIX)/usr/lib/pyfred/server/techchecks
 	$(INSTALL) -d $(PREFIX)/etc
 	$(INSTALL) ../server/pyfred.py      $(PREFIX)/usr/bin
 	$(INSTALL) ../server/pyfred_util.py $(PREFIX)/usr/lib/pyfred/server
@@ -54,6 +65,7 @@ install-server: \
 	$(INSTALL) ../server/mailer.py      $(PREFIX)/usr/lib/pyfred/server
 	$(INSTALL) ../server/filemanager.py $(PREFIX)/usr/lib/pyfred/server
 	$(INSTALL) ../server/techcheck.py   $(PREFIX)/usr/lib/pyfred/server
+	cp $(TECHCHECK_SCRIPTS)     $(PREFIX)/usr/lib/pyfred/server/techchecks
 	@cmp ../server/pyfred.conf $(PREFIX)/etc/pyfred.conf 2>&1 1>&/dev/null;\
 	  if [ $$? -ne 1 ]; then \
 	    $(INSTALL) ../server/pyfred.conf $(PREFIX)/etc;\
@@ -150,6 +162,7 @@ uninstall-server:
 		echo Delete config file $(PREFIX)/etc/pyfred.conf if ;\
 		echo you are not going to reinstall pyfred server.;\
 	  fi
+	-rm -rf $(PREFIX)/usr/lib/pyfred/server/techchecks 2>/dev/null
 	-rmdir $(PREFIX)/usr/lib/pyfred/server 2>/dev/null
 
 uninstall-clients: uninstall-client-whois uninstall-client-genzone uninstall-client-mailer uninstall-client-filemanager uninstall-client-techcheck
