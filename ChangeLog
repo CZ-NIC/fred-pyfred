@@ -33,8 +33,13 @@
 
 	* Novy modul techcheck na vykonovani technickych kontrol nssetu.
 	S tim souvisi pridani sady skriptu realizujicich jednotlive technicke
-	kontroly v adresari techchecks. Skript na kontrolu heterogenity
-	DNS serveru vyzaduje instalaci fpdns perloveho skriptu.
+	kontroly v adresari techchecks.
+	
+	* Skript na kontrolu heterogenity DNS serveru vyzaduje instalaci
+	fpdns perloveho skriptu.
+
+	* Skript na kontrolu autonomniho systemu DNS serveru vyzaduje whois
+	binarku.
 
 2006-10-20 Jan Kryl (version 1.2.1)
 
