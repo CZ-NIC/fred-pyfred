@@ -85,6 +85,7 @@ all directives will contain default values.
 	"""
 	# set defaults
 	confparser = ConfigParser.SafeConfigParser({
+			"context":"fred",
 			"dbhost":"",
 			"dbname":"ccreg",
 			"dbport":"5432",
@@ -204,7 +205,7 @@ def main(argv):
 
 	# Bind a context named "fred.context" to the root context
 	# This context is a container for all registered objects
-	name = [CosNaming.NameComponent("fred", "context")]
+	name = [CosNaming.NameComponent(conf.get("General", "context"), "context")]
 	try:
 		fredContext = rootContext.bind_new_context(name)
 		print "New fred context bound"

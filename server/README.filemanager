@@ -9,7 +9,7 @@ Content:
 
 1. Overview
 
-FileManager daemon is capable of storing and loading of a file. FileManager
+FileManager daemon is capable of storing and loading a file. FileManager
 stores files on filesystem under directory which is given in configuration.
 FileManager does actually more than just storing or loading file. It keeps
 some other information about managed files in database. Currently it is:
@@ -24,22 +24,40 @@ some other information about managed files in database. Currently it is:
 This file meta information can be retrieved by separate corba method call.
 For details of CORBA interface see _FileManager.idl file in IDL repository.
 The daemon uses just one table in database to hold all information about
-file. Administration interface is not yet in place for this module, but
-hopefully will be soon.
+file. It is possible to search files based on various criteria, but true
+administration interface capable of deleting and manipulating with files
+is not yet in place for this module and is not planned to be in near future.
 
-The files in repository are not stored in flat manner, but are distributed
+The files on filesystem are not stored in flat manner, but are distributed
 in subdirectories in order not to overfill a directory. The relative path
 is created as:
 
      {year}/{month}/{day}/{id},
 
 where year, month and day are deduced from current date when file is uploaded
-to filemanager. The name of the file, id, is id of file's record in database.
+to filemanager. The name of the file on filesystem, here denoted as id, is id
+(primary key) of file's record in database and should not be confused with
+alias (human-friendly name of file) which is stored as attribute of file
+in database.
+
+Files are transfered incrementally. That means, they are not transfered in
+one CORBA function call, because the files may be quite large. For upload
+or download are created independent CORBA objects, which have method for
+upload/download of part of file. You call these functions until the whole
+file is transfered. The size of transferred chunk is selectable by client.
+At the end of upload/download you have to call finalization routine, which
+releases resources associated with transfer on server-side and deletes the
+CORBA object used for the transfer. If you by accident forget to call
+finalization routines, the objects will be after some time automatically
+deleted. If you don't call finalization routine when uploading a file, the
+file will not be stored in filemanager
 
 
 2. Configuration
 
-Daemon has just one configuration directive 'rootdir', by which you can set
-default path to file repository, where filemanager stores all files. Be sure
-to make this directory accessible to daemon. If it does not exist, it is
-created.
+With directive 'rootdir' you can set default path to file repository on
+filesystem, where filemanager stores all files. Be sure to make this directory
+accessible to daemon. If it does not exist, it is created.
+
+Directives idletreshold and checkperiod influence characteristics of
+'search objects' management.

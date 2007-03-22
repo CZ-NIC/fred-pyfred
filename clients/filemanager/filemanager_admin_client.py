@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# vim: ts=4 sw=4:
 
 import sys, getopt
 from omniORB import CORBA
@@ -20,6 +21,7 @@ You can constraint search by various criteria given on command line.
 
 Options:
     -c, --chunk NUMBER            Obtain files in chunks of given size.
+    -e, --enumtype                List enumetation of possible file types.
     -h, --help                    Print this help message.
     -i, --id NUMBER               Get file with given ID.
     -l, --label NAME              Get files with given label (name).
@@ -27,10 +29,13 @@ Options:
     -m, --mime TYPE               Get file with given MIME type.
     -o, --lowerdate DATETIME      Lower bound on creation date of file.
     -p, --path PATH               Get file stored under given path.
+    -t, --type NUMBER             Get file of given type.
     -u, --upperdate DATETIME      Upper bound on creation date of file.
     -v, --verbose                 Switch to verbose mode.
 
 The format of DATETIME is '{YYYY}-{MM}-{DD}T{HH}:{MM}:{SS}'.
+Type of file may be zero for indication of non-typed file.
+Option --enumtype may not be combined with any other option.
 """)
 
 def str2date(str):
@@ -51,27 +56,31 @@ Convert string to datetime CORBA structure.
 def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:],
-				"c:hi:l:n:m:o:p:u:v",
-				["chunk", "help", "id", "label", "nameservice",
-				"mime", "lowerdate", "path", "upperdate",
-				"verbose"]
+				"c:ehi:l:n:m:o:p:t:u:v",
+				["chunk", "enumtype", "help", "id", "label",
+				"nameservice", "mime", "lowerdate", "path",
+				"type", "upperdate", "verbose"]
 				)
 	except getopt.GetoptError:
 		usage()
 		sys.exit(1)
 
 	chunk  = 1
+	listtypes = False
 	id = -1
 	label = ""
 	ns = "localhost"
 	mime = ""
 	path = ""
+	type = -1
 	verbose = False
 	l_crdate = ""
 	u_crdate = ""
 	for o, a in opts:
 		if o in ("-c", "--chunk"):
 			chunk = int(a)
+		elif o in ("-e", "--enumtype"):
+			listtypes = True
 		elif o in ("-h", "--help"):
 			usage()
 			sys.exit()
@@ -87,6 +96,8 @@ def main():
 			l_crdate = a
 		elif o in ("-p", "--path"):
 			path = a
+		elif o in ("-t", "--type"):
+			type = int(a)
 		elif o in ("-v", "--verbose"):
 			verbose = True
 		elif o in ("-u", "--upperdate"):
@@ -136,9 +147,23 @@ def main():
 		sys.stderr.write("Object reference is not ccReg::FileManager\n")
 		sys.exit(2)
 
+	# if we were asked just to get filetypes, do it quickly and exit
+	if listtypes:
+		try:
+			typelist = fm_obj.getTypeEnum()
+		except ccReg.FileManager.InternalError, e:
+			sys.stderr.write("Internal error on server: %s\n" % e.message)
+			sys.exit(10)
+		except Exception, e:
+			sys.stderr.write("Corba call failed: %s\n" % e)
+			sys.exit(3)
+		for type in typelist:
+			print "%d\t%s" % (type.id, type.name)
+		sys.exit()
+
 	if verbose: print "Constructing filter ... ",
 	interval = ccReg.DateTimeInterval(fromdate, todate)
-	filter = ccReg.FileFilter(id, label, path, mime, interval)
+	filter = ccReg.FileFilter(id, label, path, mime, type, interval)
 	if verbose: print "ok"
 	#
 	# Obtain search object
@@ -166,6 +191,7 @@ def main():
 				print "id: %d" % file.id
 				print "name: %s" % file.name
 				print "mime: %s" % file.mimetype
+				print "type: %d" % file.filetype
 				print "path: %s" % file.path
 				print "creation date: %s" % file.crdate
 				print "size: %d" % file.size

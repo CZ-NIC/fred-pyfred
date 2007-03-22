@@ -14,9 +14,9 @@ Goal of server-side zone generator is to send all data needed for zone
 file creation to client. It is a task of client to format data in a way,
 the DNS server understands to. The task of server is:
 
-         *) Retreive data from database.
-         *) Check the validity and decide whether particular data should
-            go in zone or not.
+         *) Create changeset (records describing changes between previous
+	    and present zone records)
+         *) On previous changeset is based whole generation.
          *) Send resulting data through CORBA interface to client.
 
 
@@ -54,11 +54,19 @@ table with nameservers for zones and of course table with domains and their
 nameservers.  Sorry for brevity of this part. If you want to know table and
 column names, used SELECTs and other details look at source code.
 
+The main work is done by a set of COMPLICATED sql commands (temporary
+tables are used quite a lot in that process). At the end of sql batch
+there exists a record for each registered domain, which denotes the
+state of any "live" domain. This resource consuming process will be
+perhaps later done by another proces and zone generator will only use
+the results of such a process.
+
 These constrains must be met in order for domain to be placed in zone:
 
          *) Domain must have have associated nsset.
          *) Domain must not be expired and additionaly if it is an enum domain,
-	    validation must not be expired.
+	    validation must not be expired. By expired here we mean that
+	    domain is out of safe-period.
 
 A nameserver which requires GLUE by DNS standard is considered valid
 only if it has one. On the other side, if nameserver has a GLUE and the GLUE

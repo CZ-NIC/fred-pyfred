@@ -1,0 +1,11 @@
+handle NSSID:HANDLE-NSSETU
+ticket 127864857
+checkdate 23.2.2006
+tests.1.type error
+tests.1.name existance
+tests.2.type warning
+tests.2.name recursive
+tests.3.type notice
+tests.3.name heterogenous
+tests.4.type error
+tests.4.name presence

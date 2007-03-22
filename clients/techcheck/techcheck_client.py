@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# vim: set ts=4 sw=4:
 
 import sys, getopt
 from omniORB import CORBA
@@ -13,10 +14,11 @@ def usage():
 	"""
 Print usage information.
 	"""
-	sys.stderr.write("""techcheck_client [options]
+	sys.stderr.write("""techcheck_client [options] NSSET
+
+    NSSET is handle of nsset which should be tested and must be given.
 
 Options:
-    -a, --all                     Do test of all domains generated in zone.
     -d, --dig                     Dig all domain fqdns which use nsset and
                                   test them too.
     -f, --fqdn NAME               FQDN of domain which should be tested with
@@ -28,11 +30,6 @@ Options:
                                   queued the message with results. This means
                                   that the test will be run asynchronously.
     -s, --save                    Save the result of tech check in database.
-    -x, --nsset NAME              Handle of nsset which should be tested.
-
-    Option --all is ment to be used for regular technical checks of all domains
-    in register. It has priority over --nsset option. Options --save and
-    --regid work only together with --nsset option.
 """)
 
 def convStatus(status):
@@ -45,25 +42,21 @@ def convStatus(status):
 def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:],
-				"adf:hl:n:r:sx:", ["all", "dig", "fqdn", "help",
-				"level", "nameservice", "regid", "save", "nsset"]
+				"df:hl:n:r:s", ["dig", "fqdn", "help", "level",
+					"nameservice", "regid", "save"]
 				)
 	except getopt.GetoptError:
 		usage()
 		sys.exit(1)
 
-	all = False
 	dig = False
 	fqdn = []
 	level = 0
 	ns = "localhost"
 	regid = False
 	save = False
-	nsset = ''
 	for o, a in opts:
-		if o in ("-a", "--all"):
-			all = True
-		elif o in ("-d", "--dig"):
+		if o in ("-d", "--dig"):
 			dig = True
 		elif o in ("-f", "--fqdn"):
 			fqdn.append(a)
@@ -78,13 +71,11 @@ def main():
 			regid = a
 		elif o in ("-s", "--save"):
 			save = True
-		elif o in ("-x", "--nsset"):
-			nsset = a
-	# Check consistency of used options
-	if not nsset and not all:
-		sys.stderr.write("One of --nsset and --all is mandatory.\n")
+	# last argument must be nsset
+	if len(sys.argv) < 2:
 		usage()
 		sys.exit(2)
+	nsset = sys.argv[-1]
 	#
 	# Initialise the ORB
 	orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
@@ -114,18 +105,14 @@ def main():
 	#
 	# Call techcheck's function
 	try:
-		if all:
-			tc_obj.checkAll()
-			print "Technical check of all registered nssets done."
-			return # there nothing to be printed
-		elif regid:
-			tc_obj.checkNssetAsynch(regid, nsset, level,
-					dig, save, ccReg.CHKR_MANUAL, fqdn)
-			print "Asynchronous technical check was successfuly "\
-					"submitted."
-			return # there nothing to be printed
-		else:
-			result = tc_obj.checkNsset(nsset, level, dig, save,
+		if regid:
+			tc_obj.checkNssetAsynch(regid, nsset, level, dig, save,
+					ccReg.CHKR_MANUAL, fqdn)
+			print "Asynchronous technical check was successfuly submitted."
+			return # there is nothing to be printed
+		# synchronous technical test
+		testlist = tc_obj.checkGetTests()
+		results, checkid, status = tc_obj.checkNsset(nsset, level, dig, save,
 					ccReg.CHKR_MANUAL, fqdn)
 	except ccReg.TechCheck.InternalError, e:
 		sys.stderr.write("Internal error on server: %s\n" % e.message)
@@ -136,17 +123,23 @@ def main():
 	except Exception, e:
 		sys.stderr.write("Corba call failed: %s\n" % e)
 		sys.exit(3)
-	# Print result of tech check
+	# Print result of synchronous tech check
+	tests = {}
+	for item in testlist:
+		tests[item.id] = item
 	print "--- Status report ------------------------------------"
 	print
-	print "Overall status: %s" % convStatus(result.status)
+	print "Check id: %d" % checkid
+	print "Overall status: %s" % convStatus(status)
 	print "Results of individual tests:"
-	for test in result.results:
-		print "Test's name:     %s" % test.name
-		print "    Level:       %d" % test.level
-		print "    Status:      %s" % convStatus(test.status)
-		print "    Note:        %s" % test.note
-		print "    Data:        %s" % test.data
+	for result in results:
+		print "Test's name:        %s" % tests[result.testid].name
+		print "    Test ID:        %d" % result.testid
+		print "    Level:          %d" % tests[result.testid].level
+		print "    Domain-centric: %s" % tests[result.testid].domain_centric
+		print "    Status:         %s" % convStatus(result.status)
+		print "    Note:           %s" % result.note
+		print "    Data:           %s" % result.data
 	print
 	print "--- End of Status report -----------------------------"
 

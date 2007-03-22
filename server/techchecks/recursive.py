@@ -7,8 +7,8 @@ This script returns:
 	1 if any of nameservers has recursive flag set.
 	2 if usage or other error occurs.
 
-To stderr go debug and error messages and to stdout goes nameserver which
-caused error or not fulfilled condition.
+To stderr go debug and error messages and to stdout go space separated
+nameservers which are recursive.
 """
 
 import sys
@@ -26,6 +26,9 @@ def main():
 	resolver = dns.resolver.Resolver()
 	# create common query for all nameservers
 	query = dns.message.make_query(testdomain, "SOA")
+	# list of faulty nameservers
+	renegades = []
+	error = False
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
 		ns = nsarg.split(',')[0]
@@ -40,11 +43,16 @@ def main():
 				pass
 		# did we got response for any of ip addresses of nameserver ?
 		if not message:
-			sys.stdout.write(ns)
-			return 2
-		if message.flags & (2 ** (15-8)):
-			sys.stdout.write(ns)
-			return 1
+			error = True
+		elif message.flags & (2 ** (15-8)):
+			renegades.append(ns)
+	# epilog
+	if renegades:
+		for ns in renegades:
+			sys.stdout.write("%s " % ns)
+		return 1
+	if error:
+		return 2
 	return 0
 
 if __name__ == "__main__":

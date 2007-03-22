@@ -7,7 +7,8 @@ This script returns:
 	1 if any of nameservers does not exist.
 	2 if usage or other error occurs.
 
-To stderr go error messages and to stdout goes nameserver which does not exist.
+To stderr go error messages and to stdout go space separated fqdns of
+nameservers which do not exist.
 """
 
 import sys
@@ -25,6 +26,8 @@ def main():
 	resolver = dns.resolver.Resolver()
 	# create common query for all nameservers (we don't care about type of query)
 	query = dns.message.make_query(testdomain, "ANY")
+	# list of faulty nameservers
+	renegades = []
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
 		ns = nsarg.split(',')[0]
@@ -32,8 +35,9 @@ def main():
 		try:
 			answer = dns.resolver.query(ns)
 		except dns.resolver.NXDOMAIN, e:
-			sys.stdout.write(ns)
-			return 1
+			renegades.append(ns)
+			continue
+		# query nameserver
 		message = None
 		for rr in answer:
 			try:
@@ -43,8 +47,12 @@ def main():
 				pass
 		# did we got response for any of ip addresses of nameserver ?
 		if not message:
-			sys.stdout.write(ns)
-			return 1
+			renegades.append(ns)
+	# print faulty nameservers to stdout if there are any
+	if renegades:
+		for ns in renegades:
+			sys.stdout.write("%s " % ns)
+		return 1
 	return 0
 
 if __name__ == "__main__":

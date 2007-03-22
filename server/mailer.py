@@ -4,7 +4,7 @@
 Code of mailer daemon.
 """
 
-import os, sys, time, random, ConfigParser
+import os, sys, time, random, ConfigParser, popen2, Queue
 import pgdb
 from pyfred_util import isInfinite
 # corba stuff
@@ -22,6 +22,9 @@ from email.MIMEText import MIMEText
 from email.Utils import formatdate, parseaddr
 from email import quopriMIME
 from email import Encoders
+# openssl stuff (signing email)
+from M2Crypto import BIO, SMIME
+from M2Crypto.util import passphrase_callback
 
 
 def qp_str(string):
@@ -35,7 +38,8 @@ is used for headers of email.
 		if quopriMIME.header_quopri_check(c):
 			need = True
 	if need:
-		string = quopriMIME.header_encode(string, charset="utf-8")
+		string = quopriMIME.header_encode(string, charset="utf-8",
+				maxlinelen=None)
 	return string
 
 class Mailer_i (ccReg__POA.Mailer):
@@ -51,20 +55,24 @@ This class implements Mailer interface.
 		self.db = db # db object for accessing database
 		self.l = logger # syslog functionality
 		self.nsref = nsref # nameservice reference
-		self.search_objects = [] # list of created search objects
+		self.search_objects = Queue.Queue(-1) # list of created search objects
 		self.rootpoa = rootpoa # root poa for new servants
 
 		# this avoids base64 encoding for utf-8 messages
 		email.Charset.add_charset( 'utf-8', email.Charset.SHORTEST, None, None )
 
 		# default configuration
-		self.testmode = False
-		self.tester = ""
-		self.sendmail = "/usr/sbin/sendmail"
-		self.fm_ns = "localhost"
-		self.fm_object = "FileManager"
+		self.testmode     = False
+		self.tester       = ""
+		self.sendmail     = "/usr/sbin/sendmail"
+		self.fm_ns        = "localhost"
+		self.fm_context   = "fred"
+		self.fm_object    = "FileManager"
 		self.idletreshold = 3600
-		self.checkperiod = 60
+		self.checkperiod  = 60
+		signing      = False
+		keyfile      = ""
+		certfile     = ""
 		# Parse Mailer-specific configuration
 		if conf.has_section("Mailer"):
 			# testmode
@@ -74,6 +82,8 @@ This class implements Mailer interface.
 					if testmode.upper() in ("YES", "ON", "1"):
 						self.l.log(self.l.DEBUG, "Test mode is turned on.")
 						self.testmode = True
+					else:
+						testmode = False
 			except ConfigParser.NoOptionError, e:
 				pass
 			# tester email address
@@ -98,7 +108,12 @@ This class implements Mailer interface.
 				if fm_object:
 					self.l.log(self.l.DEBUG, "Name under which to look for "
 							"filemanager is %s."% fm_object)
-					self.fm_object = fm_object
+					fm_object = fm_object.split(".")
+					if len(fm_object) == 2:
+						self.fm_context = fm_object[0]
+						self.fm_object = fm_object[1]
+					else:
+						self.fm_object = fm_object[0]
 			except ConfigParser.NoOptionError, e:
 				pass
 			# check period
@@ -130,11 +145,52 @@ This class implements Mailer interface.
 						raise
 			except ConfigParser.NoOptionError, e:
 				pass
+			# signing
+			try:
+				signing = conf.get("Mailer", "signing")
+				if signing:
+					if signing.upper() in ("YES", "ON", "1"):
+						self.l.log(self.l.DEBUG, "Signing of emails is turned "
+								"on.")
+						signing = True
+					else:
+						signing = False
+			except ConfigParser.NoOptionError, e:
+				pass
+			# certificate path
+			try:
+				certfile = conf.get("Mailer", "certfile")
+				if certfile:
+					self.l.log(self.l.DEBUG, "Path to certfile is %s."% certfile)
+			except ConfigParser.NoOptionError, e:
+				pass
+			# key path
+			try:
+				keyfile = conf.get("Mailer", "keyfile")
+				if keyfile:
+					self.l.log(self.l.DEBUG, "Path to keyfile is %s."% keyfile)
+			except ConfigParser.NoOptionError, e:
+				pass
 
 		# check configuration consistency
 		if (self.testmode and not self.tester) or (not self.testmode and self.tester):
 			self.l.log(self.l.WARNING, "For proper operation testmode and "
 					"tester must be set or both must be unset.")
+		if signing and not (certfile and keyfile):
+			raise Exception("Certificate and key file must be set for mailer.")
+		# do quick check that all files exist
+		if not os.path.isfile(self.sendmail):
+			raise Exception("sendmail binary (%s) does not exist."%self.sendmail)
+		if signing:
+			if not os.path.isfile(certfile):
+				raise Exception("Certificate (%s) does not exist." % certfile)
+			if not os.path.isfile(keyfile):
+				raise Exception("Key file (%s) does not exist." % keyfile)
+			# create SMIME class used for email signing
+			self.smime = SMIME.SMIME()
+			self.smime.load_key(keyfile, certfile, passphrase_callback)
+		else:
+			self.smime = None
 		# schedule regular cleanup
 		joblist.append( { "callback":self.__search_cleaner, "context":None,
 			"period":self.checkperiod, "ticks":1 } )
@@ -146,7 +202,12 @@ This class implements Mailer interface.
 		"""
 		self.l.log(self.l.DEBUG, "Regular maintance procedure.")
 		remove = []
-		for item in self.search_objects:
+		# the queue may change and the number of items in the queue may grow
+		# but we can be sure that there will be never less items than nitems
+		# therefore we can use blocking call get() on queue
+		nitems = self.search_objects.qsize()
+		for i in range(nitems):
+			item = self.search_objects.get()
 			# test idleness of object
 			if time.time() - item.lastuse > self.idletreshold:
 				item.status = item.IDLE
@@ -160,18 +221,20 @@ This class implements Mailer interface.
 				self.l.log(self.l.DEBUG, "Idle search-object with id %d "
 						"destroyed." % item.id)
 				remove.append(item)
+			# if object is active - reinsert the object in queue
+			else:
+				self.search_objects.put(item)
 		# delete objects scheduled for deletion
 		for item in remove:
 			id = self.rootpoa.servant_to_id(item)
 			self.rootpoa.deactivate_object(id)
-			self.search_objects.remove(item)
 
 	def __getFileManagerObject(self):
 		"""
 	Method retrieves FileManager object from nameservice.
 		"""
 		# Resolve the name "fred.context/FileManager.Object"
-		name = [CosNaming.NameComponent("fred", "context"),
+		name = [CosNaming.NameComponent(self.fm_context, "context"),
 				CosNaming.NameComponent(self.fm_object, "Object")]
 		obj = self.nsref.resolve(name)
 		# Narrow the object to an ccReg::FileManager
@@ -185,8 +248,8 @@ This class implements Mailer interface.
 		"""
 		cur = conn.cursor()
 		# get mail type data
-		cur.execute("SELECT id, subject FROM mail_type WHERE name = %s " %
-				pgdb._quote(mailtype))
+		cur.execute("SELECT id, subject FROM mail_type WHERE name = %s" %
+				(pgdb._quote(mailtype)))
 		if cur.rowcount == 0:
 			cur.close()
 			self.l.log(self.l.ERR, "Mail type '%s' was not found in db." %
@@ -196,15 +259,22 @@ This class implements Mailer interface.
 		id, subject = cur.fetchone()
 
 		# get templates belonging to mail type
-		cur.execute("SELECT contenttype, template FROM mail_type_template_map, "
-				"mail_templates WHERE typeid = %d AND "
-				"templateid = mail_templates.id" % id)
+		cur.execute("SELECT mte.contenttype, mte.template, mf.footer "
+				"FROM mail_type_template_map mt, mail_templates mte "
+				"LEFT JOIN mail_footer mf ON (mte.footer = mf.id) "
+				"WHERE mt.typeid = %d AND mt.templateid = mte.id" % id)
+		templates = []
 		if cur.rowcount == 0:
 			self.l.log(self.l.WARNING, "Request for mail type ('%s') with no "
 					"associated templates." % mailtype)
-			templates = []
 		else:
-			templates = [ {"type":row[0], "template":row[1]} for row in cur.fetchall() ]
+			for row in cur.fetchall():
+				# append footer if there is any to template
+				if row[2]:
+					templates.append( {"type":row[0],
+						"template":row[1] +'\n'+ row[2]} )
+				else:
+					templates.append( {"type":row[0], "template":row[1]} )
 		cur.close()
 		return id, subject, templates
 
@@ -323,7 +393,8 @@ This class implements Mailer interface.
 		for pair in data:
 			hdf.setValue(pair.key, pair.value)
 
-		mtid, subject_tpl, templates = self.__dbGetMailTypeData(conn, mailtype)
+		mtid, subject_tpl, templates = self.__dbGetMailTypeData(conn,
+				mailtype)
 		# render subject
 		cs = neo_cs.CS(hdf)
 		cs.parseStr(subject_tpl)
@@ -365,8 +436,30 @@ This class implements Mailer interface.
 			try:
 				# get MIME type of attachment
 				attachinfo = filemanager.info(attachid)
+				# create attachment
+				if not attachinfo.mimetype or attachinfo.mimetype.find("/") < 0:
+					# provide some defaults
+					maintype = "application"
+					subtype = "octet-stream"
+				else:
+					maintype, subtype = attachinfo.mimetype.split("/")
+				part = MIMEBase(maintype, subtype)
+				if attachinfo.name:
+					part.add_header('content-disposition', 'attachment',
+							filename=attachinfo.name)
 				# get raw data of attachment
-				rawattach = filemanager.load(attachid)
+				loadobj = filemanager.load(attachid)
+				attachdata = ""
+				chunk = loadobj.download(2**14) # download 16K chunk
+				while chunk:
+					attachdata += chunk
+					chunk = loadobj.download(2**14) # download 16K chunk
+				loadobj.finalize_download()
+				# encode attachment
+				part.set_payload(attachdata)
+				Encoders.encode_base64(part)
+				msg.attach(part)
+
 			except ccReg.FileManager.IdNotFound, e:
 				self.l.log(self.l.ERR, "<%d> Non-existing id of attachment %d." %
 						(mailid, attachid))
@@ -376,22 +469,16 @@ This class implements Mailer interface.
 						"missing file." % (mailid, attachid))
 				raise ccReg.Mailer.InternalError("FileManager's inconsistency "
 						"detected.")
-			except ccReg.FileManager.InternalError, e:
-				self.l.log(self.l.ERR, "<%d> Internal error on FileManager's "
-						"side: %s" % (mailid, e.message))
+			except ccReg.FileDownload.InternalError, e:
+				self.l.log(self.l.ERR, "<%d> Internal error when downloading "
+						"attachment: %s" % (mailid, e.message))
 				raise ccReg.Mailer.InternalError("Attachment '%s' caused unknown"
 						" error." % attachment)
-
-			maintype, subtype = attachinfo.mimetype.split("/")
-			# create attachment
-			part = MIMEBase(maintype, subtype)
-			if attachinfo.name:
-				part.add_header('content-disposition', 'attachment',
-						filename=attachinfo.name)
-			part.set_payload(rawattach)
-			# encode attachment
-			Encoders.encode_base64(part)
-			msg.attach(part)
+			except ccReg.FileDownload.NotActive, e:
+				self.l.log(self.l.ERR, "<%d> Download object is not active "
+						"anymore: %s" % (mailid, e.message))
+				raise ccReg.Mailer.InternalError("Attachment '%s' caused unknown"
+						" error." % attachment)
 
 		# archive email (without non-templated attachments)
 		self.__dbArchiveEmail(conn, mailid, mtid, text_msg, handles, attachs)
@@ -420,17 +507,39 @@ This class implements Mailer interface.
 			self.l.log(self.l.DEBUG, "<%d> Email was successfully generated "
 					"(length = %d bytes)." % (mailid, len(mail)))
 
+			# sign email if signing is enabled
+			if self.smime:
+				# BIO buffer for signed email
+				output_bio = BIO.MemoryBuffer()
+				# before signing remove non-MIME headers
+				headerend_index = mail.find("\n\n") # find empty line
+				headers = mail[:headerend_index+1]
+				mimeheaders = ""
+				# throw away otherwise duplicated headers
+				for header in headers.splitlines():
+					if header.startswith("MIME-Version:") or \
+							header.startswith("Content-Type:") or \
+							header.startswith("Content-Transfer-Encoding:"):
+						mimeheaders += header + '\n'
+					else:
+						output_bio.write(header + '\n')
+				mail = mimeheaders + mail[headerend_index+1:]
+				# sign email
+				pkcs7 = self.smime.sign(BIO.MemoryBuffer(mail))
+				# join signature and original message
+				self.smime.write(output_bio, pkcs7, BIO.MemoryBuffer(mail))
+				mail = output_bio.read()
+
 			if preview:
 				# if it is a preview, we don't commit changes in archive table
 				return mailid, mail
-
 			# commit changes in mail archive, no matter if sendmail will fail
 			conn.commit()
 
 			# send email
 			if self.testmode:
-				p = os.popen("%s -f %s %s" % (self.sendmail, envelope_from,
-					self.tester), "w")
+				p = os.popen("%s -f %s %s" %
+							(self.sendmail, envelope_from, self.tester), "w")
 			else:
 				p = os.popen("%s -f %s -t" % (self.sendmail, envelope_from), "w")
 			p.write(mail)
@@ -507,20 +616,18 @@ This class implements Mailer interface.
 			# construct SQL query coresponding to filter constraints
 			conditions = []
 			if filter.mailid != -1:
-				conditions.append("mail_archive.id = %d" % filter.mailid)
+				conditions.append("ma.id = %d" % filter.mailid)
 			if filter.mailtype != -1:
-				conditions.append("mail_archive.mailtype = %d" % filter.mailtype)
+				conditions.append("ma.mailtype = %d" % filter.mailtype)
 			if filter.status != -1:
-				conditions.append("mail_archive.status = %d" % filter.status)
+				conditions.append("ma.status = %d" % filter.status)
 			if filter.handle:
-				conditions.append("mail_handles.associd = %s" %
-						pgdb._quote(filter.handle))
+				conditions.append("mh.associd = %s" % pgdb._quote(filter.handle))
 			if filter.attachid != -1:
-				conditions.append("mail_attachments.attachid = %d" %
-						filter.attachid)
+				conditions.append("mt.attachid = %d" % filter.attachid)
 			fromdate = filter.crdate._from
 			if not isInfinite(fromdate):
-				conditions.append("mail_archive.crdate > '%d-%d-%d %d:%d:%d'" %
+				conditions.append("ma.crdate > '%d-%d-%d %d:%d:%d'" %
 						(fromdate.date.year,
 						fromdate.date.month,
 						fromdate.date.day,
@@ -529,7 +636,7 @@ This class implements Mailer interface.
 						fromdate.second))
 			todate = filter.crdate.to
 			if not isInfinite(todate):
-				conditions.append("mail_archive.crdate < '%d-%d-%d %d:%d:%d'" %
+				conditions.append("ma.crdate < '%d-%d-%d %d:%d:%d'" %
 						(todate.date.year,
 						todate.date.month,
 						todate.date.day,
@@ -537,7 +644,7 @@ This class implements Mailer interface.
 						todate.minute,
 						todate.second))
 			if filter.fulltext:
-				conditions.append("mail_archive.message LIKE '%%%s%%'" %
+				conditions.append("ma.message LIKE '%%%s%%'" %
 						pgdb._quote(filter.fulltext)[1:-1])
 			if len(conditions) == 0:
 				cond = ""
@@ -553,22 +660,19 @@ This class implements Mailer interface.
 			self.l.log(self.l.DEBUG, "<%d> Search WHERE clause is: %s" %
 					(id, cond))
 			# execute MEGA GIGA query :(
-			cur.execute("SELECT mail_archive.id, mail_archive.mailtype, "
-					"mail_archive.crdate, mail_archive.moddate, "
-					"mail_archive.status, mail_archive.message, "
-					"mail_attachments.attachid, mail_handles.associd "
-					"FROM mail_archive LEFT JOIN mail_handles ON "
-					"(mail_archive.id = mail_handles.mailid) LEFT JOIN "
-					"mail_attachments ON (mail_archive.id = "
-					"mail_attachments.mailid) %s ORDER BY mail_archive.id" %
-					cond)
+			cur.execute("SELECT ma.id, ma.mailtype, ma.crdate, ma.moddate, "
+						"ma.status, ma.message, mt.attachid, mh.associd "
+					"FROM mail_archive ma "
+					"LEFT JOIN mail_handles mh ON (ma.id = mh.mailid) "
+					"LEFT JOIN mail_attachments mt ON (ma.id = mt.mailid) "
+					"%s ORDER BY ma.id" % cond)
 			self.db.releaseConn(conn)
 			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
 					(id, cur.rowcount))
 
 			# Create an instance of MailSearch_i and an MailSearch object ref
 			searchobj = MailSearch_i(id, cur, self.l)
-			self.search_objects.append(searchobj)
+			self.search_objects.put(searchobj)
 			searchref = self.rootpoa.servant_to_reference(searchobj)
 			return searchref
 
@@ -683,7 +787,7 @@ Class encapsulating results of search.
 					(self.id, len(maillist)))
 			return maillist
 
-		except MailSearch.NotActive, e:
+		except ccReg.MailSearch.NotActive, e:
 			raise
 		except Exception, e:
 			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %

@@ -16,7 +16,7 @@ import dns.resolver
 import dns.message
 import dns.query
 
-debug = True
+debug = False
 testdomain = "enum.nic.cz"
 
 def dbg_print(msg):
@@ -35,6 +35,9 @@ def main():
 	resolver = dns.resolver.Resolver()
 	# create common query for all nameservers
 	query = dns.message.make_query(testdomain, "A")
+	# list of faulty nameservers
+	renegades = []
+	error = False
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
 		ns = nsarg.split(',')[0]
@@ -51,14 +54,18 @@ def main():
 				pass
 		# did we got response for any of ip addresses of nameserver ?
 		if not message:
-			sys.stdout.write(ns)
-			return 2
+			error = True
 		# if there is any answer it means that recursive query was done
-		if len(message.answer):
+		elif len(message.answer):
 			dbg_print("Length of answer is non zero: %s" % message.answer)
-			sys.stdout.write(ns)
-			return 1
-	# no nameserver gave recursive answer
+			renegades.append(ns)
+	# epilog
+	if renegades:
+		for ns in renegades:
+			sys.stdout.write("%s " % ns)
+		return 1
+	if error:
+		return 2
 	return 0
 
 if __name__ == "__main__":

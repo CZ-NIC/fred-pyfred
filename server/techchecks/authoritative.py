@@ -7,8 +7,8 @@ This script returns:
 	1 if any of nameservers does not give authoritative answer.
 	2 if usage or other error occurs.
 
-To stderr go error messages and to stdout goes nameserver and domain which
-caused a failure or error. From stdin is read a list of domains for which
+To stderr go error messages and to stdout go nameservers and domains which
+caused a failure. From stdin is read a list of domains for which
 the nameserver is tested for authoritativity.
 """
 
@@ -26,9 +26,13 @@ def main():
 	domains = sys.stdin.read().strip().split(' ')
 	# create resolver object
 	resolver = dns.resolver.Resolver()
+	# dictionary of renegades
+	renegades = {}
+	error = False
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
 		ns = nsarg.split(',')[0]
+		renegades[ns] = []
 		# get ip addresses of nameserver
 		ipaddrs = dns.resolver.query(ns)
 		# iterate through all domains
@@ -44,11 +48,19 @@ def main():
 					pass
 			# did we got response for any of ip addresses of nameserver ?
 			if not message or not message.answer:
-				sys.stdout.write("%s:%s " % (ns, domain))
-				return 2
-			if not ( message.flags & (2 ** (15-5)) ):
-				sys.stdout.write("%s:%s " % (ns, domain))
-				return 1
+				error = True
+			elif not ( message.flags & (2 ** (15-5)) ):
+				renegades[ns].append(domain)
+	if renegades:
+		for ns in renegades:
+			domain_list = renegades[ns]
+			sys.stdout.write(ns)
+			for fqdn in domain_list:
+				sys.stdout.write(",%s" % fqdn)
+			sys.stdout.write(" ")
+		return 1
+	if error:
+		return 2
 	return 0
 
 if __name__ == "__main__":

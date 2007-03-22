@@ -45,6 +45,7 @@ install-idl: build
 
 install-server: \
 		../server/pyfred.py \
+		../server/pyfredctl.py \
 		../server/pyfred_util.py \
 		../server/genzone.py \
 		../server/whois.py \
@@ -59,6 +60,7 @@ install-server: \
 	$(INSTALL) -d $(PREFIX)/usr/lib/pyfred/server/techchecks
 	$(INSTALL) -d $(PREFIX)/etc
 	$(INSTALL) ../server/pyfred.py      $(PREFIX)/usr/bin
+	$(INSTALL) ../server/pyfredctl.py   $(PREFIX)/usr/bin/pyfredctl
 	$(INSTALL) ../server/pyfred_util.py $(PREFIX)/usr/lib/pyfred/server
 	$(INSTALL) ../server/genzone.py     $(PREFIX)/usr/lib/pyfred/server
 	$(INSTALL) ../server/whois.py       $(PREFIX)/usr/lib/pyfred/server
@@ -148,6 +150,7 @@ uninstall-idl:
 uninstall-server:
 	@echo Uninstalling pyfred server
 	-rm -f $(PREFIX)/usr/bin/pyfred.py
+	-rm -f $(PREFIX)/usr/bin/pyfredctl
 	-rm -f $(PREFIX)/usr/lib/pyfred/server/pyfred_util.py
 	-rm -f $(PREFIX)/usr/lib/pyfred/server/genzone.py
 	-rm -f $(PREFIX)/usr/lib/pyfred/server/whois.py

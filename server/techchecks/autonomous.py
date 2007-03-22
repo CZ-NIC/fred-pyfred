@@ -7,19 +7,18 @@ This script returns:
 	1 if the previous condition does not hold,
 	2 if usage or other error occurs.
 
-To stderr go debug and error messages, to stdout go encountered autonomous
-systems separated by space.
+To stderr go debug and error messages, to stdout goes nothing.
 
 Autonomous system
-    is more or less synonymum for routing domain. The purpose of this test
-is to ensure, that if a routing domain including nameserver goes down, another 
-nameserver can be still reached.
+    is synonymum for routing domain. The purpose of this test is to ensure,
+that if a routing domain including nameserver goes down, another nameserver
+can still be reached.
 """
 
 import sys, commands, re
 import dns.resolver
 
-debug = True
+debug = False
 whoisbin = "whois"
 
 def dbg_print(msg):
@@ -69,7 +68,6 @@ def main():
 				dbg_print("Autonomous system is not known")
 				return 0
 			dbg_print("IP %s is from autonomous system %s" % (rr, as_curr))
-			sys.stdout.write(as_curr + ' ')
 			# if it is first entry, then put it in as_base ...
 			if not as_first:
 				as_first = as_curr

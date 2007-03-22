@@ -5,7 +5,8 @@ Content:
     1. Introduction
     2. Configuration
     3. Templating
-    4. Further reading
+    4. Signing
+    5. Further reading
 
 
 1. Introduction
@@ -22,16 +23,18 @@ of email consists of following steps:
 
     1) Merging client provided mail headers and defaults stored in database.
 
-    2) Running data set provided by client through template stored in database.
-       Client selects template by identifier (name of template). Client may
-       specify more than one template. Each template will produce part of
-       multipart email message of MIME type text/*.
+    2) Running dataset provided by client and default dataset stored in
+       database through templates and subject stored in database and
+       selected according to email type, which is given by client.
+       Mail type may contain multiple templates, each template will produce
+       one part of multipart email message of MIME type text/*.
 
-    3) The so far generated email is archived in database in text form together
-       with some meta information (creation date, associated handles, ...).
+    3) Attachments not intended to be templated are retrieved from file-manager
+       daemon, base64-encoded and attached to existing email message.
 
-    4) Attachments not intended to be templated are retrieved from file
-       manager daemon, base64-encoded and attached to existing email message.
+    4) The generated email (excluding non-templated attachments) is archived
+       in database in text form together with some meta information (creation
+       date, associated handles, ...).
 
     5) At the end the whole MIME multipart email message is transformed to
        text and sent by sendmail program. The sendmail return status is
@@ -43,7 +46,12 @@ which must be fulfilled by email message in order to be chosen for retrieval.
 The set of results is then transfered in chunks, of which size can be specified
 by client. When all data are transfered or they are not wanted anymore, the
 transfer should be closed. Server has mechanism for auto-cleaning of transfers,
-which are too old.
+which seem to be unused.
+
+There exist a utility which makes working with templates easier. It is
+the script template_sucket in directory utils, which is capable of
+printing of templates stored in database in well arranged manner and
+printing of variables used in individual templates.
 
 
 2. Configuration
@@ -57,6 +65,8 @@ these is mandatory, default values are shown here.
     filemanager_object = FileManager
     idletreshold = 3600
     checkperiod = 10
+    certfile=/ssl/server.crt
+    keyfile=/ssl/server.key
 
 If 'testmode' is enabled, the emails are not really sent to appropriate
 recipients, but to address(es) specified by 'tester' directive. This is useful
@@ -64,7 +74,11 @@ when debugging the mailer. 'testmode' is by default off. 'sendmail' is a path
 to binary compatible with original sendmail program (just functionality for
 sending of emails is required). Filemanager is object responsible for managing
 binary attachments. idletreshold and checkperiod influence auto-cleaning
-algorithm.
+algorithm of search objects.
+
+Last two directives: certfile and keyfile, are connected with email signing.
+Every email which is sent is signed. For signing is used server's certificate
+given by certfile path and server's private key given by keyfile path.
 
 
 3. Templating
@@ -85,15 +99,35 @@ All substitution commands are enclosed in '<?cs' and '?>'.
   This is example of condition. If variable 'bar' is True then content of
   it is displayed. Otherwise the text after else is displayed.
 
-  TODO iterations ...
-
 The values for variables (in our case 'foo' and 'bar') are provided by
 parameter of function for sending email, which is a list of key-value
 structures.
 
-4. Further reading
+Iterations can be done in following way (assuming we have defined myset,
+which contains elements, which in turn have attributes key and value):
+
+  <?cs each:item = myset ?>
+    Key of element of myset: <?cs var:item.key ?>
+    Value of element of myset: <?cs var:item.value ?>
+  <?cs /each ?>
+
+
+4. Signing
+
+The signing is done by m2crypto python library which is just a wrapper around
+openssl library. The email is signed as whole - it means including all MIME
+subparts and headers. It is not possible to sign individual attachments by now.
+If you change certificate or key, you need to restart the server in order for
+changes to take effect.
+
+
+5. Further reading
 
 Details of corba interface are specified in IDL file Mailer.idl. Look there
 for email headers which may be overwritten, exceptions which can be raised
 and useful parameters to functions.
 
+Information about templating system may be found at official page of
+clearsilver library (http://www.clearsilver.net/docs/). The templates
+are part of database creation scripts and are grouped together in file
+mail_templates.sql.

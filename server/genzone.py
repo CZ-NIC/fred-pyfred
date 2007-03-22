@@ -4,7 +4,7 @@
 Code of server-side of zone generator.
 """
 
-import sys, time, random, ConfigParser
+import sys, time, random, ConfigParser, Queue
 import pgdb
 import ccReg, ccReg__POA
 from pyfred_util import ipaddrs2list
@@ -45,7 +45,7 @@ This class implements interface used for generation of a zone file.
 		self.db = db  # db object
 		self.l = logger # syslog functionality
 		self.rootpoa = rootpoa # root poa for new servants
-		self.zone_objects = [] # list of current transfers
+		self.zone_objects = Queue.Queue(-1) # list of current transfers
 
 		self.safeperiod = 31
 		self.exhour = 14
@@ -125,7 +125,12 @@ This class implements interface used for generation of a zone file.
 		"""
 		self.l.log(self.l.DEBUG, "Regular maintance procedure.")
 		remove = []
-		for item in self.zone_objects:
+		# the queue may change and the number of items in the queue may grow
+		# but we can be sure that there will be never less items than nitems
+		# therefore we can use blocking call get() on queue
+		nitems = self.zone_objects.qsize()
+		for i in range(nitems):
+			item = self.zone_objects.get()
 			# test idleness of object
 			if time.time() - item.lastuse > self.idletreshold:
 				item.status = item.IDLE
@@ -139,11 +144,13 @@ This class implements interface used for generation of a zone file.
 				self.l.log(self.l.DEBUG, "Idle zone-object with id %d "
 						"destroyed." % item.id)
 				remove.append(item)
+			# if object is active - reinsert the object in queue
+			else:
+				self.zone_objects.put(item)
 		# delete objects scheduled for deletion
 		for item in remove:
 			id = self.rootpoa.servant_to_id(item)
 			self.rootpoa.deactivate_object(id)
-			self.zone_objects.remove(item)
 
 	def __dbGetStaticData(self, conn, zonename, id):
 		"""
@@ -336,7 +343,7 @@ This class implements interface used for generation of a zone file.
 
 			# Create an instance of ZoneData_i and an ZoneData object ref
 			zone_obj = ZoneData_i(id, zonename, cursor, self.l)
-			self.zone_objects.append(zone_obj)
+			self.zone_objects.put(zone_obj)
 			zone_ref = self.rootpoa.servant_to_reference(zone_obj)
 
 			# well done

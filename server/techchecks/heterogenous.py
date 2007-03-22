@@ -7,13 +7,12 @@ This script returns:
 	1 if any of nameservers has recursive flag set.
 	2 if usage or other error occurs.
 
-To stderr go debug and error messages, to stdout go encountered dns
-implementations separated by space.
+To stderr go debug and error messages, to stdout goes nothing.
 """
 
 import sys, commands, re
 
-debug = True
+debug = False
 fpdnsbin = "fpdns"
 
 def dbg_print(msg):
@@ -51,7 +50,6 @@ def main():
 			continue
 		dns_soft = label.groups()[0]
 		dbg_print("Matched item: %s" % dns_soft)
-		sys.stdout.write("'%s' " % dns_soft.strip())
 		if not software:
 			software = dns_soft
 		else:

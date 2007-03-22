@@ -4,11 +4,45 @@
 Code of techcheck daemon.
 """
 
-import sys, pgdb, time, random, ConfigParser, commands, os, popen2
+import sys, pgdb, time, random, ConfigParser, commands, os, popen2, Queue
 from exceptions import SystemExit
+from pyfred_util import isInfinite
+import CosNaming
 import ccReg, ccReg__POA
 
-def convArray(list):
+def safeNull(str):
+	"""
+Substitute None value by empty string.
+	"""
+	if not str:
+		return ""
+	return str
+
+def convFromReason(reason):
+	"""
+Convert IDL reason to numeric code used in database.
+	"""
+	if reason == ccReg.CHKR_EPP:
+		return 1
+	if reason == ccReg.CHKR_MANUAL:
+		return 2
+	if reason == ccReg.CHKR_REGULAR:
+		return 3
+	return 0 # code of unknown reason
+
+def convToReason(number):
+	"""
+Convert IDL reason to numeric code used in database.
+	"""
+	if number == 1:
+		return ccReg.CHKR_EPP
+	if number == 2:
+		return ccReg.CHKR_MANUAL
+	if number == 3:
+		return ccReg.CHKR_REGULAR
+	return ccReg.CHKR_ANY # code of unknown reason
+
+def convList2Array(list):
 	"""
 Converts python list to pg array.
 	"""
@@ -20,6 +54,15 @@ Converts python list to pg array.
 		array = array[0:-1]
 	array += '}'
 	return pgdb._quote(array)
+
+def convArray2List(array):
+	"""
+Converts pg array to python list.
+	"""
+	# trim {,} chars
+	array = array[1:-1]
+	if not array: return []
+	return array.split(',')
 
 def getDomainData(cursor, lastrow):
 	"""
@@ -48,6 +91,23 @@ Assemble data about domain from db rows to logical units.
 	return currow, objid, histid, domain, nslist, level
 
 
+class RegularCheck:
+	"""
+This class gathers data needed for regular technical check.
+	"""
+	def __init__(self, id, handle, objid, nsset_hid, level, nslist, fqdns):
+		"""
+	Initializes data representing regular technical check.
+		"""
+		self.id = id
+		self.handle = handle
+		self.objid = objid
+		self.nsset_hid = nsset_hid
+		self.level = level
+		self.nslist = nslist
+		self.fqdns = fqdns
+
+
 class TechCheck_i (ccReg__POA.TechCheck):
 	"""
 This class implements TechCheck interface.
@@ -57,7 +117,7 @@ This class implements TechCheck interface.
 	CHK_WARNING = 1
 	CHK_NOTICE = 2
 
-	def __init__(self, logger, db, conf):
+	def __init__(self, logger, db, nsref, conf, joblist, rootpoa):
 		"""
 	Initializer saves db (which is later used for opening database
 	connection) and logger (used for logging).
@@ -65,23 +125,43 @@ This class implements TechCheck interface.
 		# ccReg__POA.TechCheck doesn't have constructor
 		self.db = db # db connection string
 		self.l = logger # syslog functionality
+		self.nsref = nsref # used to resolv mailer object
+		self.rootpoa = rootpoa # used for creation of search objects
+		self.search_objects = Queue.Queue(-1)
+		self.idle_rounds = 0 # counter of so far idle rounds (see missrounds)
 
 		# default configuration
 		self.scriptdir = ""
 		self.exMsg = 7
 		self.testmode = False
+		self.mailer = "Mailer"
+		self.mailtype = "techcheck"
+		self.idletreshold = 3600
+		self.checkperiod = 60
+		self.queueperiod = 5
+		self.oldperiod = 30
+		self.missrounds = 10
 		# Parse TechCheck-specific configuration
 		if conf.has_section("TechCheck"):
 			try:
 				scriptdir = conf.get("TechCheck", "scriptdir")
 				if scriptdir:
+					self.l.log(self.l.DEBUG, "scriptdir is set to '%s'." %
+							scriptdir)
 					self.scriptdir = scriptdir.strip()
 			except ConfigParser.NoOptionError, e:
 				pass
 			try:
 				exMsg = conf.get("TechCheck", "msgLifetime")
 				if exMsg:
-					self.exMsg = int(exMsg)
+					try:
+						self.exMsg = int(exMsg)
+						self.l.log(self.l.DEBUG, "Poll message lifetime is set "
+								"to %d days." % self.exMsg)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for msgLifetime "
+								"configuration directive.")
+						raise
 			except ConfigParser.NoOptionError, e:
 				pass
 			try:
@@ -90,6 +170,96 @@ This class implements TechCheck interface.
 					if testmode.upper() in ("YES", "ON", "1"):
 						self.l.log(self.l.DEBUG, "Test mode is turned on.")
 						self.testmode = True
+					else:
+						self.testmode = False
+			except ConfigParser.NoOptionError, e:
+				pass
+			try:
+				mailer = conf.get("TechCheck", "mailer_object")
+				if mailer:
+					self.l.log(self.l.DEBUG, "mailer object name is set to '%s'."
+							% mailer)
+					self.mailer = mailer
+			except ConfigParser.NoOptionError, e:
+				pass
+			try:
+				mailtype = conf.get("TechCheck", "mailtype")
+				if mailtype:
+					self.l.log(self.l.DEBUG, "mailtype is set to '%s'." %
+							mailtype)
+					self.mailtype = mailtype
+			except ConfigParser.NoOptionError, e:
+				pass
+			# check period
+			try:
+				checkperiod = conf.get("TechCheck", "checkperiod")
+				if checkperiod:
+					self.l.log(self.l.DEBUG, "checkperiod is set to '%s'." %
+							checkperiod)
+					try:
+						self.checkperiod = int(checkperiod)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for checkperiod "
+								"configuration directive.")
+						raise
+
+			except ConfigParser.NoOptionError, e:
+				pass
+			# queues inspect period
+			try:
+				queueperiod = conf.get("TechCheck", "queueperiod")
+				if queueperiod:
+					self.l.log(self.l.DEBUG, "queueperiod is set to '%s'." %
+							checkperiod)
+					try:
+						self.queueperiod = int(queueperiod)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for checkperiod "
+								"configuration directive.")
+						raise
+
+			except ConfigParser.NoOptionError, e:
+				pass
+			# idle treshold
+			try:
+				idletreshold = conf.get("TechCheck", "idletreshold")
+				if idletreshold:
+					self.l.log(self.l.DEBUG, "idletreshold is set to '%s'." %
+							idletreshold)
+					try:
+						self.idletreshold = int(idletreshold)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for idletreshold"
+								" configuration directive.")
+						raise
+			except ConfigParser.NoOptionError, e:
+				pass
+			# oldperiod
+			try:
+				oldperiod = conf.get("TechCheck", "oldperiod")
+				if oldperiod:
+					self.l.log(self.l.DEBUG, "oldperiod is set to '%s'." %
+							oldperiod)
+					try:
+						self.oldperiod = int(oldperiod)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for oldperiod"
+								" configuration directive.")
+						raise
+			except ConfigParser.NoOptionError, e:
+				pass
+			# missrounds
+			try:
+				missrounds = conf.get("TechCheck", "missrounds")
+				if missrounds:
+					self.l.log(self.l.DEBUG, "missrounds is set to '%s'." %
+							missrounds)
+					try:
+						self.missrounds = int(missrounds)
+					except ValueError, e:
+						self.l.log(self.l.ERR, "Number required for missrounds"
+								" configuration directive.")
+						raise
 			except ConfigParser.NoOptionError, e:
 				pass
 		if not self.scriptdir:
@@ -102,7 +272,173 @@ This class implements TechCheck interface.
 		# add trailing '/' to scriptdir if not given
 		if self.scriptdir[-1] != '/':
 			self.scriptdir += '/'
+		# build test suite based on values from database
+		conn = self.db.getConn()
+		self.testsuite = self.__dbBuildTestSuite(conn)
+		self.db.releaseConn(conn)
+		# create four queues for requests
+		# queue for regularly scheduled checks
+		self.queue_regular = Queue.Queue(-1)
+		# queue for prioritized out-of-order checks
+		self.queue_ooo = Queue.Queue(-1)
+		# queue for regular checks which failed one time
+		self.queue_failed = Queue.Queue(-1)
+		# queue for regular checks which failed two times
+		self.queue_last = Queue.Queue(-1)
+		# schedule regular queues inspection job
+		joblist.append( { "callback":self.__inspect_queues, "context":None,
+			"period":self.queueperiod, "ticks":1 } )
+		# schedule regular cleanup of search objects
+		joblist.append( { "callback":self.__search_cleaner, "context":None,
+			"period":self.checkperiod, "ticks":1 } )
 		self.l.log(self.l.INFO, "Object initialized")
+
+	def __inspect_queues(self, ctx):
+		"""
+	Process records in queues. This method processes one request from
+	a queue and exits. It is important to do things quickly and exit,
+	otherwise other regular jobs get blocked.
+		"""
+		# at first check out-of-order requests (i.e. comming from epp)
+		if not self.queue_ooo.empty():
+			(id, nsset, nsset_hid, level, nslist, fqdns_extra, fqdns_all,
+					dig, regid, reason) = self.queue_ooo.get()
+			self.l.log(self.l.DEBUG, "<%d> Found scheduled ooo tech check." % id)
+			(status, results) = self.__runTests(id, fqdns_all, nslist, level)
+			# XXX temporary hack until EPP interface will be changed
+			if not fqdns_all:
+				fqdn = ''
+			else:
+				fqdn = fqdns_all[0]
+			# XXX end of hack
+			pollmsg = self.__createPollMsg(nsset, fqdn, results)
+			try:
+				conn = self.db.getConn()
+				self.__dbQueuePollMsg(conn, regid, pollmsg)
+				# archive results of check
+				self.__dbArchiveCheck(conn, nsset_hid, fqdns_extra, status,
+						results, reason, dig, 1)
+				# commit changes in archive and message queue
+				conn.commit()
+				self.db.releaseConn(conn)
+			except pgdb.DatabaseError, e:
+				self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
+			return
+		# when there are not ooo requests, there is time for regular checks
+		# recruit new regular check
+		if self.idle_rounds > 0:
+			self.idle_rounds -= 1
+		else:
+			check_obj = None
+			try:
+				id = random.randint(1, 9999) # generate random id of check
+				conn = self.db.getConn()
+				handle, objid, nsset_hid, nslist, level = self.__dbGetNsset(conn)
+				self.l.log(self.l.DEBUG, "<%d> Regular check created "
+						"(nsset = %s)." % (id, handle))
+				# dig associated domains
+				fqdns = self.__dbGetAssocDomains(conn, objid)
+				check_obj = RegularCheck(id, handle, objid, nsset_hid, level,
+						nslist, fqdns)
+				# run the tests
+				status, results = self.__runTests(id, check_obj.fqdns,
+						check_obj.nslist, check_obj.level)
+				# archive results of tests
+				checkid = self.__dbArchiveCheck(conn, check_obj.nsset_hid, [],
+						status, results, ccReg.CHKR_REGULAR, True, 1)
+				conn.commit()
+				if status == 1:
+					self.queue_failed.put(check_obj)
+					self.l.log(self.l.DEBUG, "<%d> Regular check failed - "
+							"repetition scheduled." % id)
+				self.db.releaseConn(conn)
+				return
+			except pgdb.DatabaseError, e:
+				self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
+				return
+			except ccReg.TechCheck.NssetNotFound, e:
+				self.idle_rounds = self.missrounds
+				self.l.log(self.l.DEBUG, "<%d> Activating low-cost working" % id)
+
+		# when all regular checks are done, try again the failed checks
+		try:
+			conn = self.db.getConn()
+			if not self.queue_failed.empty():
+				check_obj = self.queue_failed.get()
+				self.l.log(self.l.DEBUG, "<%d> Failed check revisited." %
+						check_obj.id)
+				# run the tests
+				status, results = self.__runTests(check_obj.id, check_obj.fqdns,
+						check_obj.nslist, check_obj.level)
+				# archive results of tests
+				checkid = self.__dbArchiveCheck(conn, check_obj.nsset_hid, [],
+						status, results, ccReg.CHKR_REGULAR, True, 2)
+				conn.commit()
+				if status == 1:
+					self.queue_last.put(check_obj)
+					self.l.log(self.l.DEBUG, "<%d> Repeated check failed - "
+							"repetition scheduled." % check_obj.id)
+			# finally last chance to get better if two previous attempts failed
+			elif not self.queue_last.empty():
+				check_obj = self.queue_last.get()
+				self.l.log(self.l.DEBUG, "<%d> Failed check revisited." %
+						check_obj.id)
+				# run the tests
+				status, results = self.__runTests(check_obj.id, check_obj.fqdns,
+						check_obj.nslist, check_obj.level)
+				# archive results of tests
+				checkid = self.__dbArchiveCheck(conn, check_obj.nsset_hid, [],
+						status, results, ccReg.CHKR_REGULAR, True, 3)
+				conn.commit()
+				# send email notification if nsset failed three times
+				if status == 1:
+					emails = self.__dbGetEmail(conn, check_obj.objid)
+					self.l.log(self.l.DEBUG, "<%d> Last chance waisted - check "
+							"failed." % check_obj.id)
+					# it is possible that nsset does not exist any more
+					if not emails:
+						self.l.log(self.l.DEBUG, "<%d> No contacts to be "
+								"notified about bad nsset." % check_obj.id)
+					else:
+						self.__notify(check_obj.id, checkid, emails,
+								check_obj.handle, results)
+			self.db.releaseConn(conn)
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "<0> Database error: %s" % e)
+		return
+
+	def __search_cleaner(self, ctx):
+		"""
+	Method deletes closed or idle search objects.
+		"""
+		self.l.log(self.l.DEBUG, "Regular maintance procedure.")
+		remove = []
+		# the queue may change and the number of items in the queue may grow
+		# but we can be sure that there will be never less items than nitems
+		# therefore we can use blocking call get() on queue
+		nitems = self.search_objects.qsize()
+		for i in range(nitems):
+			item = self.search_objects.get()
+			# test idleness of object
+			if time.time() - item.lastuse > self.idletreshold:
+				item.status = item.IDLE
+
+			# schedule objects to be deleted
+			if item.status == item.CLOSED:
+				self.l.log(self.l.DEBUG, "Closed search-object with id %d "
+						"destroyed." % item.id)
+				remove.append(item)
+			elif item.status == item.IDLE:
+				self.l.log(self.l.DEBUG, "Idle search-object with id %d "
+						"destroyed." % item.id)
+				remove.append(item)
+			# if object is active - reinsert the object in queue
+			else:
+				self.search_objects.put(item)
+		# delete objects scheduled for deletion
+		for item in remove:
+			id = self.rootpoa.servant_to_id(item)
+			self.rootpoa.deactivate_object(id)
 
 	def __dbBuildTestSuite(self, conn):
 		"""
@@ -131,6 +467,26 @@ This class implements TechCheck interface.
 		cur.close()
 		return testsuite
 
+	def __dbGetEmail(self, conn, objid):
+		"""
+	Get email addresses of all technical contacts for given nsset.
+	We prefer notifyEmail if it is not empty, otherwise we have to use
+	normal email addresse.
+		"""
+		cur = conn.cursor()
+		cur.execute("SELECT c.notifyemail, c.email, oreg.name "
+				"FROM object_registry oreg, contact c, nsset_contact_map ncm "
+				"WHERE oreg.id = c.id AND c.id = ncm.contactid AND "
+					"ncm.nssetid = %d" % objid)
+		emails = []
+		for row in cur.fetchall():
+			if row[0]:
+				emails.append((row[0], row[2]))
+			else:
+				emails.append((row[1], row[2]))
+		cur.close()
+		return emails
+
 	def __dbGetAssocDomains(self, conn, objid):
 		"""
 	Dig all associated domains with nsset from database.
@@ -143,26 +499,38 @@ This class implements TechCheck interface.
 		cur.close()
 		return fqdns
 
-	def __dbGetNssets(self, cur, handle = ''):
+	def __dbGetNsset(self, conn, nsset = ''):
 		"""
-	Get all active nssets. If handle is not empty string, then get just one
-	nsset with given handle.
-		"""
-		sql = "SELECT oreg.id, oreg.historyid, oreg.name, ns.checklevel " \
-				"FROM object_registry oreg, nsset ns " \
-				"WHERE oreg.id = ns.id AND oreg.type = 2"
-		if handle:
-			sql += " AND upper(oreg.name) = upper(%s)" % pgdb._quote(handle)
-		cur.execute(sql)
-
-	def __dbGetHosts(self, conn, id):
-		"""
-	Get hosts, their ip addresses and domain names associated with nsset.
+	Get all data about nsset from database needed for technical checks.
 		"""
 		cur = conn.cursor()
+		# get nsset data (id, history id and checklevel)
+		if nsset:
+			cur.execute("SELECT oreg.name, oreg.id, oreg.historyid, oreg.name, "
+						"ns.checklevel "
+					"FROM object_registry oreg, nsset ns "
+					"WHERE oreg.id = ns.id AND oreg.type = 2 AND "
+						"upper(oreg.name) = upper(%s)" % pgdb._quote(nsset))
+		else:
+			cur.execute("SELECT oreg.name, oreg.id, oreg.historyid, oreg.name, "
+						"ns.checklevel "
+					"FROM object_registry oreg "
+					"LEFT JOIN check_nsset cn ON (cn.nsset_hid=oreg.historyid), "
+						"nsset ns "
+					"WHERE (oreg.id = ns.id) AND (oreg.type = 2) AND "
+						"(cn.nsset_hid NOT IN "
+							"(SELECT nsset_hid FROM check_nsset "
+							 "WHERE (age(now(),checkdate)) <interval '%d days') "
+						"OR cn.id IS NULL) LIMIT 1" % self.oldperiod)
+
+		if cur.rowcount == 0:
+			cur.close()
+			raise ccReg.TechCheck.NssetNotFound()
+		handle, objid, histid, handle, level = cur.fetchone()
+		# get nameservers (fqdns and ip addresses) of hosts belonging to nsset
 		cur.execute("SELECT h.fqdn, ip.ipaddr FROM host h LEFT JOIN "
 				"host_ipaddr_map ip ON (h.id = ip.hostid) WHERE h.nssetid = %d "
-				"ORDER BY h.fqdn" % id)
+				"ORDER BY h.fqdn" % objid)
 		row = cur.fetchone()
 		nameservers = {}
 		while row:
@@ -175,36 +543,15 @@ This class implements TechCheck interface.
 				nameservers[fqdn] = []
 			row = cur.fetchone()
 		cur.close()
-		return nameservers
+		return handle, objid, histid, nameservers, level
 
-	def __dbGetNssetData(self, conn, nsset):
-		"""
-	Get all data about nsset from database needed for technical checks.
-		"""
-		cur = conn.cursor()
-		# get nsset data (id, history id and checklevel)
-		self.__dbGetNssets(cur, handle = nsset)
-		if cur.rowcount == 0:
-			raise ccReg.TechCheck.NssetNotFound()
-		objid, histid, handle, level = cur.fetchone()
-		cur.close()
-		# get nameservers (fqdns and ip addresses) of hosts belonging to nsset
-		nameservers = self.__dbGetHosts(conn, objid)
-		return objid, histid, nameservers, level
-
-	def __dbArchiveCheck(self, conn, histid, fqdns, status, results, reason):
+	def __dbArchiveCheck(self, conn, histid, fqdns, status, results, reason,
+			dig, attempt):
 		"""
 	Archive result of technical test on domain in database.
 		"""
 		# convert IDL code of check-reason to database code
-		if reason == ccReg.CHKR_EPP:
-			reason_enum	= 1
-		elif reason == ccReg.CHKR_MANUAL:
-			reason_enum	= 2
-		elif reason == ccReg.CHKR_REGULAR:
-			reason_enum	= 3
-		else:
-			reason_enum	= 0 # code of unknown reason
+		reason_enum = convFromReason(reason)
 		cur = conn.cursor()
 
 		# get next ID of archive record from database
@@ -212,11 +559,10 @@ This class implements TechCheck interface.
 		archid = cur.fetchone()[0]
 		# insert main archive record
 		cur.execute("INSERT INTO check_nsset (id, nsset_hid, reason, "
-					"overallstatus, extra_fqdns) "
-				"VALUES (%d, %d, %d, %d, %s)" %
-				(archid, histid, reason_enum, status, convArray(fqdns)))
-				# in SQL command above we benefit from equal string
-				# representation of python's list and postgresql's array
+					"overallstatus, extra_fqdns, dig, attempt) "
+				"VALUES (%d, %d, %d, %d, %s, %s, %d)" %
+				(archid, histid, reason_enum, status, convList2Array(fqdns),
+					dig, attempt))
 		# archive results of individual tests
 		for resid in results:
 			result = results[resid]
@@ -234,6 +580,7 @@ This class implements TechCheck interface.
 					"VALUES (%d, %d, %d, %s, %s)" %
 					(archid, resid, result["result"], raw_note, raw_data))
 		cur.close()
+		return archid
 
 	def __dbGetRegistrar(self, conn, reghandle):
 		"""
@@ -258,7 +605,7 @@ This class implements TechCheck interface.
 				(regid, self.exMsg, pgdb._quote(xml_message)))
 		cur.close()
 
-	def __runTests(self, id, testsuite, fqdns, nslist, level):
+	def __runTests(self, id, fqdns, nslist, level):
 		"""
 	Run all enabled tests bellow given level.
 		"""
@@ -268,10 +615,10 @@ This class implements TechCheck interface.
 		results = {}
 		overallstatus = 0 # by default we assume that all tests were passed
 		# perform all enabled tests (the ids must be sorted!)
-		testkeys = testsuite.keys()
+		testkeys = self.testsuite.keys()
 		testkeys.sort()
 		for testid in testkeys:
-			test = testsuite[testid]
+			test = self.testsuite[testid]
 			# check level
 			if test["level"] > level:
 				self.l.log(self.l.DEBUG, "<%d> Omitting test '%s' becauseof its "
@@ -297,11 +644,16 @@ This class implements TechCheck interface.
 			if not req_ok:
 				# prerequisities were not satisfied
 				continue
+			if test["need_domain"] and not fqdns:
+				# list of domains is required for the test but is not given
+				self.l.log(self.l.DEBUG, "<%d> Omitting test '%s' because "
+						"no domains are provided." % (id, test["name"]))
+				continue
 			#
 			# command scheduled for execution has following format:
 			#    /scriptdir/script nsFqdn,ipaddr1,ipaddr2,...
 			# last part is repeated as many times as many there are nameservers.
-			# If test requires a domain name(s) they are supplied on stdin.
+			# If test requires a domain name(s), they are supplied on stdin.
 			#
 			cmd = "%s%s" % (self.scriptdir, test["script"])
 			for ns in nslist:
@@ -310,7 +662,7 @@ This class implements TechCheck interface.
 				for addr in addrs:
 					cmd += ",%s" % addr
 			# run the command
-			child = popen2.Popen3(cmd)
+			child = popen2.Popen3(cmd, True)
 			# log some debug info
 			self.l.log(self.l.DEBUG, "<%d> Running test %s, command '%s', "
 					"pid %d." % (id, test["name"], cmd, child.pid))
@@ -325,11 +677,11 @@ This class implements TechCheck interface.
 			# read both standard outputs (stdout, stderr)
 			# the length of strings is limited by available space in database
 			if child.fromchild:
-				data = child.fromchild.read(300)
+				data = child.fromchild.read()
 			else:
 				data = ''
 			if child.childerr:
-				note = child.childerr.read(300)
+				note = child.childerr.read()
 			else:
 				note = ''
 			# Status values:
@@ -344,30 +696,116 @@ This class implements TechCheck interface.
 			results[testid] = { "result" : stat, "note" : note, "data" : data }
 		return overallstatus, results
 
-	def __createPollMsg(self, nsset, fqdn, testsuite, results):
+	def __createPollMsg(self, nsset, fqdn, results):
 		"""
 	Save results of technical check in poll message.
 		"""
 		xml_message = """<nsset:testData xmlns:nsset="http://www.nic.cz/xml/epp/nsset-1.1" xsi:schemaLocation="http://www.nic.cz/xml/epp/nsset-1.1 nsset-1.1.xsd"><nsset:id>%s</nsset:id><nsset:name>%s</nsset:name>""" % (nsset, fqdn)
 		for testid in results:
-			test = testsuite[testid]
+			test = self.testsuite[testid]
 			result = results[testid]
 			xml_message += ("""<nsset:result><nsset:name>%s</nsset:name><nsset:status>%s</nsset:status></nsset:result>""" %
 					(test["name"], result["result"] == 0))
 		xml_message += ("</nsset:testData>")
 		return xml_message
 
-	def __transfmResult(self, testsuite, status, results):
+	def __transfmResult(self, results):
 		"""
 	Transform results to IDL result structure.
 		"""
-		idl_results = []
+		checkresult = []
 		for testid in results:
-			test = testsuite[testid]
+			test = self.testsuite[testid]
 			result = results[testid]
-			idl_results.append(ccReg.OneCheckResult(test["name"],
-				result["result"], result["note"], result["data"], test["level"]))
-		return ccReg.CheckResult(status, idl_results)
+			checkresult.append( ccReg.CheckResult(testid, result["result"],
+				result["note"], result["data"]) )
+		return checkresult
+
+	def __getMailerObject(self):
+		"""
+	Method retrieves Mailer object from nameservice.
+		"""
+		# Resolve the name "fred.context/FileManager.Object"
+		name = [CosNaming.NameComponent("fred", "context"),
+				CosNaming.NameComponent(self.mailer, "Object")]
+		obj = self.nsref.resolve(name)
+		# Narrow the object to an ccReg::FileManager
+		mailer_obj = obj._narrow(ccReg.Mailer)
+		return mailer_obj
+
+	def __notify(self, id, checkid, emails, handle, results):
+		"""
+	Send email notification to addresses in emails list.
+		"""
+		# obtain mailer object's reference
+		try:
+			mailer = self.__getMailerObject()
+		except CosNaming.NamingContext.NotFound, e:
+			self.l.log(self.l.ERR, "<%d> Could not get Mailer's reference: %s" %
+					(id, e))
+			raise ccReg.TechCheck.InternalError("Mailer object not accessible")
+		if mailer == None:
+			self.l.log(self.l.ERR, "<%d> Mailer reference is not mailer." % id)
+			raise ccReg.TechCheck.InternalError("Mailer object not accessible")
+
+		header = ccReg.MailHeader('','','','','','','')
+		tpldata = [ ccReg.KeyValue("handle", handle),
+				ccReg.KeyValue("ticket", checkid.__str__()),
+				ccReg.KeyValue("checkdate",time.strftime("%H:%M:%S %d-%m-%Y %Z"))
+				]
+		# construct HDF dataset (tree of data)
+		i = 0
+		for key in results:
+			i += 1
+			test = self.testsuite[key]
+			result = results[key]
+			if result["result"] == 1:
+				tpldata.append(ccReg.KeyValue("tests.%d.name"%i, test["name"]))
+				# define the level of test (error, warning or notice)
+				if test["level"] <= 3:
+					tpldata.append(ccReg.KeyValue("tests.%d.type"%i, "error"))
+				elif test["level"] <= 5:
+					tpldata.append(ccReg.KeyValue("tests.%d.type"%i, "warning"))
+				else:
+					tpldata.append(ccReg.KeyValue("tests.%d.type"%i, "notice"))
+				j = 0
+				for ns in result["data"].split():
+					j += 1
+					if test["need_domain"]:
+						ns_and_fqdns = ns.split(',')
+						tpldata.append(ccReg.KeyValue("tests.%d.ns.%d" % (i,j),
+									ns_and_fqdns[0]) )
+						k = 0
+						for fqdn in ns_and_fqdns[1:]:
+							k += 1
+							if k > 20:
+								tpldata.append(ccReg.KeyValue(
+									"tests.%d.ns.%d.overfull" % (i,j), '1') )
+								break
+							tpldata.append(ccReg.KeyValue(
+								"tests.%d.ns.%d.fqdn.%d" % (i,j,k), fqdn) )
+					else:
+						tpldata.append(
+								ccReg.KeyValue("tests.%d.ns.%d" % (i,j), ns) )
+
+		try:
+			for email in emails:
+				header.h_to = email[0]
+				mailer.mailNotify(self.mailtype, header, tpldata, [ email[1] ],
+						[], False)
+		except ccReg.Mailer.UnknownMailType, e:
+			self.l.log(self.l.ERR, "<%d> Mailer doesn't know the email type "
+					"'%s'." % (id, self.mailtype))
+			raise ccReg.TechCheck.InternalError("Error when sending email "
+					"notification.")
+		except ccReg.Mailer.SendMailError, e:
+			self.l.log(self.l.ERR, "<%d> Error when sending email." % id)
+			raise ccReg.TechCheck.InternalError("Error when sending email "
+					"notification.")
+		except ccReg.Mailer.InternalError, e:
+			self.l.log(self.l.ERR, "<%d> Internal error in Mailer " % id)
+			raise ccReg.TechCheck.InternalError("Error when sending email "
+					"notification.")
 
 	def __checkNsset(self, nsset, level, dig, archive, reason, fqdns, asynch,
 			reghandle):
@@ -383,7 +821,7 @@ This class implements TechCheck interface.
 			conn = self.db.getConn()
 
 			# get all nsset data (including nameservers)
-			objid, histid, nslist, dblevel = self.__dbGetNssetData(conn, nsset)
+			nsset, objid, histid, nslist, dblevel =self.__dbGetNsset(conn, nsset)
 			# override level if it is not zero
 			if level == 0: level = dblevel
 			# dig associated domain fqdns if told to do so
@@ -395,47 +833,27 @@ This class implements TechCheck interface.
 				all_fqdns = fqdns
 			self.l.log(self.l.DEBUG, "<%d> List of first 5 domain fqdns "
 					"from total %d: %s" % (id, len(all_fqdns), all_fqdns[0:5]))
-			# build test suite based on values in database
-			testsuite = self.__dbBuildTestSuite(conn)
 			# perform tests on the nsset
 			if asynch:
 				regid = self.__dbGetRegistrar(conn, reghandle)
-				# tests will be done in a new process
-				pid = os.fork()
-				if pid != 0:
-					self.db.releaseConn(conn)
-					return
-				# we have to reopen db connection in child
-				conn = self.db.getConn()
-				status, results = self.__runTests(id, testsuite, all_fqdns,
-						nslist, level)
-				# XXX temporary hack until EPP interface will be changed
-				if not all_fqdns: fqdn = ''
-				else: fqdn = all_fqdns[0]
-				pollmsg = self.__createPollMsg(nsset, fqdn, testsuite,
-						results)
-				self.__dbQueuePollMsg(conn, regid, pollmsg)
-				# archive results of check if told to do so
-				if archive:
-					self.__dbArchiveCheck(conn, histid, fqdns, status,
-							results, reason)
-				# commit changes in archive and message queue
-				conn.commit()
 				self.db.releaseConn(conn)
-				sys.exit()
+				self.queue_ooo.put( (id, nsset, histid, level, nslist, fqdns,
+					all_fqdns, dig, regid, reason) )
+				return
 
 			# if we are here it means that we do synchronous test
-			status, results = self.__runTests(id, testsuite, all_fqdns,
-					nslist, level)
+			(status, results) = self.__runTests(id, all_fqdns, nslist, level)
 			# archive results of check if told to do so
 			if archive:
-				self.__dbArchiveCheck(conn, histid, fqdns, status, results,
-						reason)
+				checkid = self.__dbArchiveCheck(conn, histid, fqdns, status,
+						results, reason, dig, 1)
 				# commit changes in archive
 				conn.commit()
+			else:
+				checkid = 0
 
 			self.db.releaseConn(conn)
-			return self.__transfmResult(testsuite, status, results)
+			return (self.__transfmResult(results), checkid, status)
 
 		except ccReg.TechCheck.NssetNotFound, e:
 			self.l.log(self.l.ERR, "<%d> Nsset '%s' does not exist." %
@@ -448,9 +866,6 @@ This class implements TechCheck interface.
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
 			raise ccReg.TechCheck.InternalError("Database error")
-		except SystemExit, e:
-			self.l.log(self.l.DEBUG, "<%d> TechCheck child exited." % id)
-			return
 		except Exception, e:
 			self.l.log(self.l.ERR, "<%d> Unexpected exception caught: %s:%s" %
 					(id, sys.exc_info()[0], e))
@@ -469,43 +884,25 @@ This class implements TechCheck interface.
 		"""
 		self.__checkNsset(nsset, level, dig, archive, reason, fqdns, True, regid)
 
-	def checkAll(self):
+	def checkGetTests(self):
 		"""
-	Method goes through all active domains and checks their healthy.
+	Method from IDL interface. It returns a list of active technical tests.
 		"""
 		try:
 			id = random.randint(1, 9999)
-			self.l.log(self.l.INFO, "<%d> Regular technical test of all domains "
-					"is being run." % id)
+			self.l.log(self.l.INFO, "<%d> Get list-of-tests is being called." %
+					id)
 			# connect to database
 			conn = self.db.getConn()
-
-			# build testsuite
-			testsuite = self.__dbBuildTestSuite(conn)
-			# get all registered nssets (just basic info)
-			cursor = conn.cursor()
-			self.__dbGetNssets(cursor)
-			self.l.log(self.l.DEBUG, "<%d> Number of nssets to be checked: %d." %
-					(id, cursor.rowcount))
-			# iterate through all selected nssets and test one-by-one
-			row = cursor.fetchone()
-			while row:
-				(objid, hid, handle, level) = row
-				# XXX here is a bug - there might not be any nameservers
-				# because the nsset might be deleted in meanwhile
-				nameservers = self.__dbGetHosts(conn, objid)
-				fqdns = self.__dbGetAssocDomains(conn, objid)
-				status, results = self.__runTests(id, testsuite, fqdns,
-						nameservers, level)
-				# archive results of tests
-				self.__dbArchiveCheck(conn, hid, [], status, results,
-						ccReg.CHKR_REGULAR)
-				row = cursor.fetchone()
-				# TODO send accumulated email notification
-			# finalization
-			cursor.close()
-			conn.commit()
 			self.db.releaseConn(conn)
+			# transform testsuite in list of CheckTest IDL structures
+			tests = []
+			for testid in self.testsuite:
+				test = self.testsuite[testid]
+				tests.append( ccReg.CheckTest(testid, test["name"],
+					test["level"], test["need_domain"]) )
+			return tests
+
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
 			raise ccReg.TechCheck.InternalError("Database error")
@@ -514,11 +911,185 @@ This class implements TechCheck interface.
 					(id, sys.exc_info()[0], e))
 			raise ccReg.TechCheck.InternalError("Unexpected error")
 
+	def createSearchObject(self, filter):
+		"""
+	This is universal techcheck archive lookup function. It returns object
+	reference which can be used to access data.
+		"""
+		try:
+			id = random.randint(1, 9999)
+			self.l.log(self.l.INFO, "<%d> Search create request received." % id)
+
+			# construct SQL query coresponding to filter constraints
+			conditions = []
+			if filter.checkid != -1:
+				conditions.append("chn.id = %d" % filter.checkid)
+			if filter.nsset_hid != -1:
+				conditions.append("chn.nsset_hid = %d"% filter.nsset_hid)
+			if filter.reason != ccReg.CHKR_ANY:
+				conditions.append("chn.reason = %d" %
+						convFromReason(filter.reason))
+			if filter.status != -1:
+				conditions.append("chn.overallstatus = %d" %
+						filter.status)
+			fromdate = filter.checkdate._from
+			if not isInfinite(fromdate):
+				conditions.append("chn.checkdate > '%d-%d-%d %d:%d:%d'" %
+						(fromdate.date.year,
+						fromdate.date.month,
+						fromdate.date.day,
+						fromdate.hour,
+						fromdate.minute,
+						fromdate.second))
+			todate = filter.checkdate.to
+			if not isInfinite(todate):
+				conditions.append("chn.checkdate < '%d-%d-%d %d:%d:%d'" %
+						(todate.date.year,
+						todate.date.month,
+						todate.date.day,
+						todate.hour,
+						todate.minute,
+						todate.second))
+			if len(conditions) == 0:
+				cond = ""
+			else:
+				cond = "WHERE (%s)" % conditions[0]
+				for condition in conditions[1:]:
+					cond += " AND (%s)" % condition
+
+			# connect to database
+			conn = self.db.getConn()
+			cur = conn.cursor()
+
+			self.l.log(self.l.DEBUG, "<%d> Search WHERE clause is: %s" %
+					(id, cond))
+			# execute the query
+			cur.execute("SELECT chn.id, chn.nsset_hid, chn.checkdate, "
+						"chn.reason, chn.overallstatus, chn.extra_fqdns, "
+						"chn.dig, chr.testid, chr.status, chr.note, chr.data "
+					"FROM check_nsset chn "
+					"LEFT JOIN check_result chr ON (chn.id = chr.checkid) "
+					"%s ORDER BY chn.id" % cond)
+			self.db.releaseConn(conn)
+			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
+					(id, cur.rowcount))
+
+			# Create an instance of MailSearch_i and an MailSearch object ref
+			searchobj = TechCheckSearch_i(id, cur, self.l)
+			self.search_objects.put(searchobj)
+			searchref = self.rootpoa.servant_to_reference(searchobj)
+			return searchref
+
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "Database error: %s" % e)
+			raise ccReg.TechCheck.InternalError("Database error")
+		except Exception, e:
+			self.l.log(self.l.ERR, "Unexpected exception: %s:%s" %
+					(sys.exc_info()[0], e))
+			raise ccReg.TechCheck.InternalError("Unexpected error")
+
+class TechCheckSearch_i (ccReg__POA.TechCheckSearch):
+	"""
+Class encapsulating results of search.
+	"""
+	# statuses of search object
+	ACTIVE = 1
+	CLOSED = 2
+	IDLE = 3
+
+	def __init__(self, id, cursor, log):
+		"""
+	Initializes search object.
+		"""
+		self.l = log
+		self.id = id
+		self.cursor = cursor
+		self.status = self.ACTIVE
+		self.crdate = time.time()
+		self.lastuse = self.crdate
+		self.lastrow = cursor.fetchone()
+
+	def getNext(self, count):
+		"""
+	Get result of search.
+		"""
+		try:
+			self.l.log(self.l.INFO, "<%d> Get search results request received." %
+					self.id)
+
+			# check count
+			if count < 1:
+				self.l.log(self.l.WARNING, "Invalid count of domains requested "
+						"(%d). Default value (1) is used." % count)
+				count = 1
+
+			# check status
+			if self.status != self.ACTIVE:
+				self.l.log(self.l.WARNING, "<%d> Search object is not active "
+						"anymore." % self.id)
+				raise ccReg.MailSearch.NotActive()
+
+			# update last use timestamp
+			self.lastuse = time.time()
+
+			# get 'count' results
+			checklist = []
+			for i in range(count):
+				if not self.lastrow: break
+				resultlist = []
+				currow = self.lastrow
+				checkid = self.lastrow[0]
+				while currow[0] == checkid:
+					self.lastrow = currow
+					# create CheckResult structure
+					resultlist.append( ccReg.CheckResult(currow[7], currow[8],
+						safeNull(currow[9]), safeNull(currow[10])) )
+					currow = self.cursor.fetchone()
+					if not currow: break
+				# create CheckItem structure
+				checklist.append( ccReg.CheckItem(self.lastrow[0],
+					self.lastrow[1], self.lastrow[2],
+					convToReason(self.lastrow[3]),
+					convArray2List(self.lastrow[5]),
+					self.lastrow[6], self.lastrow[4], resultlist) )
+				self.lastrow = currow
+
+			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %
+					(self.id, len(checklist)))
+			return checklist
+
+		except ccReg.TechCheckSearch.NotActive, e:
+			raise
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
+					(self.id, sys.exc_info()[0], e))
+			raise ccReg.TechCheckSearch.InternalError("Unexpected error")
+
+	def destroy(self):
+		"""
+	Mark object as ready to be destroyed.
+		"""
+		try:
+			if self.status != self.ACTIVE:
+				self.l.log(self.l.WARNING, "<%d> An attempt to close non-active "
+						"search." % self.id)
+				return
+
+			self.status = self.CLOSED
+			self.l.log(self.l.INFO, "<%d> Search closed." % self.id)
+			# close db cursor
+			self.cursor.close()
+		except Exception, e:
+			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
+					(self.id, sys.exc_info()[0], e))
+			raise ccReg.TechCheckSearch.InternalError("Unexpected error")
+
+
 def init(logger, db, nsref, conf, joblist, rootpoa):
 	"""
 Function which creates, initializes and returns servant TechCheck.
 	"""
 	# Create an instance of TechCheck_i and an TechCheck object ref
-	servant = TechCheck_i(logger, db, conf)
+	servant = TechCheck_i(logger, db, nsref, conf, joblist, rootpoa)
 	return servant, "TechCheck"
 

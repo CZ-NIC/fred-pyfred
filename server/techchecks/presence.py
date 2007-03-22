@@ -7,9 +7,11 @@ This script returns:
 	1 if any of nameservers does not contain record for the domain.
 	2 if usage or other error occurs.
 
-To stderr go error messages and to stdout goes nameserver which caused an error
-or unfulfilled condition. From stdin is read a list of domains for which
-a record must be present at nameserver.
+To stderr go error messages and to stdout go nameservers separated by space
+which don't contain appropriate records. The list of domains, which are not
+present in nameserver, are glued to nameserver's fqdn separated by commas.
+From stdin is read a list of domains for which a record must be present at
+nameserver.
 """
 
 import sys
@@ -24,9 +26,13 @@ def main():
 	domains = sys.stdin.read().strip().split(' ')
 	# create resolver object
 	resolver = dns.resolver.Resolver()
+	# dictionary of renegades
+	renegades = {}
+	error = False
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
 		ns = nsarg.split(',')[0]
+		renegades[ns] = []
 		# get ip addresses of nameserver
 		ipaddrs = dns.resolver.query(ns)
 		for domain in domains:
@@ -41,11 +47,19 @@ def main():
 					pass
 			# did we got response for any of ip addresses of nameserver ?
 			if not message:
-				sys.stdout.write("%s:%s " % (ns, domain))
-				return 2
-			if len(message.answer) == 0:
-				sys.stdout.write("%s:%s " % (ns, domain))
-				return 1
+				error = True
+			elif len(message.answer) == 0:
+				renegades[ns].append(domain)
+	if renegades:
+		for ns in renegades:
+			domain_list = renegades[ns]
+			sys.stdout.write(ns)
+			for fqdn in domain_list:
+				sys.stdout.write(",%s" % fqdn)
+			sys.stdout.write(" ")
+		return 1
+	if error:
+		return 2
 	return 0
 
 if __name__ == "__main__":
