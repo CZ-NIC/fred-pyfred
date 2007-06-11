@@ -1,3 +1,87 @@
+2007-06-11 Jan Kryl (version 1.6.0)
+
+	* Genzone client uses safe method for creating temporary files.
+
+	* It is possible to have individual configuration for each generated
+	zone by genzone client.
+
+	* You can specify header and footer files to genzone client. Those
+	files will be prepended and appended to zone file, which is convenient
+	for comment insertion.
+
+	* pyfred_server creates pid file when it is started. The pidfile is
+	named "pyfred.pid" and the directory, where it is created is
+	configurable by "piddir" configuration directive.
+
+	* pyfredctl is again functional a can be used for controlling
+	pyfred_server. However the pid file must be in default path
+	/var/run/pyfred.pid in order to work well.
+
+2007-06-01 Jan Kryl (version 1.5.2)
+
+	* genzone client has new configuration file /etc/fred/genzone.conf.
+
+2007-05-25 Jan Kryl (version 1.5.1)
+
+	* Two bugs in techcheck which disabled generation of poll message
+	were fixed (mapping of corba boolean to python's boolean and
+	accepting negative check levels as if they would mean default level).
+
+2007-05-20 Jan Kryl (version 1.5.0)
+
+	* New mailer idl function resend was implemented. This function
+	triggers sending of an email from email archive.
+
+	* The bug with empty 'To' header was fixed. If 'To' header is empty
+	new exception 'InvalidHeader' is thrown.
+
+	* Pyfred server starts now fully daemonized (if run without -d option).
+	Daemonization doesn't play very nice with omniorb. In some cases when
+	pyfred calls exit, the threads get deadlocked and eat 100% CPU.
+
+	* The pyfred is now installed via setup.py (as it is ussuall in python
+	world). This change trigered another one - the reorganization of files
+	in repository. The layout of project has completely changed.
+
+	* Whois module is no longer alive, it was removed because it wasn't
+	needed in production and there was no time to maintain it.
+
+	* The documentation was rewriten almost from scratch.
+
+2007-04-24 Jan Kryl (version 1.4.3)
+
+	* Critical Bug in pyfred's job scheduler was fixed. The bug
+	practically inhibited regularly scheduled jobs.
+
+	* Logic of sending an email in Mailer module was splitted
+	in two parts. One part accepts requests and does the templating
+	and the other part which is run regularly from pyfred's internal
+	job scheduler completes emails and sends them.
+
+	* Manual confirmation of email submission is now available in
+	mailer. This may be used for debugging in production.
+
+	* Mailer now tries repeatedly to send email if sendmail fails.
+	Maximal number of attempts is configurable by maxattempts
+	directive.
+
+2007-04-05 Jan Kryl (version 1.4.2)
+
+	* Postfix adds extra newline after headers when lines terminations
+	are mixed together (lf vs. crlf). All lines must have common
+	terminator in order for signature to be valid. This was fixed.
+
+2007-04-04 Jan Kryl (version 1.4.1)
+
+	* Signing of emails is done by openssl binary instead of M2Crypto
+	library which is not needed anymore. This is a worse solution of
+	the signing problem but theres no other way, since outlook doesn't
+	like emails signed with M2Crypto.
+
+	* VCard attachment is added to each email. This is kind of a hack to
+	overcome bug in outlook, which cannot open multipart email composed
+	from just one part.
+
 2007-02-13 Jan Kryl (version 1.4.0)
 
 	* TechCheck module is now able to do regular technical checks of

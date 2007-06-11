@@ -1,0 +1,20 @@
+#
+# Examplar configuration file of genzone client
+#
+
+[general]
+nameservice = localhost
+reload    = 1
+verbose   = 0
+
+[0.2.4.e164.arpa]
+chunk     = 3
+maxchanges= 30
+backupdir = /var/zonebackup/0.2.4.e164.arpa
+zonedir   = /etc/bind
+
+[cz]
+chunk     = 100
+maxchanges= 10%
+backupdir = /var/zonebackup/cz
+zonedir   = /etc/bind

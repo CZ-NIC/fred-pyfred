@@ -1,8 +1,0 @@
-
-Simple clients for testing basic functionality of Mailer daemon.
-It is ment to be used for debugging and monitoring.
-
-mailer_client.py        can be used for testing of email submission.
-mailer_admin_client.py  can be used for testing of admin interface of mailer.
-
-Use --help parameter to get more information about usage.

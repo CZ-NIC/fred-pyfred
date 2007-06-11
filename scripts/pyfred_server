@@ -1,0 +1,424 @@
+#!/usr/bin/env python
+# vim:set ts=4 sw=4:
+"""
+This module is a framework in which can be easily embedded various corba
+object implementations through extending modules defined in modules.conf.
+Those objects are registered in corba name service and the rest is up to
+a caller (corba client).
+"""
+
+import os, sys, time, syslog, ConfigParser, os.path, signal
+from omniORB import CORBA, PortableServer
+import CosNaming
+import pgdb
+
+pidfile = None
+
+def job_noop():
+	"""
+	This function is used as placeholder in job queue if the queue is empty.
+	"""
+	pass
+
+def createDaemon():
+	"""
+	This function demonizes the process.
+	"""
+	try:
+		pid = os.fork()
+	except OSError, e:
+		sys.stderr.write("Error when daemonizing pyfred: %s\n" % e.strerror)
+		os._exit(0)
+
+	if pid == 0:	# The first child.
+		# To become the session leader of this new session and the process group
+		# leader of the new process group, we call os.setsid().  The process is
+		# also guaranteed not to have a controlling terminal.
+		os.setsid()
+
+		try:
+			pid = os.fork()	# Fork a second child.
+		except OSError, e:
+			sys.stderr.write("Error when daemonizing pyfred: %s\n" % e.strerror)
+			os._exit(0)
+
+		if pid != 0:	# The second child.
+			os._exit(0)	# Exit parent (the first child) of the second child.
+	else:
+		os._exit(0)	# Exit parent of the first child.
+
+def sighandler(signum, arg):
+	"""
+	Common signal handler, which terminates the pyfred process.
+	"""
+	global pidfile
+
+	syslog.syslog(syslog.LOG_NOTICE, "Terminating pyfred server ...")
+
+	if not pidfile:
+		syslog.syslog(syslog.LOG_INFO, "The pidfile is not set - signal was "
+				"probably delivered too early after the start.")
+		sys.exit(0)
+
+	try:
+		os.unlink(pidfile)
+		syslog.syslog(syslog.LOG_DEBUG, "Pidfile %s deleted." % pidfile)
+	except OSError, e:
+		# ignore error if the file does not exist
+		syslog.syslog(syslog.LOG_WARNING, "Pidfile is set but was not created."
+				% pidfile)
+	except Exception, e:
+		syslog.syslog(syslog.LOG_ERROR, "Error when removing pidfile %s: %s" %
+				(pidfile, e))
+		sys.exit(1)
+	# exit the program
+	sys.exit(0)
+
+
+class Logger(object):
+	"""
+	This class encapsulates standard syslog function. The only difference is
+	that each message when called through Logger is prepended by name of module,
+	which is set during Logger's initialization.
+	"""
+	EMERG = syslog.LOG_EMERG
+	ALERT = syslog.LOG_ALERT
+	CRIT = syslog.LOG_CRIT
+	ERR = syslog.LOG_ERR
+	WARNING = syslog.LOG_WARNING
+	NOTICE = syslog.LOG_NOTICE
+	INFO = syslog.LOG_INFO
+	DEBUG = syslog.LOG_DEBUG
+
+	def __init__(self, prefix):
+		"""
+		Initialize the prefix which will be used for every message logged
+		trhough this Logger.
+		"""
+		self.prefix = prefix
+
+	def log(self, level, msg):
+		"""
+		Wrapper around syslog.syslog() function which adds prefix to every
+		logged message.
+		"""
+		syslog.syslog(level, "%s module - %s" % (self.prefix, msg))
+
+class DB(object):
+	"""
+	This class provides methods usefull when working with database.
+	"""
+
+	def __init__(self, dbhost, dbport, dbname, dbuser, dbpassword):
+		"""
+		Method initializes data needed for database access.
+		"""
+		self.host = dbhost
+		self.port = dbport
+		self.dbname = dbname
+		self.user = dbuser
+		self.password = dbpassword
+
+	def getConn(self):
+		"""
+		Obtain connection to database.
+		"""
+		return pgdb.connect(host = self.host +":"+ self.port,
+				database = self.dbname, user = self.user,
+				password = self.password)
+
+	def releaseConn(self, conn):
+		"""
+		Release connection obtained in getConn() method.
+		"""
+		conn.close()
+
+class CorbaRefs(object):
+	"""
+	This class was created for passing corba parameters to modules during
+	initialization. It is very important that modification to instance of
+	this class are visible to modules, which obtained reference to instance
+	before the modifications took place.
+	"""
+	nsref = None
+	rootpoa = None
+
+def getConfiguration(configs):
+	"""
+	Get configuration from file. The configuration files are given as a list in
+	parameter. The function automatically provides default values for directives
+	not defined by configuration file. If none of the configuration files
+	exists, all directives will contain default values.
+	"""
+	# set defaults
+	confparser = ConfigParser.SafeConfigParser({
+			"context":"fred",
+			"dbhost":"",
+			"dbname":"fred",
+			"dbport":"5432",
+			"dbuser":"fred",
+			"dbpassword":"",
+			"nshost":"localhost",
+			"nsport":"2809",
+			"loglevel":"LOG_INFO",
+			"logfacility":"LOG_LOCAL1",
+			"piddir":"/var/run",
+			"port":"2225"})
+	# read configuration file
+	for cfile in configs:
+		try:
+			if len(confparser.read(cfile)) == 1:
+				sys.stdout.write("File %s used as config file\n" % cfile)
+				break
+		except ConfigParser.MissingSectionHeaderError, e:
+			sys.stderr.write("Error in configuration file '%s': %s\n" %
+					(cfile, e))
+			return None
+		except ConfigParser.ParsingError, e:
+			sys.stderr.write("Error in configuration file '%s': %s\n" %
+					(cfile, e))
+			return None
+	# create basic section general if it does not exist
+	if not confparser.has_section("General"):
+		confparser.add_section("General")
+	return confparser
+
+#
+# main
+#
+def main(argv):
+	"""
+	"""
+	global pidfile
+
+	# if server should detach from terminal after startup
+	detach = True
+	# default places where to look for configs
+	configs = ["/etc/fred/pyfred.conf", "/usr/local/etc/fred/pyfred.conf",
+	           "pyfred.conf"]
+	for arg in argv[1:]:
+		if arg == "-d":
+			detach = False
+		else:
+			# append explicit config location if present on command line
+			configs.insert(0, arg)
+	# get configuration
+	conf = getConfiguration(configs)
+	if not conf:
+		sys.exit(1)
+
+	# Check pidfile
+	pidfile = os.path.join(conf.get("General", "piddir"), "pyfred.pid")
+	if os.access(pidfile, os.F_OK):
+		pidfd = open(pidfile, "r")
+		pidline = pidfd.readline()
+		# strip trailing \n if there is any
+		if pidline[-1] == '\n':
+			pid = int(pidline[:-1])
+		else:
+			pid = int(pidline)
+		pidfd.close()
+		sys.stderr.write("pyfred is already running with pid %d\n" % pid)
+		sys.stderr.write("(Delete pidfile %s to force start)\n" % pidfile)
+		sys.stderr.write("Exiting ...\n")
+		sys.exit(1)
+
+	# create database object to be used in modules
+	db = DB(conf.get("General", "dbhost"),
+			conf.get("General", "dbport"),
+			conf.get("General", "dbname"),
+			conf.get("General", "dbuser"),
+			conf.get("General", "dbpassword"))
+
+	# Check validity of log facility
+	try:
+		logfacility = syslog.__dict__[ conf.get("General", "logfacility").upper() ]
+	except KeyError, e:
+		sys.stderr.write("syslog facility is invalid: %s\n" %
+				conf.get("General", "logfacility"))
+		sys.exit(1)
+	# Check validity of log level
+	try:
+		loglevel = syslog.__dict__[ conf.get("General", "loglevel").upper() ]
+	except KeyError, e:
+		sys.stderr.write("log level is invalid: %s\n" %
+				conf.get("General", "loglevel"))
+		sys.exit(1)
+
+	# create structure for passing of CORBA references
+	corba_refs = CorbaRefs()
+
+	# get list of modules to import
+	modulenames = conf.get("General", "modules").split(" ")
+	# load all modules
+	sys.stdout.write("Importing modules %s\n" % modulenames)
+	try:
+		mods = __import__("pyfred.modules", globals(), locals(), modulenames)
+	except Exception, e:
+		sys.stderr.write("Could not import module: %s\n" % e)
+		sys.exit(1)
+	# convert inconvenient mods structure into plain list of modules
+	modules = []
+	for module in dir(mods):
+		# ignore private variables
+		if module.startswith('__'):
+			continue
+		modules.append(eval("mods." + module))
+
+	# Run init methods in registered modules and save servant refs for later use
+	joblist  = []
+	servants = []
+	for module in modules:
+		try:
+			servants.append(module.init(Logger(module.__name__), db, conf,
+				joblist, corba_refs))
+		except Exception, e:
+			sys.stderr.write("Error when initializing module '%s': %s:%s\n" %
+					(module.__name__, sys.exc_info()[0], e))
+			sys.exit(1)
+
+	# daemonize pyfred
+	if detach:
+		createDaemon()
+
+		sys.stdout.write("Logging to syslog since now\n")
+
+		# Since now we will use only syslog
+		if (os.sysconf_names.has_key("SC_OPEN_MAX")):
+			maxfd = os.sysconf("SC_OPEN_MAX")
+		else:
+			maxfd = 1024
+		# Iterate through and close all file descriptors.
+		for fd in range(0, maxfd):
+			try:
+				os.close(fd)
+			except OSError:	# fd wasn't open (ignored)
+				pass
+		# This call to open is guaranteed to return the lowest file descriptor,
+		# which will be 0 (stdin), since it was closed above.
+		os.open(os.devnull, os.O_RDWR)	# standard input (0)
+		# Duplicate standard input to standard output and standard error.
+		os.dup2(0, 1)			# standard output (1)
+		os.dup2(0, 2)			# standard error (2)
+
+	# open syslog (syslog function will be later passed to modules)
+	syslog.openlog("pyfred", (syslog.LOG_PID | syslog.LOG_CONS), logfacility)
+	syslog.setlogmask(syslog.LOG_UPTO(loglevel))
+	syslog.syslog(syslog.LOG_NOTICE, "Starting Python fred Server ...")
+
+	# Initialise the ORB and get the root POA
+	try:
+		nsname = "NameService=corbaname::" + conf.get("General", "nshost") + \
+				":" + conf.get("General", "nsport")
+		orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8", "-ORBInitRef",
+				nsname, "-ORBendPoint", ":::" + conf.get("General", "port")],
+				CORBA.ORB_ID)
+		rootpoa = orb.resolve_initial_references("RootPOA")
+		# create persistent poa
+		ps = [rootpoa.create_lifespan_policy(PortableServer.PERSISTENT),
+			  rootpoa.create_id_assignment_policy(PortableServer.USER_ID),
+		      rootpoa.create_implicit_activation_policy(PortableServer.NO_IMPLICIT_ACTIVATION)]
+		poa = rootpoa.create_POA("pyfredPOA", rootpoa._get_the_POAManager(), ps)
+
+		# Obtain a reference to the root naming context
+		obj	= orb.resolve_initial_references("NameService")
+		nsref = obj._narrow(CosNaming.NamingContext)
+		if nsref is None:
+			msg = "Failed to narrow the root naming context"
+			sys.stderr.write(msg + '\n')
+			syslog.syslog(syslog.LOG_ERR, msg)
+			sys.exit(1)
+	except CORBA.TRANSIENT, e:
+		msg = "Is nameservice running? (%s)" % e
+		sys.stderr.write(msg + '\n')
+		syslog.syslog(syslog.LOG_ERR, msg)
+		sys.exit(1)
+	except CORBA.Exception, e:
+		msg = "CORBA failure: %s" % e
+		sys.stderr.write(msg + '\n')
+		syslog.syslog(syslog.LOG_ERR, msg)
+		sys.exit(1)
+
+	# Bind a context named "fred.context" to the root context
+	# This context is a container for all registered objects
+	name = [CosNaming.NameComponent(conf.get("General", "context"), "context")]
+	try:
+		fredContext = nsref.bind_new_context(name)
+		syslog.syslog(syslog.LOG_INFO, "New fred context bound")
+	except CosNaming.NamingContext.AlreadyBound, ex:
+		syslog.syslog(syslog.LOG_NOTICE, "fred context already exists")
+		obj = nsref.resolve(name)
+		fredContext = obj._narrow(CosNaming.NamingContext)
+		if fredContext is None:
+			msg = "fred.context exists but is not a NamingContext"
+			sys.stderr.write(msg + '\n')
+			syslog.syslog(syslog.LOG_ERR, msg)
+			sys.exit(1)
+
+	corba_refs.rootpoa = rootpoa
+	corba_refs.nsref = nsref
+
+	# Register modules by nameservice and activate them in poa
+	for item in servants:
+		(servant, name) = item
+		poa.activate_object_with_id(name, servant)
+		ref = poa.id_to_reference(name)
+		cosname = [CosNaming.NameComponent(name, "Object")]
+		try:
+			fredContext.bind(cosname, ref)
+			syslog.syslog(syslog.LOG_INFO, "New '%s' object bound" % name)
+		except CosNaming.NamingContext.AlreadyBound:
+			fredContext.rebind(cosname, ref)
+			syslog.syslog(syslog.LOG_NOTICE, "Existing '%s' object rebound" %
+					name)
+
+	# Activate the POA
+	poaManager = poa._get_the_POAManager()
+	poaManager.activate()
+
+	# Create PID file
+	pidfd = open(pidfile, "w")
+	pidfd.write("%d\n" % os.getpid())
+	pidfd.close()
+
+	# Install common signal handler for basic signals
+	for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+		signal.signal(sig, sighandler)
+
+	# Run cron jobs forever
+	if len(joblist) == 0:
+		joblist = [ { "callback":job_noop, "context":None, "period":3600 } ]
+	delay = 5 # initial delay
+	while True:
+		time.sleep(delay)
+		# look what is scheduled for execution
+		job = joblist.pop(0)
+		# execute first job in a qeueu
+		try:
+			job["callback"](job["context"])
+		except Exception, e:
+			syslog.syslog(syslog.LOG_ERR, "Unexpected error when "
+					"executing job. %s:%s" % (sys.exc_info()[0], e))
+		# schedule job for next execution
+		job["ticks"] = job["period"]
+		for i in range(len(joblist)):
+			item = joblist[i]
+			if job["ticks"] - item["ticks"] >= 0:
+				job["ticks"] -= item["ticks"]
+			else:
+				joblist.insert(i, job)
+				item["ticks"] -= job["ticks"]
+				job = None
+				break
+		if job:
+			# job should be run as last
+			joblist.insert(len(joblist), job)
+		# calculate the time to next awakening
+		delay = joblist[0]["ticks"]
+
+
+	# Block for ever (or until the ORB is shut down)
+	#orb.run()
+
+if __name__ == "__main__":
+	main(sys.argv)

@@ -1,0 +1,57 @@
+#
+# Configuration file of pyfred
+#
+# The detailed description of configuration may be found in README, consider
+# reading it before you make any changes to this file. Note that this is a
+# default configuration, which might work or not depending on many circumstances
+# (i.e. location of postgresql server, nameservice, ...)
+
+#
+# basic configuration of pyfred
+#
+[General]
+modules=genzone mailer filemanager techcheck
+dbuser=fred
+dbname=fred
+dbport=5432
+dbpassword=
+loglevel=LOG_DEBUG
+logfacility=log_local1
+port=2225
+
+#
+# configuration of zone generator
+#
+[Genzone]
+safeperiod=31
+expiration_hour=14
+
+#
+# configuration of mailer module
+#
+[Mailer]
+testmode=on
+tester=
+sendmail=/usr/sbin/sendmail
+filemanager_object=FileManager
+signing=off
+sendperiod=30
+# Enable vcard attachment. To each email is added text/x-vcard attachemnt
+# Do NOT turn this off! (Outlook express cannot open multipart emails containing
+# only single part). When vcard is turned on, we are sure that this never happens
+vcard=on
+
+#
+# configuration of a module which manages files
+#
+[FileManager]
+rootdir=/var/tmp/filemanager
+
+#
+# configuration of module executing technical checks
+#
+[TechCheck]
+msgLifetime=7
+queueperiod=5
+oldperiod=30
+missrounds=10

@@ -1,7 +1,0 @@
-
-This is a client to FileManager Daemon. It is possible to save files to
-filemanager, load files from filemanager and retrieve information about
-particular file. This client is used for testing of FileManager's interface.
-
-Run client as: python filemanager_client.py -h. This will give you overview
-of available options.

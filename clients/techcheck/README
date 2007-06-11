@@ -1,7 +1,0 @@
-This is a README file for client side of technical checks. Through this program
-one can invoke technical check of a given domain. The client displays the
-result of technical check. TO run the test for the domain 'foo.cz' type:
-
-  $ python ./techcheck_client.py --domain foo.cz
-
-This assumes that nameservice runs on localhost.
