@@ -164,6 +164,9 @@ directives follow.
 
     *) verbose [Off] - If the client should be verbose when generating zones.
 
+    *) zones [] - Space separated list of zone names to be generated. This
+       list is only used, if no zones were specified on command line.
+
   Zone specific configuration directives:
 
     *) zonedir [./] - Directory where new zone files should be generated.

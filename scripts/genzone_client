@@ -22,7 +22,7 @@ def usage():
 	Print usage information.
 	"""
 	sys.stdout.write(
-"""%s [options] zone1 zone2 ...
+"""%s [options] [zone1 zone2 ...]
 
 Script for generating zone file(s) for given zone(s) in BIND format.
 The generated zone files are saved in directory zonedir under name
@@ -34,6 +34,11 @@ Either create configuration file or use command line options. Default
 configuration file is /etc/fred/genzone.conf. Command line options override
 config options. Whereas in config file each zone can have its own options,
 the option on command line holds for all generated zones.
+
+If you run the script and don't specify any zone to be generated, then
+zones from config file will be GENERATED. If you run the script and specify
+zone(s) to be generated on command line, then the zones to be generated from
+config file will be IGNORED!
 
 options:
     -b, --backupdir PATH          Directory used for zone file backups (default
@@ -122,20 +127,12 @@ def main():
 		usage()
 		sys.exit(2)
 
-	# if no zones were specified then exit
-	if len(zonenames) == 0:
-		usage()
-		sys.exit(2)
-
 	# set default values which are not zone specific
 	configfile= "/etc/fred/genzone.conf"
 	ns        = "localhost"
 	reload    = False
 	pcb_param = None # progress callback
 	verbose   = False
-
-	# create config and set default values which are zone specific
-	zoneconf = ZoneConfig(zonenames)
 
 	# get only location of config file, the other options will be parsed later
 	for o,a in opts:
@@ -153,6 +150,20 @@ def main():
 	if config.has_option("general", "verbose"):
 		verbose = config.getboolean("general", "verbose")
 		if verbose: pcb_param = pcb
+	# process zones to be generated from config file only if there aren't any
+	# on command line
+	if len(zonenames) == 0:
+		if config.has_option("general", "zones"):
+			zonenames = config.get("general", "zones").split()
+
+	# if no zones were specified in config file or on cmd line, then exit
+	if len(zonenames) == 0:
+		usage()
+		sys.exit(2)
+
+	# create config and set default values which are zone specific
+	zoneconf = ZoneConfig(zonenames)
+
 	# set zone specific configuration values for each zone
 	for zonename in zonenames:
 		if config.has_option(zonename, "backupdir"):

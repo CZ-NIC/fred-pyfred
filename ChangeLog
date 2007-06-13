@@ -7,6 +7,10 @@
 
 	* Better handling of unexpected exceptions in pyfred_server.
 
+	* The behaviour of genzone client was modified. If there are no
+	zones specified on cmd line, the new 'zones' directive from 'general'
+	section is taken into account.
+
 2007-06-11 Jan Kryl (version 1.6.0)
 
 	* Genzone client uses safe method for creating temporary files.
