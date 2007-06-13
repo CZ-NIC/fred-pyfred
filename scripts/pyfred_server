@@ -12,7 +12,10 @@ from omniORB import CORBA, PortableServer
 import CosNaming
 import pgdb
 
+# These are global because they are needed in signal handler
 pidfile = None
+fredContext = None # Nameservice reference
+nsnames = [] # Registered names by nameservice
 
 def job_noop():
 	"""
@@ -49,24 +52,37 @@ def createDaemon():
 
 def sighandler(signum, arg):
 	"""
-	Common signal handler, which terminates the pyfred process.
+	Common signal handler, which terminates the pyfred process. The cleanup
+	actions are: pidfile deletion and unregistering of corba object references.
 	"""
 	global pidfile
+	global nsnames
+	global fredContext
 
 	syslog.syslog(syslog.LOG_NOTICE, "Terminating pyfred server ...")
+
+	# unregister corba objects
+	if fredContext:
+		for nsname in nsnames:
+			try:
+				fredContext.unbind(nsname)
+			except Exception, e:
+				syslog.syslog(syslog.LOG_ERR, "Error when unbinding name "
+						"from nameservice: %s" % e)
 
 	if not pidfile:
 		syslog.syslog(syslog.LOG_INFO, "The pidfile is not set - signal was "
 				"probably delivered too early after the start.")
 		sys.exit(0)
 
+	# delete the pidfile
 	try:
 		os.unlink(pidfile)
 		syslog.syslog(syslog.LOG_DEBUG, "Pidfile %s deleted." % pidfile)
 	except OSError, e:
 		# ignore error if the file does not exist
-		syslog.syslog(syslog.LOG_WARNING, "Pidfile is set but was not created."
-				% pidfile)
+		syslog.syslog(syslog.LOG_WARNING, "Pidfile %s is set but was not "
+				"created." % pidfile)
 	except Exception, e:
 		syslog.syslog(syslog.LOG_ERROR, "Error when removing pidfile %s: %s" %
 				(pidfile, e))
@@ -190,6 +206,8 @@ def main(argv):
 	"""
 	"""
 	global pidfile
+	global fredContext
+	global nsnames
 
 	# if server should detach from terminal after startup
 	detach = True
@@ -371,13 +389,20 @@ def main(argv):
 			fredContext.rebind(cosname, ref)
 			syslog.syslog(syslog.LOG_NOTICE, "Existing '%s' object rebound" %
 					name)
+		# archive reference name for future removal
+		nsnames.append(cosname)
 
 	# Activate the POA
 	poaManager = poa._get_the_POAManager()
 	poaManager.activate()
 
 	# Create PID file
-	pidfd = open(pidfile, "w")
+	try:
+		pidfd = open(pidfile, "w")
+	except Exception, e:
+		syslog.syslog(syslog.LOG_ERR, "Could not create pid file %s. Check "
+				"permissions." % pidfile)
+		sys.exit(1)
 	pidfd.write("%d\n" % os.getpid())
 	pidfd.close()
 
@@ -416,9 +441,20 @@ def main(argv):
 		# calculate the time to next awakening
 		delay = joblist[0]["ticks"]
 
-
 	# Block for ever (or until the ORB is shut down)
 	#orb.run()
 
 if __name__ == "__main__":
-	main(sys.argv)
+	try:
+		main(sys.argv)
+	except SystemExit, e:
+		# This means that Ctrl-C was pressed. Ignore it.
+		pass
+	except Exception, e:
+		msg = "Unexpected error, this should not happen. Please " \
+				"submit a bug report. %s:%s" % (sys.exc_info()[0], e)
+		sys.stderr.write(msg + '\n')
+		syslog.syslog(syslog.LOG_CRIT, msg)
+		# do cleanup
+		sighandler(0, None)
+

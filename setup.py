@@ -40,7 +40,7 @@ class Config (config.config):
 					"linux OS to run.")
 
 		# python version
-		python_version = version.StrictVersion(sys.version.split(' ')[0])
+		python_version = version.LooseVersion(sys.version.split(' ')[0])
 		log.info(" * Python version ... %s", python_version)
 		# check lower bound
 		if python_version < "2.4":

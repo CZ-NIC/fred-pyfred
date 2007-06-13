@@ -1,3 +1,12 @@
+2007-06-13 Jan Kryl (version 1.6.1)
+
+	* When pyfred_server terminates, references registered by corba
+	nameservice when pyfred_server is started are deleted.
+
+	* Bug in check of python version in setup.py was fixed.
+
+	* Better handling of unexpected exceptions in pyfred_server.
+
 2007-06-11 Jan Kryl (version 1.6.0)
 
 	* Genzone client uses safe method for creating temporary files.
