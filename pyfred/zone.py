@@ -127,7 +127,7 @@ class BindFilter (ZoneFilter):
 					else:
 						ipv = "AAAA"
 					self.output_fd.write("%s.\tIN\t%s\t%s\n" %
-							(domain.name, ipv, addr))
+							(ns.fqdn, ipv, addr))
 
 
 class Zone (object):

@@ -11,6 +11,9 @@
 	zones specified on cmd line, the new 'zones' directive from 'general'
 	section is taken into account.
 
+	* Critical error in genzone was fixed. The GLUE records were not
+	properly generated.
+
 2007-06-11 Jan Kryl (version 1.6.0)
 
 	* Genzone client uses safe method for creating temporary files.
