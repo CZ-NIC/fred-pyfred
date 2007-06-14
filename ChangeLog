@@ -1,15 +1,16 @@
 2007-06-13 Jan Kryl (version 1.6.1)
 
 	* When pyfred_server terminates, references registered by corba
-	nameservice when pyfred_server is started are deleted.
+	nameservice when pyfred_server was started are deleted.
 
-	* Bug in check of python version in setup.py was fixed.
+	* Bug in test for python version in setup.py was fixed.
 
-	* Better handling of unexpected exceptions in pyfred_server.
+	* Better handling of unexpected exceptions in pyfred_server (they
+	are logged and printed to stderr).
 
 	* The behaviour of genzone client was modified. If there are no
 	zones specified on cmd line, the new 'zones' directive from 'general'
-	section is taken into account.
+	section from config file is taken into account.
 
 	* Critical error in genzone was fixed. The GLUE records were not
 	properly generated.
