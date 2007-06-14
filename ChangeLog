@@ -1,3 +1,9 @@
+2007-06-14 Jan Kryl (version 1.6.2)
+
+	* Bug in zone generator was fixed. GLUE records were generated
+	if the nameserver came from the same zone instead of domain. This
+	is wrong behaviour.
+
 2007-06-13 Jan Kryl (version 1.6.1)
 
 	* When pyfred_server terminates, references registered by corba

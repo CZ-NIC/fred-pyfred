@@ -9,26 +9,25 @@ import pgdb
 from pyfred.idlstubs import ccReg, ccReg__POA
 from pyfred.utils import ipaddrs2list
 
-def createNs(zonename, nsFqdn, addrs):
+def createNs(domain, nsFqdn, addrs):
 	"""
 Create structure defined in idl for holding nameserver record. However it
-is not so easy.  If nameserver's fqdn has suffix zonename preceeded be a
-dot, then list of addresses should not be empty.  If zonename preceeded be
+is not so easy.  If nameserver's fqdn has suffix domain preceeded be a
+dot, then list of addresses should not be empty.  If domain preceeded be
 a dot is not a suffix of nameserver's fqdn, then the list of addresses
 should be empty, if not, the structure is still created but with empty list
-of addresses. If either of the two conditions is violated then message is
-written to syslog.
+of addresses.
 	"""
-	warning = None
-	if nsFqdn.endswith("." + zonename):
+	if nsFqdn.endswith("." + domain):
+		warning = None
 		if not addrs:
-			warning = "Missing GLUE for nameserver '%s' from zone '%s'." % \
-					(nsFqdn, zonename)
+			warning = "Missing GLUE for nameserver '%s' of domain '%s'." % \
+					(nsFqdn, domain)
 		return ccReg.DNSHost_str(nsFqdn, addrs), warning
 	else:
 		# we don't emit warning for GLUE which is not needed, since nsset
 		# can be shared across various zones.
-		return ccReg.DNSHost_str(nsFqdn, []), warning
+		return ccReg.DNSHost_str(nsFqdn, []), None
 
 class ZoneGenerator_i (ccReg__POA.ZoneGenerator):
 	"""
@@ -315,7 +314,7 @@ This class implements interface used for generation of a zone file.
 			self.db.releaseConn(conn)
 
 			# Create an instance of ZoneData_i and an ZoneData object ref
-			zone_obj = ZoneData_i(id, zonename, cursor, self.l)
+			zone_obj = ZoneData_i(id, cursor, self.l)
 			self.zone_objects.put(zone_obj)
 			zone_ref = self.corba_refs.rootpoa.servant_to_reference(zone_obj)
 
@@ -347,13 +346,12 @@ Class encapsulating zone data.
 	CLOSED = 2
 	IDLE = 3
 
-	def __init__(self, id, zonename, cursor, log):
+	def __init__(self, id, cursor, log):
 		"""
 	Initializes zonedata object.
 		"""
 		self.l = log
 		self.id = id
-		self.zonename = zonename
 		self.cursor = cursor
 		self.status = self.ACTIVE
 		self.crdate = time.time()
@@ -434,7 +432,7 @@ Class encapsulating zone data.
 				# transform result in corba structures
 				corba_nameservers = []
 				for ns in nameservers:
-					corba_ns, wmsg = createNs(self.zonename, ns, ipaddrs[ns])
+					corba_ns, wmsg = createNs(domain, ns, ipaddrs[ns])
 					if wmsg:
 						self.l.log(self.l.WARNING, "<%d> %s" % (self.id, wmsg))
 					corba_nameservers.append(corba_ns)
