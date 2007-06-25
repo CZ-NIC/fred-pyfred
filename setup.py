@@ -213,6 +213,10 @@ try:
 			cmdclass = { "config":Config, "build":Build, "build_idl":Build_idl },
 			packages = ["pyfred", "pyfred.modules", "pyfred.idlstubs",
 				"pyfred.idlstubs.ccReg", "pyfred.idlstubs.ccReg__POA"],
+			# XXX 'requires' option does not work allthough it is described in
+			# official documentation.
+			#
+			#requires = ["omniORB", "pgdb>=3.6", "dns>=1.3", "neo_cgi"],
 			scripts  = [
 				"scripts/pyfred_server",
 				"scripts/pyfredctl",
