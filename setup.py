@@ -195,11 +195,11 @@ class Build (build.build):
 	def has_idl_files (self):
 		return True
 
-	sub_commands = [('build_py',      has_pure_modules),
+	sub_commands = [('build_idl',     has_idl_files),
+					('build_py',      has_pure_modules),
 					('build_clib',    has_c_libraries),
 					('build_ext',     has_ext_modules),
-					('build_scripts', has_scripts),
-					('build_idl',     has_idl_files)
+					('build_scripts', has_scripts)
 				   ]
 
 
