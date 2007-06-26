@@ -4,6 +4,8 @@
 	if the nameserver came from the same zone instead of domain. This
 	is wrong behaviour.
 
+	* The order of build targets in setup.py was fixed.
+
 2007-06-13 Jan Kryl (version 1.6.1)
 
 	* When pyfred_server terminates, references registered by corba
