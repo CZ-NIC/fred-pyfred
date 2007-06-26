@@ -204,7 +204,7 @@ class Build (build.build):
 
 
 try:
-	core.setup(name="pyfred", version="1.6.1",
+	core.setup(name="pyfred", version="1.6.2",
 			description="Component of FRED (Fast Registry for Enum and Domains)",
 			author   = "Jan Kryl",
 			author_email="jan.kryl@nic.cz",
