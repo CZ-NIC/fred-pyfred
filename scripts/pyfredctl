@@ -3,8 +3,11 @@
 
 import os, sys, commands, time, signal
 
+pidfile = "/var/run/pyfred.pid"
+pyfred_server = "/usr/bin/pyfred_server"
+
 def usage():
-	sys.stderr.write("Usage: pyfredctl.py [ start | stop | status ]\n")
+	sys.stderr.write("Usage: pyfredctl [ start | stop | status ]\n")
 	sys.stderr.write("\n")
 
 def getpid(pidfile):
@@ -32,17 +35,21 @@ def isrunning(pid):
 		return True
 	return False
 
-if __name__ == "__main__":
+
+def main(argv):
 	"""
+	The main.
 	"""
-	if len(sys.argv) != 2:
+	global pidfile
+	global pyfred_server
+
+	if len(argv) != 2:
 		sys.stderr.write("Invalid parameter count\n")
 		usage()
 		sys.exit(2)
-	command = sys.argv[1]
+	command = argv[1]
 
 	# assume default pid file location - this may not work always!
-	pidfile = "/var/run/pyfred.pid"
 	pid = getpid(pidfile)
 
 	if command == "start":
@@ -54,7 +61,7 @@ if __name__ == "__main__":
 					"shutdown?\n")
 			os.unlink(pidfile)
 
-		pid = os.spawnlp(os.P_WAIT, "pyfred_server")
+		pid = os.spawnl(os.P_WAIT, pyfred_server)
 		sys.stdout.write("pyfred_server was started\n")
 
 	elif command == "stop":
@@ -81,3 +88,7 @@ if __name__ == "__main__":
 		sys.exit(2)
 
 	sys.exit()
+
+
+if __name__ == "__main__":
+	main(sys.argv)

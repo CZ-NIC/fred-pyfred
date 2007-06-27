@@ -210,7 +210,9 @@ try:
 			author_email="jan.kryl@nic.cz",
 			url      = "http://enum.nic.cz/",
 			license  = "GNU GPL",
-			cmdclass = { "config":Config, "build":Build, "build_idl":Build_idl },
+			cmdclass = { "config":Config,
+			             "build":Build,
+			             "build_idl":Build_idl },
 			packages = ["pyfred", "pyfred.modules", "pyfred.idlstubs",
 				"pyfred.idlstubs.ccReg", "pyfred.idlstubs.ccReg__POA"],
 			# XXX 'requires' option does not work allthough it is described in
