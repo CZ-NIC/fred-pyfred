@@ -259,13 +259,12 @@ This class implements TechCheck interface.
 					dig, regid, reason, cltestid) = self.queue_ooo.get()
 			self.l.log(self.l.DEBUG, "<%d> Found scheduled ooo tech check." % id)
 			(status, results) = self.__runTests(id, fqdns_all, nslist, level)
-			pollmsg = self.__createPollMsg(nsset, cltestid, fqdns_all, results)
 			try:
 				conn = self.db.getConn()
-				self.__dbQueuePollMsg(conn, regid, pollmsg)
 				# archive results of check
-				self.__dbArchiveCheck(conn, nsset_hid, fqdns_extra, status,
-						results, reason, dig, 1)
+				chkid = self.__dbArchiveCheck(conn, nsset_hid, fqdns_extra,
+						status, results, reason, dig, 1)
+				self.__dbQueuePollMsg(conn, regid, chkid)
 				# commit changes in archive and message queue
 				conn.commit()
 				self.db.releaseConn(conn)
@@ -538,7 +537,7 @@ This class implements TechCheck interface.
 
 	def __dbGetRegistrar(self, conn, reghandle):
 		"""
-	Get numeric ID of registrar.
+		Get numeric ID of registrar.
 		"""
 		cur = conn.cursor()
 		cur.execute("SELECT id FROM registrar WHERE handle = %s" %
@@ -549,19 +548,23 @@ This class implements TechCheck interface.
 		cur.close()
 		return regid
 
-	def __dbQueuePollMsg(self, conn, regid, xml_message):
+	def __dbQueuePollMsg(self, conn, regid, chkid):
 		"""
-	Insert poll message in database.
+		Insert poll message in database.
 		"""
 		cur = conn.cursor()
-		cur.execute("INSERT INTO message (clid, exdate, message) "
-				"VALUES (%d, now() + interval '%d days', %s)" %
-				(regid, self.exMsg, pgdb._quote(xml_message)))
+		cur.execute("SELECT nextval('message_id_seq')")
+		msgid = cur.fetchone()[0]
+		cur.execute("INSERT INTO message (id, clid, exdate, msgtype) "
+				"VALUES (%d, %d, now() + interval '%d days', 2)" %
+				(msgid, regid, self.exMsg))
+		cur.execute("INSERT INTO poll_techcheck (msgid, cnid) "
+				"VALUES (%d, %d)" % (msgid, chkid))
 		cur.close()
 
 	def __runTests(self, id, fqdns, nslist, level):
 		"""
-	Run all enabled tests bellow given level.
+		Run all enabled tests bellow given level.
 		"""
 		# fool the system if testmode is turned on
 		if self.testmode:
@@ -609,34 +612,66 @@ This class implements TechCheck interface.
 			# last part is repeated as many times as many there are nameservers.
 			# If test requires a domain name(s), they are supplied on stdin.
 			#
-			cmd = "%s%s" % (self.scriptdir, test["script"])
-			for ns in nslist:
-				addrs = nslist[ns]
-				cmd += " %s" % ns
-				for addr in addrs:
-					cmd += ",%s" % addr
-			# run the command
-			child = popen2.Popen3(cmd, True)
-			# log some debug info
-			self.l.log(self.l.DEBUG, "<%d> Running test %s, command '%s', "
-					"pid %d." % (id, test["name"], cmd, child.pid))
-			# decide if list of domains is needed
-			if test["need_domain"]:
-				# send space separated list of domain fqdns to stdin
-				for fqdn in fqdns:
-					child.tochild.write(fqdn + ' ')
-				child.tochild.close()
-			# before reading the output wait for child to terminate
-			stat = os.WEXITSTATUS(child.wait())
-			# read both standard outputs (stdout, stderr)
-			if child.fromchild:
-				data = child.fromchild.read()
-			else:
-				data = ''
-			if child.childerr:
-				note = child.childerr.read()
-			else:
+			# ip addresses are provided only if the GLUE record is needed,
+			# the test whether the ip addresses are needed is done here, not in
+			# external test script, and all subsequent external tests use the
+			# result of this pre-test. From users point of it is just another
+			# ussual test.
+			#
+			# We recognize the GLUE test by empty string in script field
+			if not test["script"]:
+				stat = 0
+				for ns in nslist:
+					addrs = nslist[ns]
+					data = ''
+					glue_needed = False
+					for fqdn in fqdns:
+						if ns.endswith(fqdn):
+							glue_needed = True
+							if not addrs:
+								data += " %s" % fqdn
+					# errors (missing glue) goes to 'data'
+					if data:
+						self.l.log(self.l.DEBUG, "<%d> Missing glue for ns '%s'"
+								% (id, ns))
+						data = ns + data
+						stat = 1
+					# cancel not needed glue
+					if not glue_needed and addrs:
+						self.l.log(self.l.DEBUG, "<%d> Extra glue by ns '%s' "
+								"cancelled" % (id, ns))
+						nslist[ns] = []
 				note = ''
+			else:
+				cmd = "%s%s" % (self.scriptdir, test["script"])
+				for ns in nslist:
+					addrs = nslist[ns]
+					cmd += " %s" % ns
+					for addr in addrs:
+						cmd += ",%s" % addr
+				# run the command
+				child = popen2.Popen3(cmd, True)
+				# log some debug info
+				self.l.log(self.l.DEBUG, "<%d> Running test %s, command '%s', "
+						"pid %d." % (id, test["name"], cmd, child.pid))
+				# decide if list of domains is needed
+				if test["need_domain"]:
+					# send space separated list of domain fqdns to stdin
+					for fqdn in fqdns:
+						child.tochild.write(fqdn + ' ')
+					child.tochild.close()
+				# before reading the output wait for child to terminate
+				stat = os.WEXITSTATUS(child.wait())
+				# read both standard outputs (stdout, stderr)
+				if child.fromchild:
+					data = child.fromchild.read()
+				else:
+					data = ''
+				if child.childerr:
+					note = child.childerr.read()
+				else:
+					note = ''
+
 			# Status values:
 			#     0 ... test OK
 			#     1 ... test failed
@@ -647,26 +682,8 @@ This class implements TechCheck interface.
 				overallstatus = 2
 			# save the result
 			results[testid] = { "result" : stat, "note" : note, "data" : data }
+			# end of one technical test
 		return overallstatus, results
-
-	def __createPollMsg(self, nsset, cltestid, fqdns, results):
-		"""
-	Save results of technical check in poll message.
-		"""
-		xml_message = '<nsset:testData xmlns:nsset="http://www.nic.cz/xml/epp/nsset-1.2" xsi:schemaLocation="http://www.nic.cz/xml/epp/nsset-1.2 nsset-1.2.xsd">'
-		if cltestid:
-			xml_message += "<nsset:cltestid>%s</nsset:cltestid>" % cltestid
-		xml_message += "<nsset:id>%s</nsset:id>" % nsset
-		for fqdn in fqdns:
-			xml_message += "<nsset:name>%s</nsset:name>" % fqdn
-		for testid in results:
-			test = self.testsuite[testid]
-			result = results[testid]
-			xml_message += ("<nsset:result><nsset:testname>%s</nsset:testname>"
-					"<nsset:status>%s</nsset:status></nsset:result>" %
-					(test["name"], result["result"] == 0))
-		xml_message += ("</nsset:testData>")
-		return xml_message
 
 	def __transfmResult(self, results):
 		"""

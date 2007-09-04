@@ -1,3 +1,33 @@
+2007-09-10 Jan Kryl (version 1.7.0)
+
+	* Mailer is capable of checking for undelivered email messages.
+	It does so by downloading emails over POP3 protocol from mailbox,
+	where are accumulated responses for sent emails. If there is a
+	response for sent email, the email is marked in database as
+	undelivered. The responses are archived as well.
+
+	* Genzone was greatly simplified. It isn't responsible for making
+	decision whether domain should be placed in zone or not, based on
+	various criteria. Now it simply checks for status 'outzone', which
+	is set by another process. As consequence of this the configuration
+	directives expiration_hour and safeperiod were cancelled.
+
+	* New configuration directive "rndc" for genzone_client was added.
+	It sets path to rndc binary and can be used in case when rndc is not
+	in $PATH.
+
+	* New technical test, which tests requirement for GLUE, was added.
+	This test is special, because it is realized directly in techcheck and
+	not by external script, and because it influences inputs of all other
+	technical tests.
+
+	* When doing technical test, the nameserver's fqdn is not resolved,
+	if GLUE is present and should be used. All tests were corrected
+	in respect to this.
+
+	* Changes in techcheck associated with new system for poll messages
+	archival.
+
 2007-06-14 Jan Kryl (version 1.6.2)
 
 	* Bug in zone generator was fixed. GLUE records were generated

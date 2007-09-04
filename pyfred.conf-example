@@ -23,8 +23,7 @@ port=2225
 # configuration of zone generator
 #
 [Genzone]
-safeperiod=31
-expiration_hour=14
+# default configuration kept
 
 #
 # configuration of mailer module
@@ -40,6 +39,8 @@ sendperiod=30
 # Do NOT turn this off! (Outlook express cannot open multipart emails containing
 # only single part). When vcard is turned on, we are sure that this never happens
 vcard=on
+# disable checks for undelivered messages
+undeliveredperiod=0
 
 #
 # configuration of a module which manages files

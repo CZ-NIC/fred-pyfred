@@ -45,6 +45,7 @@ options:
                                   is the zonedir directory).
     -c, --chunk NUMBER            Number of domains transfered in one CORBA
                                   call.
+    -d, --rndc PATH               Path to rndc command if it isn't in $PATH.
     -e, --header PATH             Path to file which will be prepended to zone
                                   file.
     -f, --file PATH               Configuration file for genzone.
@@ -119,8 +120,8 @@ class ZoneConfig (object):
 def main():
 	try:
 		# parse command line parameters
-		opts, zonenames = getopt.getopt(sys.argv[1:], "b:c:e:f:hm:n:rvt:z:",
-				["backupdir=", "chunk=", "header=", "file=", "help",
+		opts, zonenames = getopt.getopt(sys.argv[1:], "b:c:d:e:f:hm:n:rvt:z:",
+				["backupdir=", "chunk=", "rndc=", "header=", "file=", "help",
 				 "maxchanges=", "nameservice=", "reload", "verbose", "footer=",
 				 "zonedir="])
 	except getopt.GetoptError:
@@ -129,6 +130,7 @@ def main():
 
 	# set default values which are not zone specific
 	configfile= "/etc/fred/genzone.conf"
+	rndc      = "rndc"
 	ns        = "localhost"
 	reload    = False
 	pcb_param = None # progress callback
@@ -147,6 +149,8 @@ def main():
 		ns = config.get("general", "nameservice")
 	if config.has_option("general", "reload"):
 		reload = config.getboolean("general", "reload")
+	if config.has_option("general", "rndc"):
+		rndc = config.get("general", "rndc")
 	if config.has_option("general", "verbose"):
 		verbose = config.getboolean("general", "verbose")
 		if verbose: pcb_param = pcb
@@ -191,6 +195,8 @@ def main():
 			zoneconf.set("backupdir", a)
 		elif o in ("-c", "--chunk"):
 			zoneconf.set("chunk", int(a))
+		elif o in ("-d", "--rndc"):
+			rndc = a
 		elif o in ("-e", "--header"):
 			zoneconf.set("header", a)
 		elif o in ("-h", "--help"):
@@ -327,7 +333,8 @@ def main():
 	if reload and (error_count < len(zonefiletmps)):
 		if verbose: sys.stderr.write("Reloading new zones in BIND server.\n")
 		for zonename in zonenames:
-			status,output = commands.getstatusoutput("rndc reload %s" % zonename)
+			status,output = commands.getstatusoutput("%s reload %s" %
+					(rndc, zonename))
 			if os.WEXITSTATUS(status) != 0:
 				sys.stderr.write("Error when reloading zone %s: %s.\n" %
 						(zonename, output))

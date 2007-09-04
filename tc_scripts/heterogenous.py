@@ -23,6 +23,20 @@ does nothing.
 	if debug:
 		sys.stderr.write(msg + '\n')
 
+def get_ns_addrs(args):
+	"""
+	BEWARE!!! If you change something in this function, don't forget to
+	change copies of it in all other tests.
+	"""
+	ns = args.split(',')[0]
+	addrs = args.split(',')[1:]
+	if not addrs:
+		# get ip addresses of nameserver
+		answer = dns.resolver.query(ns)
+		for rr in answer:
+			addrs.append(rr.__str__())
+	return (ns, addrs)
+
 def main():
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
@@ -30,8 +44,12 @@ def main():
 	# process nameserver records
 	nspars = ''
 	for nsarg in sys.argv[1:]:
-		ns = nsarg.split(',')[0]
-		nspars += ' ' + ns
+		# get ip addresses of nameserver
+		(ns, addrs) = get_ns_addrs(nsarg)
+		if addrs:
+			nspars += ' ' + addrs[0] # XXX try first address - not exact ...
+		else:
+			nspars += ' ' + ns
 	status, output = commands.getstatusoutput("%s %s" % (fpdnsbin, nspars))
 	dbg_print("Status of fpdns: %d" % status)
 	dbg_print("Output of fpdns: %s" % output)

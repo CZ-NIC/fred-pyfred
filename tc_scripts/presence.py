@@ -19,29 +19,39 @@ import dns.resolver
 import dns.message
 import dns.query
 
+def get_ns_addrs(args):
+	"""
+	BEWARE!!! If you change something in this function, don't forget to
+	change copies of it in all other tests.
+	"""
+	ns = args.split(',')[0]
+	addrs = args.split(',')[1:]
+	if not addrs:
+		# get ip addresses of nameserver
+		answer = dns.resolver.query(ns)
+		for rr in answer:
+			addrs.append(rr.__str__())
+	return (ns, addrs)
+
 def main():
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
 		return 2
 	domains = sys.stdin.read().strip().split(' ')
-	# create resolver object
-	resolver = dns.resolver.Resolver()
 	# dictionary of renegades
 	renegades = {}
 	error = False
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
-		ns = nsarg.split(',')[0]
-		renegades[ns] = []
 		# get ip addresses of nameserver
-		ipaddrs = dns.resolver.query(ns)
+		(ns, addrs) = get_ns_addrs(nsarg)
 		for domain in domains:
 			# create common query for all nameservers
 			query = dns.message.make_query(domain, "SOA")
 			message = None
-			for rr in ipaddrs:
+			for addr in addrs:
 				try:
-					message = dns.query.udp(query, rr.__str__(), 3)
+					message = dns.query.udp(query, addr, 3)
 					break
 				except dns.exception.Timeout, e:
 					pass
@@ -49,6 +59,8 @@ def main():
 			if not message:
 				error = True
 			elif len(message.answer) == 0:
+				if not renegades.has_key(ns):
+					renegades[ns] = []
 				renegades[ns].append(domain)
 	if renegades:
 		for ns in renegades:

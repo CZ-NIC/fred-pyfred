@@ -7,18 +7,18 @@ def print_tpl(conn):
 	Suck & print templates from database.
 	'''
 	cur = conn.cursor()
-	print 'Vypis sablon pro mailer'
-	print 'Oddelovac zprav je radek ze znaku "*"'
+	print 'Listing of templates for mailer'
+	print 'Delimiter of templates is line made of "*" characters.'
 	cur.execute('SELECT id, name, subject FROM mail_type')
 	for row in cur.fetchall():
 		(id, name, subject) = row
 		print '*' * 80
 		print
-		print 'Identifikator emailu: %s' % name
+		print 'Email\'s identifier: %s' % name
 		print '---------------------'
-		print 'Subject emailu: %s' % subject
+		print 'Email\'s subject: %s' % subject
 		print '---------------'
-		print 'Sablona emailu:'
+		print 'Email\'s template:'
 		print '---------------'
 		cur.execute('SELECT mt.template, mf.footer '
 				'FROM mail_type_template_map mttm '
@@ -61,14 +61,14 @@ def print_vars(conn):
 	Print variables used in templates.
 	'''
 	cur = conn.cursor()
-	print 'Vypis promennych pouzivanych v sablonach'
-	print 'Oddelovac zprav je radek ze znaku "*"'
+	print 'Listing of variables used in templates:'
+	print 'Delimiter of templates is line made of "*" characters.'
 	global_vars = {}
 	cur.execute('SELECT id, name, subject FROM mail_type')
 	for row in cur.fetchall():
 		(id, name, subject) = row
 		local_vars = {}
-		print 'Identifikator emailu: %s' % name
+		print 'Email\'s identifier: %s' % name
 		__enrich_dict(local_vars, subject)
 		cur.execute('SELECT mt.template, mf.footer '
 				'FROM mail_type_template_map mttm '
@@ -82,7 +82,7 @@ def print_vars(conn):
 			print '    %s = %d' % (key, local_vars[key])
 		__merge_dicts(global_vars, local_vars)
 		print '*' * 80
-	print 'Celkove pocty ve vsech sablonach:'
+	print 'Total counts in all templates:'
 	list = []
 	for key in global_vars:
 		list.append( (global_vars[key], key) )
@@ -92,7 +92,7 @@ def print_vars(conn):
 	cur.close()
 
 def main():
-	conn = pgdb.connect(host = 'curlew', database = 'ccreg', user = 'ccreg')
+	conn = pgdb.connect(host = 'curlew', database = 'ccregdbs01', user = 'ccreg')
 	print_vars(conn)
 	conn.close()
 

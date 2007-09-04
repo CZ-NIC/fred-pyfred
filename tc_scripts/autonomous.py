@@ -44,30 +44,40 @@ ip address.
 		return None
 	return asys.groups()[0]
 
+def get_ns_addrs(args):
+	"""
+	BEWARE!!! If you change something in this function, don't forget to
+	change copies of it in all other tests.
+	"""
+	ns = args.split(',')[0]
+	addrs = args.split(',')[1:]
+	if not addrs:
+		# get ip addresses of nameserver
+		answer = dns.resolver.query(ns)
+		for rr in answer:
+			addrs.append(rr.__str__())
+	return (ns, addrs)
+
 def main():
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
 		return 2
-	# create resolver object
-	resolver = dns.resolver.Resolver()
 	# autonomous systems of first nameserver
 	as_first = None
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
-		ns = nsarg.split(',')[0]
 		# get ip addresses of nameserver
-		dbg_print("Resolving nameserver %s" % ns)
-		answer = resolver.query(ns)
+		(ns, addrs) = get_ns_addrs(nsarg)
 		# get AS from whois
-		for rr in answer:
-			dbg_print("Whois on ip address %s" % rr)
-			as_curr = whois_AS(rr.__str__())
+		for addr in addrs:
+			dbg_print("Whois on ip address %s" % addr)
+			as_curr = whois_AS(addr)
 			# if it is not RIPE, we cannot say anything about autonomity,
 			#    we will return success therefore
 			if not as_curr:
 				dbg_print("Autonomous system is not known")
 				return 0
-			dbg_print("IP %s is from autonomous system %s" % (rr, as_curr))
+			dbg_print("IP %s is from autonomous system %s" % (addr, as_curr))
 			# if it is first entry, then put it in as_base ...
 			if not as_first:
 				as_first = as_curr

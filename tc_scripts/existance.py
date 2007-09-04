@@ -18,30 +18,41 @@ import dns.query
 
 testdomain = "test-of-nameserver.cz"
 
+def get_ns_addrs(args):
+	"""
+	BEWARE!!! If you change something in this function, don't forget to
+	change copies of it in all other tests.
+	"""
+	ns = args.split(',')[0]
+	addrs = args.split(',')[1:]
+	if not addrs:
+		# get ip addresses of nameserver
+		answer = dns.resolver.query(ns)
+		for rr in answer:
+			addrs.append(rr.__str__())
+	return (ns, addrs)
+
 def main():
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
 		return 2
-	# create resolver object
-	resolver = dns.resolver.Resolver()
 	# create common query for all nameservers (we don't care about type of query)
 	query = dns.message.make_query(testdomain, "ANY")
 	# list of faulty nameservers
 	renegades = []
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
-		ns = nsarg.split(',')[0]
-		# get ip addresses of nameserver
 		try:
-			answer = dns.resolver.query(ns)
+			# get ip addresses of nameserver
+			(ns, addrs) = get_ns_addrs(nsarg)
 		except dns.resolver.NXDOMAIN, e:
-			renegades.append(ns)
+			renegades.append(nsarg[0])
 			continue
 		# query nameserver
 		message = None
-		for rr in answer:
+		for addr in addrs:
 			try:
-				message = dns.query.udp(query, rr.__str__(), 3)
+				message = dns.query.udp(query, addr, 3)
 				break
 			except dns.exception.Timeout, e:
 				pass

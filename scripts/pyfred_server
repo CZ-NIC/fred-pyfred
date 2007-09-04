@@ -418,7 +418,7 @@ def main(argv):
 		time.sleep(delay)
 		# look what is scheduled for execution
 		job = joblist.pop(0)
-		# execute first job in a qeueu
+		# execute first job in a queue
 		try:
 			job["callback"](job["context"])
 		except Exception, e:

@@ -105,28 +105,26 @@ Goal of the zone generator server is to send all data needed for zone
 file creation to a client. It is a task of client to format data in a way,
 the DNS server understands to. The tasks of server are:
 
-         *) Create changeset (records describing changes between previous
-	    and present zone records)
-         *) Generate data which should be in a zone (this step heavily uses
-	    results of previous step).
+         *) Generate data which should be in a zone based on status flag
+            'outzone'.
          *) Send resulting data through CORBA interface to client in several
-	    chunks by how big they are.
+            chunks by how big they are.
 
-The main work at server-side is done by a set of COMPLICATED sql commands
-(temporary tables are used quite a lot in that process). At the end of sql
-batch there exists a record for each registered domain, which denotes the
-state of any "live" domain. This resource consuming process will be
-perhaps later done by another proces and zone generator will only use
-the results of such process, which would had been better way, but who knows
-when this will be implemented (perhaps never).
+Zone generator utilizes results of another process, which sets status' for
+objects in database. The zone generator simply picks domains, which don't have
+status set to 'outzone'.
 
-These constrains must be met in order for domain to be placed in zone:
+These constrains must be met in order for domain to be placed in zone. The list
+of conditions here is not complete, since the zonegenerator is not responsible
+for checking of these conditions.
 
          *) Domain must have associated nsset.
          *) Domain must not be expired and additionaly if it is an enum domain,
 	    validation must be still valid. By 'expired' we mean that
 	    domain is out of safe-period (which is about one month after the
 	    real expiration date).
+         *) The domain must not have set status 'outZoneManual', it means
+            the domain was not manually outaged from zone.
 
 A nameserver which requires GLUE by DNS standard is considered valid
 only if it has one. On the other side, if nameserver has a GLUE and the GLUE
@@ -161,6 +159,8 @@ directives follow.
 
     *) reload [Off] - If genzone client should tell bind (over rndc) to reload
        generated zones.
+
+    *) rndc [rndc] - Path to rndc if it is not in $PATH.
 
     *) verbose [Off] - If the client should be verbose when generating zones.
 
@@ -227,7 +227,7 @@ Then there is another process which periodically activated and it does:
        the email in archive is marked as sent otherwise number of attempts
        is incremented.
 
-If email cannot be sent three times (configurable) in row, sending of email is
+If email cannot be sent three times in row (configurable), sending of email is
 given up.  The signing is done by openssl binary. M2Crypto python library
 cannot be used, allthough it would be better solution, because emails signed by
 m2crypto cannot be validated in MS Outlook.
@@ -267,13 +267,36 @@ which contains elements, which in turn have attributes key and value):
     Value of element of myset: <?cs var:item.value ?>
   <?cs /each ?>
 
-There exist a utility which makes working with templates easier. It is the
+There exists a utility which makes working with templates easier. It is the
 script template_sucker, which is capable of printing templates stored in
 database in well arranged manner and printing of variables used in individual
 templates.
 
 As ussually there exist two client utilities for mailer. One is for email
 submission and another one is for searching email archive.
+
+Mailer has capability of checking whether an email was delivered successfully
+under assumption that remote smtp server sends error message to "envelope
+from" address, if something goes wrong. The smtp server responsible for
+delivery of emails for domain used in "envelope from" must be aware of
+pyfred and deliver these error messages to special mailbox, which is
+accessed by mailer module in regular intervals and checked for new emails.
+If user part of email address in "To" header matches identifier associated
+with sent email archived in database, the email is marked as undelivered.
+This process of downloading emails over pop3 is optional and may be turned
+off in configuration file. To help test this functionality there is
+pop3_server.py script, which simulates pop3 server (note that if you want
+to run this script, you have to install twisted python framework, which is
+not listed among dependencies of pyfred).
+
+Emails in archive may have assigned several status values, which are numbers
+from 0 to 4. Here is their meaning:
+
+	0: Mail was successfully sent.
+	1: Mail is ready to be sent.
+	2: Mail waits for manual confirmation.
+	3: This email will not be sent or touched by mailer.
+	4: Delivery of email failed.
 
 
  2.4 Techcheck
@@ -292,12 +315,12 @@ are two possible ways how to call out technical check.
   over EPP interface.
 
 The technical check consists of several tests. The tests are highly dynamic and
-are not hardcoded in source code. The possible tests are defined in database
-and when the pyfred starts up, they are read and so called "test suite" is
-constructed, which is used in all checks untill the pyfred is restarted. Test
-suite is a sequence of technical tests which should be applied if they are not
-disabled by certain flag in database. There are a few attributes of test, the
-most important is:
+are not hardcoded in source code (except one). The possible tests are defined
+in database and when the pyfred starts up, they are read and so called "test
+suite" is constructed, which is used in all checks untill the pyfred is
+restarted. Test suite is a sequence of technical tests which should be applied
+if they are not disabled by certain flag in database. There are a few
+attributes of test, the most important is:
 
   * numeric id of test (influences order of test in testsuite)
   * name of test
@@ -338,6 +361,13 @@ and search object" model).
 
 In background are continuosly performed technical checks of all registered
 nssets. This process is called regular technical checks.
+
+There is one special test, which tests necessity of GLUE for nameserver. This
+test must be executed as first one, because it transforms a list of ip address
+and all other tests use this modified list. All other tests should depend on
+this test. This test is exceptional also because it is not executed by external
+script but directly in techcheck, though it has a record in database, which
+has empty string in 'script' field.
 
 
 3. Repository overview
@@ -445,18 +475,6 @@ no default value, the square brackets are missing.
   Genzone
   -------
 
-  *) safeperiod [31] - From expiration date of domain to expiration date of
-     domain plus this number of days is domain still placed in a zone file
-     though it is expired.
-     Example: If you want to displace domains from zone already the next day
-     after their expiration date, set this to 1.
-
-  *) expiration_hour [14] - The hour after which are the domains, which expire
-     that day minus 'safeperiod', not placed in the zone. The value is
-     automaticaly converted to UTC hour, because database uses UTC. This
-     makes outage of domains from zone more predictible since all domains
-     which should be outaged that day are outaged at that hour.
-
   *) idletreshold and checkperiod influence lifetime of CORBA objects dedicated
      for zone transfers.
 
@@ -507,6 +525,18 @@ no default value, the square brackets are missing.
   *) maxattempts [3] - If sending of email fails from some reason, the email
      is sent after 'sendperiod' again. This numbers sets the maximal number of
      attempts to send email before the mailer gives up.
+
+  *) undeliveredperiod [0] - Regularly check for undelivered email messages
+     over POP3. The interval is in seconds. If this is zero, the checks are
+     turned off and all directives related to checking of undelivered emails
+     are meaningless.
+
+  *) POP3user [pyfred] - Username for POP3 account.
+
+  *) POP3pass [] - Password for POP3 account.
+
+  *) POP3server [localhost] - Host and optional port where POP3 daemon runs
+     in format host[:port].
 
   *) idletreshold and checkperiod are used to control lifetime of CORBA
      objects used for downloading of results of a search in mail archive.

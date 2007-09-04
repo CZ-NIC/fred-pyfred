@@ -4,7 +4,7 @@
 Code of mailer daemon.
 """
 
-import os, sys, time, random, ConfigParser, popen2, Queue, tempfile
+import os, sys, time, random, ConfigParser, popen2, Queue, tempfile, re
 import pgdb
 from pyfred.utils import isInfinite
 # corba stuff
@@ -22,11 +22,13 @@ from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
 from email.Utils import formatdate, parseaddr
+# POP3 stuff
+import poplib
 
 def contentfilter(mail):
 	"""
-This routine slightly modifies email in order to prevent unexpected results
-of email signing.
+	This routine slightly modifies email in order to prevent unexpected results
+	of email signing.
 	"""
 	# tabs might not be preserved during mail transfer
 	mail = mail.replace('\t', '        ')
@@ -35,9 +37,9 @@ of email signing.
 
 def qp_str(string):
 	"""
-Function checks if the string contains characters, which need to be "quoted
-printable" and if there are any, it will encode the string. This function
-is used for headers of email.
+	Function checks if the string contains characters, which need to be "quoted
+	printable" and if there are any, it will encode the string. This function
+	is used for headers of email.
 	"""
 	need = False
 	for c in string:
@@ -50,20 +52,20 @@ is used for headers of email.
 
 class Mailer_i (ccReg__POA.Mailer):
 	"""
-This class implements Mailer interface.
+	This class implements Mailer interface.
 	"""
 
 	class MailerException(Exception):
 		"""
-	Exception used for error signalization in periodic sendmail routine.
+		Exception used for error signalization in periodic sendmail routine.
 		"""
 		def __init__(self, msg):
 			Exception.__init__(self, msg)
 
 	def __init__(self, logger, db, conf, joblist, corba_refs):
 		"""
-	Initializer saves db_pars (which is later used for opening database
-	connection) and logger (used for logging).
+		Initializer saves db_pars (which is later used for opening database
+		connection) and logger (used for logging).
 		"""
 		# ccReg__POA.Mailer doesn't have constructor
 		self.db = db # db object for accessing database
@@ -90,6 +92,11 @@ This class implements Mailer interface.
 		self.sendperiod   = 300
 		self.archstatus   = 1
 		self.maxattempts  = 3
+		self.undeliveredperiod = 0
+		self.POP3user     = "pyfred"
+		self.POP3pass     = ""
+		self.POP3server   = "localhost"
+		self.POP3port     = 110
 		# Parse Mailer-specific configuration
 		if conf.has_section("Mailer"):
 			# testmode
@@ -209,6 +216,46 @@ This class implements Mailer interface.
 						self.maxattempts)
 			except ConfigParser.NoOptionError, e:
 				pass
+			# undeliveredperiod
+			try:
+				self.undeliveredperiod = conf.getint("Mailer",
+						"undeliveredperiod")
+				self.l.log(self.l.DEBUG, "Undeliveredperiod is set to %d." %
+						self.undeliveredperiod)
+			except ConfigParser.NoOptionError, e:
+				pass
+			# POP3user
+			try:
+				POP3user = conf.get("Mailer", "POP3user")
+				if POP3user:
+					self.l.log(self.l.DEBUG, "POP3user is %s" % POP3user)
+					self.POP3user = POP3user
+			except ConfigParser.NoOptionError, e:
+				pass
+			# POP3pass
+			try:
+				POP3pass = conf.get("Mailer", "POP3pass")
+				if POP3pass:
+					self.l.log(self.l.DEBUG, "POP3pass is %s" % POP3pass)
+					self.POP3pass = POP3user
+			except ConfigParser.NoOptionError, e:
+				pass
+			# POP3server
+			try:
+				POP3server = conf.get("Mailer", "POP3server")
+				if POP3server:
+					temp = POP3server.split(':')
+					if len(temp) == 1:
+						self.POP3server = temp[0]
+					else:
+						self.POP3server = temp[0]
+						self.POP3port = int(temp[1])
+						self.l.log(self.l.DEBUG, "POP3port is %d" %
+								self.POP3port)
+					self.l.log(self.l.DEBUG, "POP3server is %s" %
+							self.POP3server)
+			except ConfigParser.NoOptionError, e:
+				pass
 
 		# check configuration consistency
 		if self.tester and not self.testmode:
@@ -233,13 +280,18 @@ This class implements Mailer interface.
 		# schedule regular cleanup
 		joblist.append( { "callback":self.__search_cleaner, "context":None,
 			"period":self.checkperiod, "ticks":1 } )
+		# schedule regular submission of ready emails
 		joblist.append( { "callback":self.__sendEmails, "context":None,
 			"period":self.sendperiod, "ticks":1 } )
+		# schedule checks for unsuccessfull delivery of emails
+		if self.undeliveredperiod > 0:
+			joblist.append( { "callback":self.__checkUndelivered,"context":None,
+				"period":self.undeliveredperiod, "ticks":1 } )
 		self.l.log(self.l.INFO, "Object initialized")
 
 	def __search_cleaner(self, ctx):
 		"""
-	Method deletes closed or idle search objects.
+		Method deletes closed or idle search objects.
 		"""
 		self.l.log(self.l.DEBUG, "Regular maintance procedure.")
 		remove = []
@@ -273,7 +325,7 @@ This class implements Mailer interface.
 
 	def __sendEmails(self, ctx):
 		"""
-	Method sends all emails stored in database and ready to be sent.
+		Method sends all emails stored in database and ready to be sent.
 		"""
 		self.l.log(self.l.DEBUG, "Regular send-emails procedure.")
 		conn = self.db.getConn()
@@ -304,9 +356,53 @@ This class implements Mailer interface.
 				self.__dbSendFailed(conn, mailid)
 		self.db.releaseConn(conn)
 
+	def __checkUndelivered(self, ctx):
+		"""
+		Method sends all emails stored in database and ready to be sent.
+		"""
+		self.l.log(self.l.DEBUG, "Regular check-undelivered procedure.")
+		# get emails from mailbox
+		try:
+			pop3 = poplib.POP3(self.POP3server, self.POP3port)
+			pop3.user(self.POP3user)
+			pop3.pass_(self.POP3pass)
+			mailids = [ record.split()[0] for record in pop3.list()[1] ]
+			if (len(mailids) == 0):
+				pop3.quit()
+				return
+			errorids = []
+			pattern = re.compile("^[Tt][Oo]:\s+<?return-(\d+)@.*$")
+			for mailid in mailids:
+				headers = pop3.top(mailid, 0)[1]
+				for header in headers:
+					m = pattern.match(header)
+					if m:
+						result = m.groups()[0]
+						mail = [ line + '\n' for line in pop3.retr(mailid)[1] ]
+						errorids.append( (int(result[0]), "".join(mail)[:3000]))
+						break
+				pop3.dele(mailid)
+			pop3.quit()
+		except poplib.error_proto, e:
+			self.l.log(self.l.ERR, "POP3 protocol error: %s" % e)
+			return
+		if len(errorids) > 0:
+			self.l.log(self.l.DEBUG, "Messages with IDs %s weren't delivered." %
+					[ item[0] for item in errorids ] )
+			# update status in database if the message with error-id exists
+			try:
+				conn = self.db.getConn()
+				for errorid in errorids:
+					self.__dbSetUndelivered(conn, errorid[0], errorid[1])
+				conn.commit()
+				self.db.releaseConn(conn)
+			except pgdb.DatabaseError, e:
+				self.l.log(self.l.ERR, "Database error (%s). Information about "
+						"undelivered emails is lost!" % e)
+
 	def __getFileManagerObject(self):
 		"""
-	Method retrieves FileManager object from nameservice.
+		Method retrieves FileManager object from nameservice.
 		"""
 		# Resolve the name "fred.context/FileManager.Object"
 		name = [CosNaming.NameComponent(self.fm_context, "context"),
@@ -318,7 +414,7 @@ This class implements Mailer interface.
 
 	def __dbGetVcard(self, conn):
 		"""
-	Get vcard attachment from database.
+		Get vcard attachment from database.
 		"""
 		cur = conn.cursor()
 		cur.execute("SELECT vcard FROM mail_vcard")
@@ -328,8 +424,8 @@ This class implements Mailer interface.
 
 	def __dbGetMailTypeData(self, conn, mailtype):
 		"""
-	Method returns subject template, attachment templates and their content
-	types.
+		Method returns subject template, attachment templates and their content
+		types.
 		"""
 		cur = conn.cursor()
 		# get mail type data
@@ -365,9 +461,9 @@ This class implements Mailer interface.
 
 	def __dbSetHeaders(self, conn, subject, header, msg):
 		"""
-	Method initializes headers of email object. Header struct is modified
-	as well, which is important for actual value of envelope sender.
-	Date header is added later and Message-ID is later revisited.
+		Method initializes headers of email object. Header struct is modified
+		as well, which is important for actual value of envelope sender.
+		Date header is added later and Message-ID is later revisited.
 		"""
 		# get default values from database
 		cur = conn.cursor()
@@ -390,7 +486,7 @@ This class implements Mailer interface.
 		if not header.h_organization:
 			header.h_organization = defaults[3]
 		# headers which have default values
-		msg["Message-ID"] = "%s" % defaults[5]
+		msg["Message-ID"] = defaults[5]
 		msg["From"] = header.h_from
 		msg["Reply-to"] = header.h_reply_to
 		msg["Errors-to"] = header.h_errors_to
@@ -398,8 +494,8 @@ This class implements Mailer interface.
 
 	def __dbNewEmailId(self, conn):
 		"""
-	Get next available ID of email. This ID is used in message-id header and
-	when archiving email.
+		Get next available ID of email. This ID is used in message-id header and
+		when archiving email.
 		"""
 		cur = conn.cursor()
 		cur.execute("SELECT nextval('mail_archive_id_seq')")
@@ -409,7 +505,7 @@ This class implements Mailer interface.
 
 	def __dbArchiveEmail(self, conn, mailtype_id, mail, handles, attachs = []):
 		"""
-	Method archives email in database.
+		Method archives email in database.
 		"""
 		cur = conn.cursor()
 		# get ID of next email in archive
@@ -430,7 +526,7 @@ This class implements Mailer interface.
 
 	def __dbGetReadyEmails(self, conn):
 		"""
-	Get all emails from database which are ready to be sent.
+		Get all emails from database which are ready to be sent.
 		"""
 		cur = conn.cursor()
 		cur.execute("SELECT mar.id, mar.message, mat.attachid "
@@ -454,14 +550,16 @@ This class implements Mailer interface.
 
 	def __dbUpdateStatus(self, conn, mailid, status, reset_counter = False):
 		"""
-	Set status value in mail archive. Meaning of status values are:
+		Set status value in mail archive. Meaning of status values are:
 
-	  0: Mail was successfully sent.
-	  1: Mail is ready to be sent.
-	  2: Mail waits for manual confirmation.
+		  0: Mail was successfully sent.
+		  1: Mail is ready to be sent.
+		  2: Mail waits for manual confirmation.
+		  3: This email will not be sent or touched by mailer.
+		  4: Delivery of email failed.
 
-	If reset_counter is true, then counter of unsuccessfull sendmail attempts
-	is set to 0.
+		If reset_counter is true, then counter of unsuccessfull sendmail
+		attempts is set to 0.
 		"""
 		cur = conn.cursor()
 		if reset_counter:
@@ -476,9 +574,21 @@ This class implements Mailer interface.
 			raise ccReg.Mailer.UnknownMailid(mailid)
 		cur.close()
 
+	def __dbSetUndelivered(self, conn, mailid, mail):
+		"""
+		Set status value and insert text of email notification in mail archive.
+		"""
+		cur = conn.cursor()
+		cur.execute("UPDATE mail_archive "
+				"SET status = 4, moddate = now(), response = %s "
+				"WHERE id = %d" % (pgdb._quote(mail), mailid))
+		if cur.rowcount != 1:
+			raise ccReg.Mailer.UnknownMailid(mailid)
+		cur.close()
+
 	def __dbSendFailed(self, conn, mailid):
 		"""
-	Increment counter of failed attempts to send email.
+		Increment counter of failed attempts to send email.
 		"""
 		cur = conn.cursor()
 		cur.execute("UPDATE mail_archive "
@@ -488,7 +598,7 @@ This class implements Mailer interface.
 
 	def __dbGetDefaults(self, conn):
 		"""
-	Retrieve defaults from database.
+		Retrieve defaults from database.
 		"""
 		cur = conn.cursor()
 		cur.execute("SELECT name, value FROM mail_defaults")
@@ -498,7 +608,7 @@ This class implements Mailer interface.
 
 	def __dbGetMailTypes(self, conn):
 		"""
-	Get mapping between ids and names of mailtypes.
+		Get mapping between ids and names of mailtypes.
 		"""
 		cur = conn.cursor()
 		cur.execute("SELECT id, name FROM mail_type")
@@ -508,7 +618,7 @@ This class implements Mailer interface.
 
 	def __completeEmail(self, mailid, mail_text, attachs):
 		"""
-	Method attaches base64 attachments, few email headers to email message.
+		Method attaches base64 attachments, few email headers to email message.
 		"""
 		# Create email object and init headers
 		msg = email.message_from_string(mail_text)
@@ -571,16 +681,18 @@ This class implements Mailer interface.
 						"with id %d is not active anymore: %s" %
 						(attachid, e.message))
 
-		envelope_from = msg["From"]
 		msg["Date"] = formatdate(localtime=True)
+		# Message-ID contains the domain part, which is needed in Message-ID
+		# header and for envelope From.
+		envelope_from = "return-%d@%s" % (mailid, msg["Message-ID"])
 		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()),
 				msg["Message-ID"])
 		# parseaddr returns sender's name and sender's address
-		return contentfilter(msg.as_string()), parseaddr(envelope_from)[1]
+		return contentfilter(msg.as_string()), envelope_from
 
 	def __sign_email(self, mail):
 		"""
-	Routine for signing of email.
+		Routine for signing of email.
 		"""
 		# before signing remove non-MIME headers
 		headerend_index = mail.find("\n\n") # find empty line
@@ -624,7 +736,7 @@ This class implements Mailer interface.
 
 	def __sendEmail(self, mail, envelope_from):
 		"""
-	This routine sends email.
+		This routine sends email.
 		"""
 		# this tranformation guaranties that each line is terminated by crlf
 		mail = mail.replace('\r', '')
@@ -652,15 +764,15 @@ This class implements Mailer interface.
 
 	def __prepareEmail(self, conn, mailtype, header, data):
 		"""
-	Method creates text part of email, it means without base64 encoded
-	attachments. This includes following steps:
+		Method creates text part of email, it means without base64 encoded
+		attachments. This includes following steps:
 
-		1) Create HDF dataset (base of templating)
-		2) Template subject
-		3) Create email headers
-		4) Run templating for all wanted templates and attach them
-		5) Archive email
-		6) Dump email in string form
+			1) Create HDF dataset (base of templating)
+			2) Template subject
+			3) Create email headers
+			4) Run templating for all wanted templates and attach them
+			5) Archive email
+			6) Dump email in string form
 		"""
 		# Create multipart email object and init headers
 		msg = MIMEMultipart()
@@ -706,9 +818,9 @@ This class implements Mailer interface.
 
 	def mailNotify(self, mailtype, header, data, handles, attachs, preview):
 		"""
-	Method from IDL interface. It runs data through appropriate templates
-	and generates an email. The text of the email and operation status must
-	be archived in database.
+		Method from IDL interface. It runs data through appropriate templates
+		and generates an email. The text of the email and operation status must
+		be archived in database.
 		"""
 		try:
 			id = random.randint(1, 9999)
@@ -754,8 +866,8 @@ This class implements Mailer interface.
 
 	def resend(self, mailid):
 		"""
-	Resend email from mail archive with given id. This includes zeroing of
-	counter of unsuccessfull sendmail attempts and setting status to 1.
+		Resend email from mail archive with given id. This includes zeroing of
+		counter of unsuccessfull sendmail attempts and setting status to 1.
 		"""
 		try:
 			id = random.randint(1, 9999)
@@ -780,7 +892,7 @@ This class implements Mailer interface.
 
 	def getMailTypes(self):
 		"""
-	Return mapping between ids of email types and their names.
+		Return mapping between ids of email types and their names.
 		"""
 		try:
 			id = random.randint(1, 9999)
@@ -802,8 +914,8 @@ This class implements Mailer interface.
 
 	def createSearchObject(self, filter):
 		"""
-	This is universal mail archive lookup function. It returns object reference
-	which can be used to access data.
+		This is universal mail archive lookup function. It returns object
+		reference which can be used to access data.
 		"""
 		try:
 			id = random.randint(1, 9999)
@@ -883,7 +995,7 @@ This class implements Mailer interface.
 
 class MailSearch_i (ccReg__POA.MailSearch):
 	"""
-Class encapsulating results of search.
+	Class encapsulating results of search.
 	"""
 
 	# statuses of search object
@@ -893,7 +1005,7 @@ Class encapsulating results of search.
 
 	def __init__(self, id, cursor, log):
 		"""
-	Initializes search object.
+		Initializes search object.
 		"""
 		self.l = log
 		self.id = id
@@ -905,8 +1017,8 @@ Class encapsulating results of search.
 
 	def __get_one_search_result(self):
 		"""
-	Fetch one mail from archive. The problem is that attachments and handles
-	must be transformed from cursor rows to lists.
+		Fetch one mail from archive. The problem is that attachments and handles
+		must be transformed from cursor rows to lists.
 		"""
 		if not self.lastrow:
 			return None
@@ -947,7 +1059,7 @@ Class encapsulating results of search.
 
 	def getNext(self, count):
 		"""
-	Get result of search.
+		Get result of search.
 		"""
 		try:
 			self.l.log(self.l.INFO, "<%d> Get search results request received." %
@@ -992,7 +1104,7 @@ Class encapsulating results of search.
 
 	def destroy(self):
 		"""
-	Mark object as ready to be destroyed.
+		Mark object as ready to be destroyed.
 		"""
 		try:
 			if self.status != self.ACTIVE:
@@ -1012,7 +1124,7 @@ Class encapsulating results of search.
 
 def init(logger, db, conf, joblist, corba_refs):
 	"""
-Function which creates, initializes and returns servant Mailer.
+	Function which creates, initializes and returns servant Mailer.
 	"""
 	# Create an instance of Mailer_i and an Mailer object ref
 	servant = Mailer_i(logger, db, conf, joblist, corba_refs)

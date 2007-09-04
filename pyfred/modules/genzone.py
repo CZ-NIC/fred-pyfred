@@ -46,26 +46,10 @@ This class implements interface used for generation of a zone file.
 		self.corba_refs = corba_refs # root poa for new servants
 		self.zone_objects = Queue.Queue(-1) # list of current transfers
 
-		self.safeperiod = 31
-		self.exhour = 14
 		self.idletreshold = 3600
 		self.checkperiod = 60
 		# Parse genzone-specific configuration
 		if conf.has_section("Genzone"):
-			# safe period
-			try:
-				self.safeperiod = conf.getint("Genzone", "safeperiod")
-				self.l.log(self.l.DEBUG, "safeperiod is set to %d." %
-						self.safeperiod)
-			except ConfigParser.NoOptionError, e:
-				pass
-			# expiration hour
-			try:
-				self.exhour = conf.getint("Genzone", "expiration_hour")
-				self.l.log(self.l.DEBUG, "expiration_hour is set to %d." %
-						self.exhour)
-			except ConfigParser.NoOptionError, e:
-				pass
 			# idle treshold
 			try:
 				self.idletreshold = conf.getint("Genzone", "idletreshold")
@@ -80,10 +64,6 @@ This class implements interface used for generation of a zone file.
 						self.checkperiod)
 			except ConfigParser.NoOptionError, e:
 				pass
-		# correction of exhour, we have to use UTC time (time of database)
-		self.exhour += time.gmtime()[3] - time.localtime()[3]
-		self.l.log(self.l.DEBUG, "expiration_hour after timezone correction is "
-				"%d." % self.exhour)
 
 		# schedule regular cleanup
 		joblist.append( { "callback":self.__genzone_cleaner, "context":None,
@@ -132,10 +112,10 @@ This class implements interface used for generation of a zone file.
 		# following data are called static since they are not expected to
 		# change very often. Though they are stored in database and must
 		# be sent back together with dynamic data
-		cur.execute("SELECT z.id, zs.ttl, zs.hostmaster, zs.serial, zs.refresh, "
+		cur.execute("SELECT z.id, zs.ttl, zs.hostmaster, zs.serial, zs.refresh,"
 				"zs.update_retr, zs.expiry, zs.minimum, zs.ns_fqdn "
-				"FROM zone z, zone_soa zs WHERE zs.zone = z.id AND z.fqdn = %s" %
-				pgdb._quote(zonename))
+				"FROM zone z, zone_soa zs WHERE zs.zone = z.id AND z.fqdn = %s"
+				% pgdb._quote(zonename))
 		if cur.rowcount == 0:
 			cur.close()
 			self.l.log(self.l.ERR, "<%d> Zone '%s' does not exist or does not "
@@ -179,72 +159,14 @@ This class implements interface used for generation of a zone file.
 			raise ccReg.ZoneGenerator.UnknownZone()
 		zoneid, isenum = cur.fetchone()
 
-		# get all domains from the zone into temporary table
-		#    domain must have nsset, must not be expired,
-		#    and for enum domains, the validation must not be expired
-		if isenum:
-			# mark all active enum domains by status flag
-			cur.execute("SELECT o.name, d.nsset, o.id, o.historyid, "
-				"CASE "
-					"WHEN d.nsset IS NULL then '3' "
-					"WHEN date_trunc('day', d.exdate) + interval '%d days' + "
-						"interval '%d hour' < now() then '4' "
-					"WHEN date_trunc('day', e.exdate) + "
-						"interval '%d hour' < now() then '5' "
-					"ELSE '1' "
-				"END AS new_status INTO TEMP TABLE domain_stat_tmp "
-				"FROM object_registry o, domain d, enumval e "
-				"WHERE o.id = d.id AND e.domainid = d.id AND d.zone = %d" %
-				(self.safeperiod, self.exhour, self.exhour, zoneid))
-		else:
-			# mark all active classic domains by status flag
-			cur.execute("SELECT o.name, d.nsset, o.id, o.historyid, "
-				"CASE "
-					"WHEN d.nsset IS NULL then '3' "
-					"WHEN date_trunc('day', d.exdate) + interval '%d days' + "
-						"interval '%d hour' < now() then '4' "
-					"ELSE '1' "
-				"END AS new_status INTO TEMP TABLE domain_stat_tmp "
-				"FROM object_registry o, domain d "
-				"WHERE o.id = d.id AND d.zone = %d" %
-				(self.safeperiod, self.exhour, zoneid))
-
-		# select all domains which changed the status or are new
-		cur.execute("SELECT ds.id AS oid, ds.historyid AS ohid, "
-			"CAST(ds.new_status AS INTEGER), zh.id AS zhid INTO TEMP TABLE "
-			"domain_stat_chg_tmp FROM domain_stat_tmp ds LEFT JOIN "
-			"genzone_domain_history zh ON (ds.id=zh.domain_id AND zh.last=true) "
-			"WHERE ds.new_status!=zh.status OR zh.status IS NULL")
-
-		# append all domains which don't exist anymore
-		cur.execute("INSERT INTO domain_stat_chg_tmp SELECT zh.domain_id, "
-			"zh.domain_hid, 2, zh.id FROM genzone_domain_history zh "
-			"LEFT JOIN domain_stat_tmp ds ON (zh.domain_id=ds.id) "
-			"WHERE zh.zone_id=%d AND "
-				"zh.status!=2 AND zh.last=true AND ds.id IS NULL" % zoneid)
-
-		# change last flag for domains which are in changeset
-		cur.execute("UPDATE genzone_domain_history SET last=false "
-			"WHERE id IN (SELECT zhid FROM domain_stat_chg_tmp)")
-
-		# finally update zone history
-		cur.execute("INSERT INTO genzone_domain_history (domain_id, "
-			"domain_hid, zone_id, status, inzone) SELECT oid, ohid, %d, "
-			"new_status, new_status=1 FROM domain_stat_chg_tmp" % zoneid)
-
 		# put together domains and their nameservers
-		cur.execute("SELECT ds.name, host.fqdn, a.ipaddr "
-				"FROM domain_stat_tmp ds, host LEFT JOIN host_ipaddr_map a "
-				"ON (host.id = a.hostid) "
-				"WHERE ds.nsset = host.nssetid AND ds.new_status=1 "
-				"ORDER BY ds.name, host.fqdn")
-		# destroy temporary table
-		#  this would be done automatically upon connection closure, but
-		#  since we use proxy managing pool of connections, we cannot be
-		#  sure. Therefore we will rather explicitly drop the temporary
-		#  table.
-		#                       III not done III
-		# return cursor for later processing
+		cur.execute("SELECT oreg.name, host.fqdn, a.ipaddr "
+			"FROM object_registry oreg, "
+				"(host LEFT JOIN host_ipaddr_map a ON (host.id = a.hostid)), "
+				"(domain d LEFT JOIN object_state_now osn ON (d.id = osn.object_id)) "
+			"WHERE ((15 <> ANY (osn.states)) OR osn.states IS NULL) "
+				"AND d.id = oreg.id AND d.nsset = host.nssetid AND d.zone = %d "
+			"ORDER BY oreg.name, host.fqdn" % zoneid)
 		return cur
 
 	def getSOA(self, zonename):
