@@ -31,6 +31,10 @@
 	* Genzone client has new configuration option 'nobackups', which
 	disables zone file backups if set to True.
 
+	* Technical checks are more robust in respect to test script
+	freeze-up. Reads are non-blocking and child is killed if it gets
+	stuck.
+
 2007-06-14 Jan Kryl (version 1.6.2)
 
 	* Bug in zone generator was fixed. GLUE records were generated

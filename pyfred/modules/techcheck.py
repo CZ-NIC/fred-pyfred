@@ -4,7 +4,8 @@
 Code of techcheck daemon.
 """
 
-import sys, pgdb, time, random, ConfigParser, commands, os, popen2, Queue
+import sys, select, time, random, ConfigParser, commands, os, popen2, signal
+import Queue, pgdb, fcntl
 from exceptions import SystemExit
 from pyfred.idlstubs import ccReg, ccReg__POA
 from pyfred.utils import isInfinite
@@ -90,6 +91,15 @@ Assemble data about domain from db rows to logical units.
 		currow = cursor.fetchone()
 	return currow, objid, histid, domain, nslist, level
 
+def makeNonBlocking(fd):
+	"""
+	Set non-blocking attribute on file.
+	"""
+	fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+	try:
+		fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NDELAY)
+	except AttributeError:
+		fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
 
 class RegularCheck:
 	"""
@@ -308,7 +318,7 @@ This class implements TechCheck interface.
 				return
 			except ccReg.TechCheck.NssetNotFound, e:
 				if self.idle_rounds == 0:
-					self.l.log(self.l.DEBUG, "<%d> Activating low-cost working" %
+					self.l.log(self.l.DEBUG, "<%d> Activating low-cost working"%
 							id)
 				self.idle_rounds = self.missrounds
 
@@ -562,6 +572,67 @@ This class implements TechCheck interface.
 				"VALUES (%d, %d)" % (msgid, chkid))
 		cur.close()
 
+	def __runCommand(self, id, cmd, stdin):
+		"""
+		Run command in non-blocking manner.
+		"""
+		# run the command
+		child = popen2.Popen3(cmd, True)
+		self.l.log(self.l.DEBUG, "<%d> Running command '%s', pid %d." %
+				(id, cmd, child.pid))
+		if (stdin):
+			child.tochild.write(stdin)
+		child.tochild.close()
+		outfile = child.fromchild 
+		outfd = outfile.fileno()
+		errfile = child.childerr
+		errfd = errfile.fileno()
+		makeNonBlocking(outfd)
+		makeNonBlocking(errfd)
+		outdata = errdata = ''
+		outeof = erreof = 0
+		for round in range(8):
+			# wait for input at most 1 second
+			ready = select.select([outfd,errfd], [], [], 1.0)
+			if outfd in ready[0]:
+				outchunk = outfile.read()
+				if outchunk == '':
+					outeof = 1
+				else:
+					outdata += outchunk
+			if errfd in ready[0]:
+				errchunk = errfile.read()
+				if errchunk == '':
+					erreof = 1
+				else:
+					errdata += errchunk
+			if outeof and erreof: break
+			self.l.log(self.l.WARNING, "<%d> Output of test not ready, "
+					"waiting (round %d)" % (id, round))
+			select.select([],[],[], 0.3) # give a little time for buffers to fill
+		# wait for child to terminate
+		for round in range(3):
+			if round == 1:
+				# kill child
+				self.l.log(self.l.WARNING, "<%d> TERM signal was sent." % (id))
+				os.kill(child.pid, signal.SIGTERM)
+				select.select([],[],[], 0.2) # time to exit
+			elif round == 2:
+				# really kill child
+				self.l.log(self.l.WARNING, "<%d> KILL signal was sent." % (id))
+				os.kill(child.pid, signal.SIGKILL)
+				select.select([],[],[], 0.2) # wait for a while
+			status = os.waitpid(child.pid, os.WNOHANG)
+			#self.l.log(self.l.DEBUG, "<%d> %s (%s)" % (id, status, type(status)))
+			if status[0] == child.pid:
+				break
+			self.l.log(self.l.WARNING, "<%d> Child doesn't want to exit." % (id))
+			time.sleep(1) # wait one second
+		stat = 2 # by default assume error
+		if outeof and erreof and (status[0] == child.pid) and os.WIFEXITED(status[1]):
+				stat = os.WEXITSTATUS(status[1])
+		return stat, outdata, errdata
+
 	def __runTests(self, id, fqdns, nslist, level):
 		"""
 		Run all enabled tests bellow given level.
@@ -649,28 +720,13 @@ This class implements TechCheck interface.
 					cmd += " %s" % ns
 					for addr in addrs:
 						cmd += ",%s" % addr
-				# run the command
-				child = popen2.Popen3(cmd, True)
-				# log some debug info
-				self.l.log(self.l.DEBUG, "<%d> Running test %s, command '%s', "
-						"pid %d." % (id, test["name"], cmd, child.pid))
 				# decide if list of domains is needed
+				stdin = ''
 				if test["need_domain"]:
 					# send space separated list of domain fqdns to stdin
 					for fqdn in fqdns:
-						child.tochild.write(fqdn + ' ')
-					child.tochild.close()
-				# before reading the output wait for child to terminate
-				stat = os.WEXITSTATUS(child.wait())
-				# read both standard outputs (stdout, stderr)
-				if child.fromchild:
-					data = child.fromchild.read()
-				else:
-					data = ''
-				if child.childerr:
-					note = child.childerr.read()
-				else:
-					note = ''
+						stdin += fqdn + ' '
+				stat, data, note = self.__runCommand(id, cmd, stdin)
 
 			# Status values:
 			#     0 ... test OK

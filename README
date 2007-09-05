@@ -340,7 +340,9 @@ Basic schema of technical check is as follows:
   test requires a list (possibly containing only one item) of domain fqdns in
   order to be meaningfull, but there are not any fqdns.
 
-  2) test is realized by execution of appropriate test script.
+  2) test is realized by execution of appropriate test script. Robustness
+  in respect to potencial script freeze-up is accented. As last option
+  is used SIGKILL to end life of child.
 
   3) from return value of the script is deduced status of the test. Three
   values are possible: passed, failed, unknown. Unknown denotes that
