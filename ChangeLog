@@ -28,6 +28,9 @@
 	* Changes in techcheck associated with new system for poll messages
 	archival.
 
+	* Genzone client has new configuration option 'nobackups', which
+	disables zone file backups if set to True.
+
 2007-06-14 Jan Kryl (version 1.6.2)
 
 	* Bug in zone generator was fixed. GLUE records were generated

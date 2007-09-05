@@ -55,6 +55,7 @@ options:
                                   to the number, then it means a procentual
                                   change.
     -n, --nameservice HOST[:port] Set host where corba nameservice runs.
+    -o, --nobackups               Disable creation of zone backups.
     -r, --reload                  Reload the new zone in BIND.
     -v, --verbose                 Print progress graf to stderr (one dot
                                   represents one transfered chunk).
@@ -83,6 +84,7 @@ class ZoneConfig (object):
 			zconf = self.config[zone]
 			# set zone specific default values
 			zconf["backupdir"] = None
+			zconf["nobackups"] = False
 			zconf["chunk"]     = 100
 			zconf["footer"]    = None
 			zconf["header"]    = None
@@ -120,10 +122,10 @@ class ZoneConfig (object):
 def main():
 	try:
 		# parse command line parameters
-		opts, zonenames = getopt.getopt(sys.argv[1:], "b:c:d:e:f:hm:n:rvt:z:",
+		opts, zonenames = getopt.getopt(sys.argv[1:], "b:c:d:e:f:hm:n:orvt:z:",
 				["backupdir=", "chunk=", "rndc=", "header=", "file=", "help",
-				 "maxchanges=", "nameservice=", "reload", "verbose", "footer=",
-				 "zonedir="])
+				 "maxchanges=", "nameservice=", "nobackups", "reload",
+				 "verbose", "footer=", "zonedir="])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(2)
@@ -188,6 +190,9 @@ def main():
 				zoneconf.set("maxchanges", int(value), zonename)
 		if config.has_option(zonename, "zonedir"):
 			zoneconf.set("zonedir", config.get(zonename, "zonedir"), zonename)
+		if config.has_option(zonename, "nobackups"):
+			zoneconf.set("nobackups", config.getboolean(zonename, "nobackups"),
+					zonename)
 
 	# get command line parameters' values
 	for o,a in opts:
@@ -210,6 +215,8 @@ def main():
 				zoneconf.set("maxchanges", int(a))
 		elif o in ("-n", "--nameservice"):
 			ns = a
+		elif o in ("-o", "--nobackups"):
+			zoneconf.set("nobackups", True)
 		elif o in ("-r", "--reload"):
 			reload = True
 		elif o in ("-v", "--verbose"):
@@ -270,16 +277,15 @@ def main():
 
 	# backup old zone files and overwrite them with new ones
 	timesuffix = "-%04d%02d%02d%02d%02d%02d" % time.localtime()[:6]
-	error_count = 0
+	error_zones = []
 	for zone in zonefiletmps:
 		zonefile = "db." + zone
 		zonedir  = zoneconf.get("zonedir", zone)
-		backupdir= zoneconf.get("backupdir", zone)
 		zonefilepath = os.path.join(zonedir, zonefile)
 		zonetmpfd = zonefiletmps[zone]
 		zonetmpfd.seek(0) # rewind the temp file to beginning
 		try:
-			# if zone file already exists, we have to do backup
+			# if zone file already exists, we have to check amount of changes
 			if os.access(zonefilepath, os.R_OK):
 				# check the maxchanges constraint if it is active
 				if zoneconf.get("maxchanges", zone) >= 0:
@@ -311,15 +317,18 @@ def main():
 							raise Exception("%d zone records have changed!" %
 									changedlines)
 					zonetmpfd.seek(0) # rewind the temp file to beginning
-				# the backup dir will be created if it does not exist
-				try:
-					if not os.access(backupdir, os.F_OK):
+				# do backup if backups are not disabled
+				if not zoneconf.get("nobackups", zone):
+					backupdir = zoneconf.get("backupdir", zone)
+					# the backup dir will be created if it does not exist
+					try:
+						if not os.access(backupdir, os.F_OK):
+							os.makedirs(backupdir)
+					except Exception, e:
 						os.makedirs(backupdir)
-				except Exception, e:
-					os.makedirs(backupdir)
-				# copy zone file to backup directory
-				shutil.copy(zonefilepath,
-						os.path.join(backupdir, zonefile + timesuffix))
+					# copy zone file to backup directory
+					shutil.copy(zonefilepath,
+							os.path.join(backupdir, zonefile + timesuffix))
 			# overwrite old zone file
 			zonefd = open(zonefilepath, "w")
 			zonefd.write(zonetmpfd.read())
@@ -327,19 +336,22 @@ def main():
 		except Exception, e:
 			sys.stderr.write("Error when overwriting old zone file %s. The "
 					"zone stays unchanged! (error: %s)\n" % (zonefile, e))
-			error_count += 1
+			error_zones.append(zone)
 
 	# if none of the zone files changed do not reload the zones in DNS server
-	if reload and (error_count < len(zonefiletmps)):
+	if reload and (len(error_zones) < len(zonenames)):
 		if verbose: sys.stderr.write("Reloading new zones in BIND server.\n")
 		for zonename in zonenames:
+			# ignore not generated zones due to an error
+			if zonename in error_zones:
+				continue
 			status,output = commands.getstatusoutput("%s reload %s" %
 					(rndc, zonename))
 			if os.WEXITSTATUS(status) != 0:
 				sys.stderr.write("Error when reloading zone %s: %s.\n" %
 						(zonename, output))
 
-	if error_count > 0:
+	if error_zones:
 		sys.exit(-1)
 	sys.exit()
 

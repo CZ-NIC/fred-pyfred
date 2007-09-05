@@ -176,6 +176,9 @@ directives follow.
        be backuped before being overwritten by new zone file. Default is
        to use the same directory as zonedir.
 
+    *) nobackups [False] - It set to True, no backups are created at all
+       (backupdir directive is in that case useless).
+
     *) chunk [100] - Relates to mechanism of how the records are transfered
        over corba. It means how many domains are transferred in one CORBA
        call.
