@@ -4,6 +4,8 @@ import sys, getopt
 from omniORB import CORBA
 import CosNaming
 
+# update import path
+sys.path.insert(0, "idl")
 from pyfred.idlstubs import ccReg
 
 def usage():

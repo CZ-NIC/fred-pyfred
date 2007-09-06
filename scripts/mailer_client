@@ -6,8 +6,7 @@ import CosNaming
 
 # update import path
 sys.path.insert(0, "idl")
-sys.path.insert(0, "/usr/lib/pyfred/share")
-import ccReg
+from pyfred.idlstubs import ccReg
 
 def usage():
 	"""
