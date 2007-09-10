@@ -35,6 +35,9 @@
 	freeze-up. Reads are non-blocking and child is killed if it gets
 	stuck.
 
+	* Error in all domain-dependant techcheck scripts was corrected.
+	The results were interpreted as failure, allthough they shouldn't.
+
 2007-06-14 Jan Kryl (version 1.6.2)
 
 	* Bug in zone generator was fixed. GLUE records were generated
