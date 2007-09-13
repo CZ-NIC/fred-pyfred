@@ -1,4 +1,4 @@
-2007-09-10 Jan Kryl (version 1.7.0)
+2007-10-20 Jan Kryl (version 1.7.0)
 
 	* Mailer is capable of checking for undelivered email messages.
 	It does so by downloading emails over POP3 protocol from mailbox,
@@ -30,6 +30,8 @@
 
 	* Genzone client has new configuration option 'nobackups', which
 	disables zone file backups if set to True.
+
+2007-09-13 Jan Kryl (version 1.6.3)
 
 	* Technical checks are more robust in respect to test script
 	freeze-up. Reads are non-blocking and child is killed if it gets
