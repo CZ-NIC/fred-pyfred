@@ -148,7 +148,8 @@ hook command line:
   $zone     name of zone which is generated
   $backup   absolute path of previous (backed up) zone file
 
-The hook is trigered only if the zone file is generated successfully.
+The hook is trigered only if the zone file is successfully generated. By this
+hook you can conveniently restart a bind server for example.
 
   2.2.1 Configuration of genzone client
 
