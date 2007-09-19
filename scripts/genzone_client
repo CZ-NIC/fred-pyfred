@@ -41,27 +41,27 @@ zone(s) to be generated on command line, then the zones to be generated from
 config file will be IGNORED!
 
 options:
-    -b, --backupdir PATH          Directory used for zone file backups (default
+    -b, --backupdir=PATH          Directory used for zone file backups (default
                                   is the zonedir directory).
-    -c, --chunk NUMBER            Number of domains transfered in one CORBA
+    -c, --chunk=NUMBER            Number of domains transfered in one CORBA
                                   call.
-    -d, --rndc PATH               Path to rndc command if it isn't in $PATH.
-    -e, --header PATH             Path to file which will be prepended to zone
+    -e, --header=PATH             Path to file which will be prepended to zone
                                   file.
-    -f, --file PATH               Configuration file for genzone.
+    -f, --file=PATH               Configuration file for genzone.
     -h, --help                    Print this information.
-    -m, --maxchanges NUMBER[%%]    Maximal number of changed lines compared to
+    -m, --maxchanges=NUMBER[%%]    Maximal number of changed lines compared to
                                   previously generated zone. If you prepend '%%'
                                   to the number, then it means a procentual
                                   change.
-    -n, --nameservice HOST[:port] Set host where corba nameservice runs.
+    -n, --nameservice=HOST[:port] Set host where corba nameservice runs.
     -o, --nobackups               Disable creation of zone backups.
-    -r, --reload                  Reload the new zone in BIND.
+    -p, --post-hook=CMDLINE       Execute specified command line after every
+                                  zone is generated (see README).
     -v, --verbose                 Print progress graf to stderr (one dot
                                   represents one transfered chunk).
-    -t, --footer PATH             Path to file which will be appended to zone
+    -t, --footer=PATH             Path to file which will be appended to zone
                                   file.
-    -z, --zonedir  PATH           Directory where the zone file(s) should be
+    -z, --zonedir=PATH            Directory where the zone file(s) should be
                                   generated (default is current directory).
 
 Option maxchanges is taken into account only if the previous zone file is found.
@@ -90,6 +90,7 @@ class ZoneConfig (object):
 			zconf["header"]    = None
 			zconf["maxchanges"]= -1
 			zconf["mchproc"]   = False # procentual change
+			zconf["post-hook"] = ""
 			zconf["zonedir"]   = "./"
 
 	def set(self, name, value, zone=""):
@@ -118,13 +119,21 @@ class ZoneConfig (object):
 		"""
 		return self.config[zone][name]
 
+def hook_subst(hookcmd, subst_dict):
+	"""
+	Substitute special sequences in hook command line.
+	"""
+	for key in subst_dict:
+		hookcmd = hookcmd.replace('$' + key, subst_dict[key])
+	return hookcmd
+
 
 def main():
 	try:
 		# parse command line parameters
-		opts, zonenames = getopt.getopt(sys.argv[1:], "b:c:d:e:f:hm:n:orvt:z:",
-				["backupdir=", "chunk=", "rndc=", "header=", "file=", "help",
-				 "maxchanges=", "nameservice=", "nobackups", "reload",
+		opts, zonenames = getopt.getopt(sys.argv[1:], "b:c:e:f:hm:n:op:vt:z:",
+				["backupdir=", "chunk=", "header=", "file=", "help",
+				 "maxchanges=", "nameservice=", "nobackups", "post-hook=",
 				 "verbose", "footer=", "zonedir="])
 	except getopt.GetoptError:
 		usage()
@@ -132,9 +141,7 @@ def main():
 
 	# set default values which are not zone specific
 	configfile= "/etc/fred/genzone.conf"
-	rndc      = "rndc"
 	ns        = "localhost"
-	reload    = False
 	pcb_param = None # progress callback
 	verbose   = False
 
@@ -149,10 +156,6 @@ def main():
 	# set not zone specific configuration values
 	if config.has_option("general", "nameservice"):
 		ns = config.get("general", "nameservice")
-	if config.has_option("general", "reload"):
-		reload = config.getboolean("general", "reload")
-	if config.has_option("general", "rndc"):
-		rndc = config.get("general", "rndc")
 	if config.has_option("general", "verbose"):
 		verbose = config.getboolean("general", "verbose")
 		if verbose: pcb_param = pcb
@@ -188,6 +191,8 @@ def main():
 				zoneconf.set("mchproc", True, zonename)
 			else:
 				zoneconf.set("maxchanges", int(value), zonename)
+		if config.has_option(zonename, "post-hook"):
+			zoneconf.set("post-hook", config.get(zonename,"post-hook"),zonename)
 		if config.has_option(zonename, "zonedir"):
 			zoneconf.set("zonedir", config.get(zonename, "zonedir"), zonename)
 		if config.has_option(zonename, "nobackups"):
@@ -200,8 +205,6 @@ def main():
 			zoneconf.set("backupdir", a)
 		elif o in ("-c", "--chunk"):
 			zoneconf.set("chunk", int(a))
-		elif o in ("-d", "--rndc"):
-			rndc = a
 		elif o in ("-e", "--header"):
 			zoneconf.set("header", a)
 		elif o in ("-h", "--help"):
@@ -217,8 +220,8 @@ def main():
 			ns = a
 		elif o in ("-o", "--nobackups"):
 			zoneconf.set("nobackups", True)
-		elif o in ("-r", "--reload"):
-			reload = True
+		elif o in ("-p", "--post-hook"):
+			zoneconf.set("post-hook", a)
 		elif o in ("-v", "--verbose"):
 			verbose = True
 			pcb_param = pcb
@@ -284,6 +287,7 @@ def main():
 		zonefilepath = os.path.join(zonedir, zonefile)
 		zonetmpfd = zonefiletmps[zone]
 		zonetmpfd.seek(0) # rewind the temp file to beginning
+		backupfile = "" # reinitialized later in code
 		try:
 			# if zone file already exists, we have to check amount of changes
 			if os.access(zonefilepath, os.R_OK):
@@ -320,6 +324,7 @@ def main():
 				# do backup if backups are not disabled
 				if not zoneconf.get("nobackups", zone):
 					backupdir = zoneconf.get("backupdir", zone)
+					backupfile = os.path.join(backupdir, zonefile + timesuffix)
 					# the backup dir will be created if it does not exist
 					try:
 						if not os.access(backupdir, os.F_OK):
@@ -327,29 +332,27 @@ def main():
 					except Exception, e:
 						os.makedirs(backupdir)
 					# copy zone file to backup directory
-					shutil.copy(zonefilepath,
-							os.path.join(backupdir, zonefile + timesuffix))
+					shutil.copy(zonefilepath, backupfile)
 			# overwrite old zone file
 			zonefd = open(zonefilepath, "w")
 			zonefd.write(zonetmpfd.read())
 			zonefd.close()
+			# run hook if it is configured
+			if zoneconf.get("post-hook", zone):
+				subst_dict = { "file":zonefilepath,
+				               "zone":zone,
+				               "backup":backupfile }
+				cmd = hook_subst(zoneconf.get("post-hook", zone), subst_dict)
+				if verbose:
+					sys.stderr.write("Running post-hook: %s\n" % cmd)
+				status,output = commands.getstatusoutput(cmd)
+				if os.WEXITSTATUS(status) != 0:
+					sys.stderr.write("Error when running post-hook "
+							"(status = %d).\n%s\n" % (status, output))
 		except Exception, e:
 			sys.stderr.write("Error when overwriting old zone file %s. The "
 					"zone stays unchanged! (error: %s)\n" % (zonefile, e))
 			error_zones.append(zone)
-
-	# if none of the zone files changed do not reload the zones in DNS server
-	if reload and (len(error_zones) < len(zonenames)):
-		if verbose: sys.stderr.write("Reloading new zones in BIND server.\n")
-		for zonename in zonenames:
-			# ignore not generated zones due to an error
-			if zonename in error_zones:
-				continue
-			status,output = commands.getstatusoutput("%s reload %s" %
-					(rndc, zonename))
-			if os.WEXITSTATUS(status) != 0:
-				sys.stderr.write("Error when reloading zone %s: %s.\n" %
-						(zonename, output))
 
 	if error_zones:
 		sys.exit(-1)

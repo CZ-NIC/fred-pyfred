@@ -134,13 +134,21 @@ of a domain in a zone. Only warning messages are logged to syslog.
 
 The client is responsible for formatting of received data in manner which is
 acceptable by DNS server.  The only currently availabel output format is a
-format of BIND DNS server. Second client script is dedicated solely to
-testing of genzone server. Zone generation is so important service that
-there is a special need to test, that server is up and running. Output of
-test script is compatible with expectations of Nagios monitoring software.
-Genzone client handles also backups of old zone files before they are
-overwritten by newly generated zone files. It is possible to tell client
-to notify the BIND to reload newly generated zones.
+format of BIND DNS server. Second client script is dedicated solely to testing
+of genzone server. Zone generation is so important service that there is a
+special need to test, that server is up and running. Output of test script is
+compatible with expectations of Nagios monitoring software.  Genzone client
+handles also backups of old zone files before they are overwritten by newly
+generated zone files. It is possible to configure post-hook for each zone (or
+in DEFAULT section for all zones).  Hook is a command which is executed after
+the zone is generated.  Genzone performs substitution for following tokens in
+hook command line:
+
+  $file     absolute path of new generated zone file
+  $zone     name of zone which is generated
+  $backup   absolute path of previous (backed up) zone file
+
+The hook is trigered only if the zone file is generated successfully.
 
   2.2.1 Configuration of genzone client
 
@@ -156,11 +164,6 @@ directives follow.
   General configuration directives:
 
     *) nameservice [localhost] - Host where is running corba nameservice.
-
-    *) reload [Off] - If genzone client should tell bind (over rndc) to reload
-       generated zones.
-
-    *) rndc [rndc] - Path to rndc if it is not in $PATH.
 
     *) verbose [Off] - If the client should be verbose when generating zones.
 

@@ -1,4 +1,4 @@
-2007-10-20 Jan Kryl (version 1.7.0)
+2007-09-29 Jan Kryl (version 1.7.0)
 
 	* Mailer is capable of checking for undelivered email messages.
 	It does so by downloading emails over POP3 protocol from mailbox,
@@ -12,9 +12,10 @@
 	is set by another process. As consequence of this the configuration
 	directives expiration_hour and safeperiod were cancelled.
 
-	* New configuration directive "rndc" for genzone_client was added.
-	It sets path to rndc binary and can be used in case when rndc is not
-	in $PATH.
+	* New configuration directive "post-hook" for genzone_client was added.
+	It runs arbitrary command after successfull zone file generation.
+	It is supersedes "rndc" and "reload" configuration directives, which
+	were removed.
 
 	* New technical test, which tests requirement for GLUE, was added.
 	This test is special, because it is realized directly in techcheck and
