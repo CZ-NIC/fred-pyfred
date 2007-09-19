@@ -164,7 +164,7 @@ This class implements interface used for generation of a zone file.
 			"FROM object_registry oreg, "
 				"(host LEFT JOIN host_ipaddr_map a ON (host.id = a.hostid)), "
 				"(domain d LEFT JOIN object_state_now osn ON (d.id = osn.object_id)) "
-			"WHERE ((15 <> ANY (osn.states)) OR osn.states IS NULL) "
+			"WHERE (NOT (15 = ANY (osn.states)) OR osn.states IS NULL) "
 				"AND d.id = oreg.id AND d.nsset = host.nssetid AND d.zone = %d "
 			"ORDER BY oreg.name, host.fqdn" % zoneid)
 		return cur

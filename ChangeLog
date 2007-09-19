@@ -12,6 +12,9 @@
 	is set by another process. As consequence of this the configuration
 	directives expiration_hour and safeperiod were cancelled.
 
+	* Few bugs in genzone server were corrected. The zone should now be
+	more correctly generated than it was before.
+
 	* New configuration directive "post-hook" for genzone_client was added.
 	It runs arbitrary command after successfull zone file generation.
 	It is supersedes "rndc" and "reload" configuration directives, which
