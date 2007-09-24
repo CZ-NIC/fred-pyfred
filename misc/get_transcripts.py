@@ -101,7 +101,8 @@ def main():
 			fd = tempfile.NamedTemporaryFile()
 			fd.write(octets)
 			# save the attachment via filemanager client
-			cmd = '%s --input="%s" --label="%s" --mime="%s" --nameservice="%s"'\
+			cmd = '%s --input="%s" --label="%s" --mime="%s" --type=4 '\
+					'--nameservice="%s"'\
 					% (FM_CMD, fd.name, filename, mimetype, nshost)
 			(status, output) = commands.getstatusoutput(cmd)
 			if os.WEXITSTATUS(status) != 0:
