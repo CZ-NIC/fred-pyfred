@@ -14,12 +14,12 @@ from pyfred.utils import isInfinite
 
 class FileManager_i (ccReg__POA.FileManager):
 	"""
-This class implements FileManager interface.
+	This class implements FileManager interface.
 	"""
 	def __init__(self, logger, db, conf, joblist, corba_refs):
 		"""
-	Initializer saves db (which is later used for opening database
-	connection) and logger (used for logging).
+		Initializer saves db (which is later used for opening database
+		connection) and logger (used for logging).
 		"""
 		# ccReg__POA.FileManager doesn't have constructor
 		self.db = db # db object for accessing database
@@ -77,7 +77,7 @@ This class implements FileManager interface.
 
 	def __object_cleaner(self, ctx):
 		"""
-	Method deletes closed or idle search, upload and download objects.
+		Method deletes closed or idle search, upload and download objects.
 		"""
 		self.l.log(self.l.DEBUG, "Regular maintance procedure.")
 		remove = []
@@ -113,8 +113,8 @@ This class implements FileManager interface.
 
 	def __dbGetId(self, conn):
 		"""
-	Retrieves Id of save request from database - it is a value of primary
-	key.
+		Retrieves Id of save request from database - it is a value of primary
+		key.
 		"""
 		cur = conn.cursor()
 		cur.execute("SELECT nextval('files_id_seq')")
@@ -124,7 +124,7 @@ This class implements FileManager interface.
 
 	def __dbSaveMetadata(self, conn, id, name, path, mimetype, filetype, size=0):
 		"""
-	Inserts record about saved file in database.
+		Inserts record about saved file in database.
 		"""
 		if not mimetype:
 			mimetype = "NULL"# use default value from database if type is not set
@@ -141,7 +141,7 @@ This class implements FileManager interface.
 
 	def __dbGetMetadata(self, conn, id):
 		"""
-	Retrieve record describing a file from database.
+		Retrieve record describing a file from database.
 		"""
 		cur = conn.cursor()
 		# check that there is not such a name in database already
@@ -157,7 +157,7 @@ This class implements FileManager interface.
 
 	def __dbGetFileTypes(self, conn):
 		"""
-	Retrieve file types from database.
+		Retrieve file types from database.
 		"""
 		cur = conn.cursor()
 		# check that there is not such a name in database already
@@ -168,7 +168,7 @@ This class implements FileManager interface.
 
 	def getTypeEnum(self):
 		"""
-	Method from IDL interface. Get enumeration of file types from database.
+		Method from IDL interface. Get enumeration of file types from database.
 		"""
 		try:
 			# create request id
@@ -191,8 +191,8 @@ This class implements FileManager interface.
 
 	def save(self, name, mimetype, filetype):
 		"""
-	Method from IDL interface. It returns object through which is possible
-	to upload data.
+		Method from IDL interface. It returns object through which is possible
+		to upload data.
 		"""
 		try:
 			id = random.randint(1, 9999)
@@ -249,7 +249,7 @@ This class implements FileManager interface.
 
 	def load(self, fileid):
 		"""
-	Method from IDL interface. It loads data from a file.
+		Method from IDL interface. It loads data from a file.
 		"""
 		try:
 			# create request id
@@ -300,7 +300,7 @@ This class implements FileManager interface.
 
 	def info(self, fileid):
 		"""
-	Method from IDL interface. It gets meta info about file.
+		Method from IDL interface. It gets meta info about file.
 		"""
 		try:
 			# create request id
@@ -333,7 +333,7 @@ This class implements FileManager interface.
 
 	def createSearchObject(self, filter):
 		"""
-	Method creates object which makes accessible results of a search.
+		Method creates object which makes accessible results of a search.
 		"""
 		try:
 			# create request id
@@ -415,7 +415,7 @@ This class implements FileManager interface.
 
 class FileSearch_i (ccReg__POA.FileSearch):
 	"""
-Class encapsulating results of search.
+	Class encapsulating results of search.
 	"""
 
 	# statuses of search object
@@ -425,7 +425,7 @@ Class encapsulating results of search.
 
 	def __init__(self, id, cursor, log):
 		"""
-	Initializes search object.
+		Initializes search object.
 		"""
 		self.l = log
 		self.id = id
@@ -437,7 +437,7 @@ Class encapsulating results of search.
 
 	def getNext(self, count):
 		"""
-	Get result of search.
+		Get result of search.
 		"""
 		try:
 			self.l.log(self.l.INFO, "<%d> Get search result request received." %
@@ -485,7 +485,7 @@ Class encapsulating results of search.
 
 	def destroy(self):
 		"""
-	Mark object as ready to be destroyed.
+		Mark object as ready to be destroyed.
 		"""
 		try:
 			if self.status != self.ACTIVE:
@@ -505,7 +505,7 @@ Class encapsulating results of search.
 
 class FileUpload_i (ccReg__POA.FileUpload):
 	"""
-Class encapsulating results of search.
+	Class encapsulating results of search.
 	"""
 
 	# statuses of search object
@@ -515,7 +515,7 @@ Class encapsulating results of search.
 
 	def __init__(self, id, dbid, f, conn, log):
 		"""
-	Initializes upload object.
+		Initializes upload object.
 		"""
 		self.l = log
 		self.id = id
@@ -529,7 +529,7 @@ Class encapsulating results of search.
 
 	def __dbUpdateFileSize(self, conn, id, size):
 		"""
-	Update file size field in file table.
+		Update file size field in file table.
 		"""
 		cur = conn.cursor()
 		cur.execute("UPDATE files SET filesize = %d WHERE id = %d" % (size, id))
@@ -537,7 +537,7 @@ Class encapsulating results of search.
 
 	def upload(self, data):
 		"""
-	Upload part of a file stored in data.
+		Upload part of a file stored in data.
 		"""
 		try:
 			self.l.log(self.l.INFO, "<%d> Upload chunk of file request received "
@@ -563,12 +563,12 @@ Class encapsulating results of search.
 
 	def finalize_upload(self):
 		"""
-	Finalize upload of a file and mark object as ready to be destroyed.
+		Finalize upload of a file and mark object as ready to be destroyed.
 		"""
 		try:
 			if self.status != self.ACTIVE:
-				self.l.log(self.l.WARNING, "<%d> An attempt to close non-active "
-						"upload object." % self.id)
+				self.l.log(self.l.WARNING, "<%d> An attempt to close non-active"
+						" upload object." % self.id)
 				return
 
 			self.__dbUpdateFileSize(self.conn, self.dbid, self.size)
@@ -592,7 +592,7 @@ Class encapsulating results of search.
 
 class FileDownload_i (ccReg__POA.FileDownload):
 	"""
-Class encapsulating results of search.
+	Class encapsulating results of search.
 	"""
 
 	# statuses of search object
@@ -602,7 +602,7 @@ Class encapsulating results of search.
 
 	def __init__(self, id, fd, log):
 		"""
-	Initializes download object.
+		Initializes download object.
 		"""
 		self.l = log
 		self.id = id
@@ -613,7 +613,7 @@ Class encapsulating results of search.
 
 	def download(self, nbytes):
 		"""
-	Download part of a file from filesystem.
+		Download part of a file from filesystem.
 		"""
 		try:
 			self.l.log(self.l.INFO, "<%d> Download chunk of file request "
@@ -638,12 +638,12 @@ Class encapsulating results of search.
 
 	def finalize_download(self):
 		"""
-	Finalize download of a file and mark object as ready to be destroyed.
+		Finalize download of a file and mark object as ready to be destroyed.
 		"""
 		try:
 			if self.status != self.ACTIVE:
-				self.l.log(self.l.WARNING, "<%d> An attempt to close non-active "
-						"download object." % self.id)
+				self.l.log(self.l.WARNING, "<%d> An attempt to close non-active"
+						" download object." % self.id)
 				return
 
 			self.fd.close()
@@ -657,7 +657,7 @@ Class encapsulating results of search.
 
 def init(logger, db, conf, joblist, corba_refs):
 	"""
-Function which creates, initializes and returns servant FileManager.
+	Function which creates, initializes and returns servant FileManager.
 	"""
 	# Create an instance of FileManager_i and an FileManager object ref
 	servant = FileManager_i(logger, db, conf, joblist, corba_refs)

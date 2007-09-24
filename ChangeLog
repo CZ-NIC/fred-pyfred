@@ -35,6 +35,10 @@
 	* Genzone client has new configuration option 'nobackups', which
 	disables zone file backups if set to True.
 
+	* New script, not directly related to pyfred, in misc directory added.
+	It downloads bank transcripts from IMAP mailbox and via
+	filemanager_client stores them as files in database.
+
 2007-09-13 Jan Kryl (version 1.6.3)
 
 	* Technical checks are more robust in respect to test script

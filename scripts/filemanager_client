@@ -14,20 +14,20 @@ DEV_STDIN = '-'
 
 def usage():
 	"""
-Print usage information.
+	Print usage information.
 	"""
 	sys.stderr.write("""filemanager_client [options]
 
 Options:
     -h, --help            Print this help message.
-    -i, --input FILE      Send FILE to FileManager.
-    -l, --label NAME      Overwrite name of the input file.
-    -n, --nameservice HOST[:PORT] Set host where corba nameservice runs.
-    -m, --mime MIMETYPE   MIME type of input file (use only with -i).
-    -o, --output FILE     Write file retrieved from FileManager to FILE.
-    -t, --type NUMBER     File type of input file (use only with -i).
-    -x, --id              ID of file.
-    -s, --silent          Output to stdout plain data without text
+    -i, --input=FILE      Send FILE to FileManager.
+    -l, --label=NAME      Overwrite name of the input file.
+    -n, --nameservice=HOST[:PORT] Set host where corba nameservice runs.
+    -m, --mime=MIMETYPE   MIME type of input file (use only with -i).
+    -o, --output=FILE     Write file retrieved from FileManager to FILE.
+    -s, --silent          Output to stdout plain data without text.
+    -t, --type=NUMBER     File type of input file (use only with -i).
+    -x, --id=ID           ID of file.
 
 Input and output parameter decides wether a file will be saved or loaded.
 If none of them is specified then meta-info about file is retrieved.
@@ -36,7 +36,7 @@ If none of them is specified then meta-info about file is retrieved.
 
 def getinfo(fm, id):
 	"""
-Get meta information about file.
+	Get meta information about file.
 	"""
 	#
 	# Call filemanager's function
@@ -60,7 +60,7 @@ Get meta information about file.
 	print "  size:     %d" % info.size
 	print "  repository path: %s" % info.path
 
-def savefile(fm, mimetype, filetype, input, overwrite_label='', silent=0):
+def savefile(fm, mimetype, filetype, input, overwrite_label='', silent=False):
 	"""
 	Save file to filemanager.
 	"""
@@ -96,7 +96,7 @@ def savefile(fm, mimetype, filetype, input, overwrite_label='', silent=0):
 
 def loadfile(fm, id, output, silent):
 	"""
-Get file from filemanager.
+	Get file from filemanager.
 	"""
 	#
 	# Call filemanager's functions
@@ -131,9 +131,9 @@ Get file from filemanager.
 def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:],
-				"hi:l:n:m:o:t:x:s",
-				["help", "input", "label", "nameservice",
-				 "mimetype", "output", "type", "id", "silent"])
+				"hi:l:n:m:o:st:x:",
+				["help", "input=", "label=", "nameservice=",
+				 "mimetype=", "output=", "silent", "type=", "id="])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(1)
@@ -145,7 +145,7 @@ def main():
 	filetype = 0
 	label = ""
 	sid = '' # string ID
-	silent = 0
+	silent = False
 	id = None
 	for o, a in opts:
 		if o in ("-h", "--help"):
@@ -161,19 +161,19 @@ def main():
 			mimetype = a
 		elif o in ("-o", "--output"):
 			output = a
+		elif o in ("-s", "--silent"):
+			silent = True
 		elif o in ("-t", "--type"):
 			filetype = int(a)
 		elif o in ("-x", "--id"):
 			sid = a # string ID
-		elif o in ("-s", "--silent"):
-			silent = 1
 	# options check
 	if input and output:
 		sys.stderr.write("--input and --output options cannot be both "
 				"specified.\n")
 		usage()
 		sys.exit(1)
-	elif not (input or output or sys.stdin.isatty()):
+	if (not input) and (not output) and sys.stdin.isatty():
 		input = DEV_STDIN
 
 	if output or not input:
