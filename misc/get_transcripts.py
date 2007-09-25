@@ -5,18 +5,18 @@
 import sys, getopt, imaplib, tempfile, commands, os
 from email.FeedParser import FeedParser
 
-IMAPUSER = 'jan.kryl@nic.cz'
-IMAPPASS = 'maey3Po8'
+IMAPUSER = 'testbank@nic.cz'
+IMAPPASS = 'heslo345G'
 IMAPHOST = 'mail.nic.cz'
 FROM1    = 'jan.kryl@nic.cz'
-FROM2    = 'jaromir.talir@nic.cz'
+FROM2    = 'notifikace@ps.ipb.cz'
 FM_CMD   = 'filemanager_client'
 NSHOST   = 'curlew.office.nic.cz'
 
 verbose = False
 
 def usage():
-	print '%s [-H imaphost] [-n nameservice] [-p imappassword] [-u imapuser] [-v]' % sys.argv[0]
+	print '%s [-g gpc-processor] [-H imaphost] [-n nameservice] [-p imappassword] [-u imapuser] [-v]' % sys.argv[0]
 
 def debug(msg):
 	global verbose
@@ -32,7 +32,7 @@ def main():
 	global verbose
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "h:p:u:v", [])
+		opts, args = getopt.getopt(sys.argv[1:], "g:h:p:u:v", [])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(2)
@@ -41,9 +41,12 @@ def main():
 	imappass = IMAPPASS
 	imapuser = IMAPUSER
 	nshost   = NSHOST
+	gpc_prog = '' # GPCs are not processed by default
 
 	for o,a in opts:
-		if o == '-h':
+		if o == '-g':
+			gpc_prog = a
+		elif o == '-h':
 			imaphost = a
 		elif o == '-n':
 			nshost = a
@@ -62,8 +65,8 @@ def main():
 	server.login(imapuser, imappass)
 	debug('Logged in as %s' % imapuser)
 	server.select()
-	r, data = server.search(None, '((UNSEEN) (OR FROM "%s" FROM "%s"))' %
-			(FROM1, FROM2))
+	r, data = server.search(None, '((UNSEEN) (OR FROM "%s" FROM "%s"))'
+			% (FROM1, FROM2))
 	msgids = data[0].replace(' ', ',')
 	if not msgids:
 		debug('No new messages in mailbox')
@@ -100,6 +103,7 @@ def main():
 			debug(octets[:300] + ' ...')
 			fd = tempfile.NamedTemporaryFile()
 			fd.write(octets)
+			fd.flush()
 			# save the attachment via filemanager client
 			cmd = '%s --input="%s" --label="%s" --mime="%s" --type=4 '\
 					'--nameservice="%s"'\
@@ -109,8 +113,20 @@ def main():
 				raise Exception('Error when executing command: %s\n%s' %
 						(cmd, output))
 			else:
+				debug(cmd)
 				debug('Filemanager\'s output:')
 				debug(output)
+			# process GPC format
+			if gpc_prog and filename.endswith('.gpc'):
+				cmd = '%s --bank-gpc "%s"' % (gpc_prog, fd.name)
+				(status, output) = commands.getstatusoutput(cmd)
+				if os.WEXITSTATUS(status) != 0:
+					raise Exception('Error when executing command: %s\n%s' %
+							(cmd, output))
+				else:
+					debug(cmd)
+					debug('GPC processor\'s output:')
+					debug(output)
 			# cut off successfully saved message from list
 			msgids = msgids[2:]
 	except Exception,e:
