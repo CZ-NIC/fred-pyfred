@@ -10,7 +10,9 @@
 # basic configuration of pyfred
 #
 [General]
-modules=genzone mailer filemanager techcheck
+#modules=genzone mailer filemanager techcheck
+modules=genzone
+dbhost=pokuston
 dbuser=fred
 dbname=fred
 dbport=5432
