@@ -1,4 +1,4 @@
-2007-09-29 Jan Kryl (version 1.7.0)
+2007-09-26 Jan Kryl (version 1.7.0)
 
 	* Mailer is capable of checking for undelivered email messages.
 	It does so by downloading emails over POP3 protocol from mailbox,
@@ -38,6 +38,12 @@
 	* New script, not directly related to pyfred, in misc directory added.
 	It downloads bank transcripts from IMAP mailbox and via
 	filemanager_client stores them as files in database.
+
+	* In some not very often used scripts were set obsoleted import paths.
+	This was fixed.
+
+	* New directory unittests was added to repository, but there's nothing
+	usable yet.
 
 2007-09-13 Jan Kryl (version 1.6.3)
 

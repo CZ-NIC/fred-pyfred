@@ -2,12 +2,22 @@
 #
 # vim:ts=4 sw=4:
 
-import commands, ConfigParser, sys, getopt
+import commands, ConfigParser, sys, getopt, re
 import pgdb
 import unittest
 
 def usage():
 	print '%s [-v LEVEL | --verbose=LEVEL]' % sys.argv[0]
+
+def epp_cmd_exec(cmd):
+	'''
+	Execute EPP command by fred_client.
+	'''
+	(status, output) = commands.getstatusoutput('fred_client -d %s' % cmd)
+	if os.WIFEXITED(status) != 0:
+		raise Exception('fred_client error: %s' % output)
+	pattern = re.compile("^Return code:\w+(\d+)$", re.MULTILINE)
+	pattern.match()
 
 class TestGenzone(unittest.TestCase):
 
@@ -72,11 +82,11 @@ class TestGenzone(unittest.TestCase):
 		dbd['registrant_history_id'] = cur.fetchone()[0]
 		cur.execute("SELECT nextval('history_id_seq')")
 		dbd['nsset_history_id'] = cur.fetchone()[0]
-		cur.execute("SELECT nextval('history_id_seq')")
-		dbd['domain_history_id'] = cur.fetchone()[0]
 		#
 		# pour test data in db
 		#
+		# create object registrant
+		epp_cmd_exec('fred_client create_contact CID:PFU-REG')
 		# create object registrant
 		cur.execute(
 "INSERT INTO object_registry (id, roid, type, name, crid,crhistoryid,historyid)"
