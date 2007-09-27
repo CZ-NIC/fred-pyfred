@@ -8,10 +8,10 @@ from email.FeedParser import FeedParser
 IMAPUSER = 'testbank@nic.cz'
 IMAPPASS = 'heslo345G'
 IMAPHOST = 'mail.nic.cz'
-FROM1    = 'jan.kryl@nic.cz'
+FROM1    = 'notifikace@ps.ipb.cz'
 FROM2    = 'notifikace@ps.ipb.cz'
 FM_CMD   = 'filemanager_client'
-NSHOST   = 'curlew.office.nic.cz'
+NSHOST   = 'localhost'
 
 verbose = False
 

@@ -9,6 +9,7 @@ import unittest
 # Random salt which is part of name of created objects in order to avoid
 # safe period restriction
 SALT = random.randint(1, 9999)
+dbconn = None
 
 def usage():
 	print '%s [-v LEVEL | --verbose=LEVEL]' % sys.argv[0]
@@ -30,6 +31,38 @@ def epp_cmd_exec(cmd):
 		raise Exception('Return code of EPP command not matched\n%s' % output)
 	if rcode != 1000:
 		raise Exception('EPP command failure (code %d)\n%s' % (rcode, output))
+
+def open_db_connection():
+	'''
+	Return db connection based on information in /etc/fred/pyfred.conf.
+	'''
+	global dbconn
+
+	# read config of genzone client
+	config = ConfigParser.ConfigParser()
+	config.read('/etc/fred/genzone.conf')
+	# read config of pyfred server
+	dbhost = ''
+	dbname = 'fred'
+	dbport = '5432'
+	dbuser = 'fred'
+	dbpassword = ''
+	config = ConfigParser.ConfigParser()
+	config.read('/etc/fred/pyfred.conf')
+	if config.has_option('General', 'dbhost'):
+		dbhost = config.get('General', 'dbhost')
+	if config.has_option('General', 'dbname'):
+		dbname = config.get('General', 'dbname')
+	if config.has_option('General', 'dbport'):
+		dbport = config.get('General', 'dbport')
+	if config.has_option('General', 'dbuser'):
+		dbuser = config.get('General', 'dbuser')
+	if config.has_option('General', 'dbpassword'):
+		dbpassword = config.get('General', 'dbpassword')
+
+	# create connection to database
+	dbconn = pgdb.connect(host = dbhost +":"+ dbport, database = dbname,
+			user = dbuser, password = dbpassword)
 
 def get_zone_lines(greps):
 	'''
@@ -80,105 +113,29 @@ class SoaTest(unittest.TestCase):
 			self.assert_((output == 'GENZONE OK'), 'genzone_test malfunction')
 
 
-class ZoneTest(unittest.TestCase):
+class BasicZoneTest(unittest.TestCase):
 	'''
 	This unittest generates zone and tests correct presence of newly inserted
 	domain.
 	'''
-	def setUp(self):
-		# read config of genzone client
-		config = ConfigParser.ConfigParser()
-		config.read('/etc/fred/genzone.conf')
-		# read config of pyfred server
-		dbhost = ''
-		dbname = 'fred'
-		dbport = '5432'
-		dbuser = 'fred'
-		dbpassword = ''
-		config = ConfigParser.ConfigParser()
-		config.read('/etc/fred/pyfred.conf')
-		if config.has_option('General', 'dbhost'):
-			dbhost = config.get('General', 'dbhost')
-		if config.has_option('General', 'dbname'):
-			dbname = config.get('General', 'dbname')
-		if config.has_option('General', 'dbport'):
-			dbport = config.get('General', 'dbport')
-		if config.has_option('General', 'dbuser'):
-			dbuser = config.get('General', 'dbuser')
-		if config.has_option('General', 'dbpassword'):
-			dbpassword = config.get('General', 'dbpassword')
 
-		# create object contact, nsset, domain
-		epp_cmd_exec('create_contact CID:PFU-CONTACT-%s '
-				'"Jan Ban" info@mail.com Street Brno 123000 CZ' % SALT)
-		epp_cmd_exec('create_nsset NSSID:PFU-NSSET-%s '
-				'((ns.pfu-domain-%s.cz (217.31.206.129, 2001:db8::1428:57ab)),'
-				'(ns.pfu-domain-%s.net)) CID:PFU-CONTACT-%s' %
-				(SALT, SALT, SALT, SALT))
-		epp_cmd_exec('create_domain pfu-domain-%s.cz '
-				'CID:PFU-CONTACT-%s nsset=NSSID:PFU-NSSET-%s' %
-				(SALT, SALT, SALT))
+	def setUp(self):
 		# generate zone
 		self.zone_lines = get_zone_lines(['pfu-domain-%s.cz' % SALT,
 				'ns.pfu-domain-%s.cz' % SALT, 'ns.pfu-domain-%s.net' % SALT])
-		'''
-		# connect to database
-		self.conn = pgdb.connect(host = dbhost +":"+ dbport, database = dbname,
-				user = dbuser, password = dbpassword)
-		#
-		# get data needed to create test instance
-		#
-		self.dbdata = {}
-		dbd = self.dbdata
-		cur = self.conn.cursor()
-		cur.execute("SELECT id FROM zone WHERE fqdn = 'cz'")
-		if cur.rowcount != 1:
-			raise Exception('Zone cz does not exist')
-		dbd['zone_id'] = cur.fetchone()[0]
-		cur.execute("SELECT nextval('object_registry_id_seq')")
-		# create object registrant
-		cur.execute(
-"INSERT INTO object_registry (id, roid, type, name, crid,crhistoryid,historyid)"
-"   VALUES (%d, 'pyfredut-registrant', 1, 'PYFRED-UT-REGISTRANT', %d, %d, %d)" %
-(dbd['registrant_id'], dbd['registrar_id'], dbd['registrant_history_id'],
-	dbd['registrant_history_id']))
-		cur.close()
-		self.conn.commit()
-		'''
-
-	def tearDown(self):
-		# delete object domain, nsset and contact
-		epp_cmd_exec('delete_domain  pfu-domain-%s.cz' % SALT)
-		epp_cmd_exec('delete_nsset   NSSID:PFU-NSSET-%s' % SALT)
-		epp_cmd_exec('delete_contact CID:PFU-CONTACT-%s' % SALT)
-		'''
-		#
-		# remove test data from db
-		#
-		dbd = self.dbdata
-		cur = self.conn.cursor()
-		cur.close()
-		self.conn.commit()
-		self.conn.close()
-		'''
-
-	def runTest(self):
-		'''
-		Test for presence of domain in zone, GLUE record and proper IPv6
-		handling.
-		'''
-		prt_line = ''
+		self.rr_lines = ''
 		for line in self.zone_lines:
-			prt_line += line + '\n'
+			self.rr_lines += line + '\n'
+
+	def test_nameserver_rr(self):
+		'''
+		Test for presence of domain ns records in zone.
+		'''
 		# compile record patterns
 		patt_ns1 = re.compile('pfu-domain-%s\.cz\.\s+IN\s+NS\s+'
 				'ns\.pfu-domain-%s\.cz\.' % (SALT, SALT))
 		patt_ns2 = re.compile('pfu-domain-%s\.cz\.\s+IN\s+NS\s+'
 				'ns\.pfu-domain-%s\.net\.' % (SALT, SALT))
-		patt_glue4 = re.compile('ns\.pfu-domain-%s\.cz\.\s+IN\s+A\s+'
-				'217\.31\.206\.129' % SALT)
-		patt_glue6 = re.compile('ns\.pfu-domain-%s\.cz\.\s+IN\s+AAAA\s+'
-				'2001:db8::1428:57ab' % SALT)
 		# test presence of domain in zone
 		found = False
 		for line in self.zone_lines:
@@ -186,14 +143,24 @@ class ZoneTest(unittest.TestCase):
 				found = True
 				break
 		self.assert_(found, 'Record for nameserver ns.pfu-domain-%s.cz not '
-				'generated.\n%s' % (SALT, prt_line))
+				'generated.\n%s' % (SALT, self.rr_lines))
 		found = False
 		for line in self.zone_lines:
 			if patt_ns2.match(line):
 				found = True
 				break
 		self.assert_(found, 'Record for nameserver ns.pfu-domain-%s.net not '
-				'generated.\n%s' % (SALT, prt_line))
+				'generated.\n%s' % (SALT, self.rr_lines))
+
+	def test_glue_rr(self):
+		'''
+		Test for presence of GLUE (ipv4 and ipv6) records.
+		'''
+		# compile record patterns
+		patt_glue4 = re.compile('ns\.pfu-domain-%s\.cz\.\s+IN\s+A\s+'
+				'217\.31\.206\.129' % SALT)
+		patt_glue6 = re.compile('ns\.pfu-domain-%s\.cz\.\s+IN\s+AAAA\s+'
+				'2001:db8::1428:57ab' % SALT)
 		# test GLUE record presence
 		found = False
 		for line in self.zone_lines:
@@ -201,14 +168,82 @@ class ZoneTest(unittest.TestCase):
 				found = True
 				break
 		self.assert_(found, 'IPv4 GLUE record for nameserver '
-				'ns.pfu-domain-%s.cz not generated.\n%s' % (SALT, prt_line))
+				'ns.pfu-domain-%s.cz not generated.\n%s' % (SALT, self.rr_lines))
 		found = False
 		for line in self.zone_lines:
 			if patt_glue6.match(line):
 				found = True
 				break
 		self.assert_(found, 'IPv6 GLUE record for nameserver '
-				'ns.pfu-domain-%s.cz not generated.\n%s' % (SALT, prt_line))
+				'ns.pfu-domain-%s.cz not generated.\n%s' % (SALT, self.rr_lines))
+
+class FaultyGlueTest(unittest.TestCase):
+
+	def setUp(self):
+		'''
+		Move ip addresses from the ns which should have them to the ns which
+		should not have them.
+		'''
+		global dbconn
+
+		cur = dbconn.cursor()
+		cur.execute("SELECT id FROM host WHERE fqdn = 'ns.pfu-domain-%s.cz'" % SALT)
+		self.ns_cz_id = cur.fetchone()[0]
+		cur.execute("SELECT id FROM host WHERE fqdn = 'ns.pfu-domain-%s.net'" % SALT)
+		self.ns_net_id = cur.fetchone()[0]
+		cur.execute("UPDATE host_ipaddr_map SET hostid = %d WHERE hostid = %d"
+				% (self.ns_net_id, self.ns_cz_id))
+		cur.close()
+		dbconn.commit()
+
+		# generate zone
+		self.zone_lines = get_zone_lines(['pfu-domain-%s.cz' % SALT,
+				'ns.pfu-domain-%s.cz' % SALT, 'ns.pfu-domain-%s.net' % SALT])
+		self.rr_lines = ''
+		for line in self.zone_lines:
+			self.rr_lines += line + '\n'
+
+	def tearDown(self):
+		global dbconn
+
+		cur = dbconn.cursor()
+		cur.execute("UPDATE host_ipaddr_map SET hostid = %d WHERE hostid = %d"
+				% (self.ns_cz_id, self.ns_net_id))
+		cur.close()
+		dbconn.commit()
+
+	def test_missingGlue(self):
+		'''
+		In case when GLUE is missing, the nameserver should not be generated
+		in zone.
+		'''
+		# compile record patterns
+		patt_ns1 = re.compile('pfu-domain-%s\.cz\.\s+IN\s+NS\s+'
+				'ns\.pfu-domain-%s\.cz\.' % (SALT, SALT))
+		# test presence of domain delegation in zone
+		for line in self.zone_lines:
+			self.assert_(not patt_ns1.match(line),
+					'Nameserver ns.pfu-domain-%s.cz with missing GLUE was '
+					'generated.\n%s' % (SALT, self.rr_lines))
+
+	def test_extraGlue(self):
+		'''
+		In case when there is extra GLUE, it should be ignored.
+		'''
+		patt_glue4 = re.compile('ns\.pfu-domain-%s\.net\.\s+IN\s+A\s+'
+				'217\.31\.206\.129' % SALT)
+		patt_glue6 = re.compile('ns\.pfu-domain-%s\.net\.\s+IN\s+AAAA\s+'
+				'2001:db8::1428:57ab' % SALT)
+		# test GLUE record presence
+		for line in self.zone_lines:
+			self.assert_(not patt_glue4.match(line),
+					'Not needed glue for nameserver ns.pfu-domain-%s.net was '
+					'generated.\n%s' % (SALT, self.rr_lines))
+		for line in self.zone_lines:
+			self.assert_(not patt_glue6.match(line),
+					'Not needed glue for nameserver ns.pfu-domain-%s.net was '
+					'generated.\n%s' % (SALT, self.rr_lines))
+
 
 
 if __name__ == '__main__':
@@ -224,9 +259,33 @@ if __name__ == '__main__':
 		if o in ('-v', '--verbose'):
 			level = int(a)
 
-	genzone_zone_suite = unittest.TestLoader().loadTestsFromTestCase(ZoneTest)
+	genzone_zone_suite1 = unittest.TestLoader().loadTestsFromTestCase(BasicZoneTest)
+	genzone_zone_suite2 = unittest.TestLoader().loadTestsFromTestCase(FaultyGlueTest)
 	genzone_suite = unittest.TestSuite()
 	genzone_suite.addTest(SoaTest())
-	genzone_suite.addTest(genzone_zone_suite)
+	genzone_suite.addTest(genzone_zone_suite1)
+	genzone_suite.addTest(genzone_zone_suite2)
+
+	# create test environment:
+	#     create object contact, nsset, domain
+	epp_cmd_exec('create_contact CID:PFU-CONTACT-%s '
+			'"Jan Ban" info@mail.com Street Brno 123000 CZ' % SALT)
+	epp_cmd_exec('create_nsset NSSID:PFU-NSSET-%s '
+			'((ns.pfu-domain-%s.cz (217.31.206.129, 2001:db8::1428:57ab)),'
+			'(ns.pfu-domain-%s.net)) CID:PFU-CONTACT-%s' %
+			(SALT, SALT, SALT, SALT))
+	epp_cmd_exec('create_domain pfu-domain-%s.cz '
+			'CID:PFU-CONTACT-%s nsset=NSSID:PFU-NSSET-%s' %
+			(SALT, SALT, SALT))
+	open_db_connection()
+
+	# Run unittests
 	unittest.TextTestRunner(verbosity = level).run(genzone_suite)
 
+	# destroy test environment:
+	#     delete object domain, nsset and contact
+	epp_cmd_exec('delete_domain  pfu-domain-%s.cz' % SALT)
+	epp_cmd_exec('delete_nsset   NSSID:PFU-NSSET-%s' % SALT)
+	epp_cmd_exec('delete_contact CID:PFU-CONTACT-%s' % SALT)
+
+	dbconn.close()
