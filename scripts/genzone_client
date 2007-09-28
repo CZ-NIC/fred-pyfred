@@ -349,6 +349,8 @@ def main():
 				if os.WEXITSTATUS(status) != 0:
 					sys.stderr.write("Error when running post-hook "
 							"(status = %d).\n%s\n" % (status, output))
+				elif verbose:
+					sys.stderr.write(output)
 		except Exception, e:
 			sys.stderr.write("Error when overwriting old zone file %s. The "
 					"zone stays unchanged! (error: %s)\n" % (zonefile, e))

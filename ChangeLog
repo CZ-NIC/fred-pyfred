@@ -1,3 +1,7 @@
+2007-09-28 Jan Kryl (version 1.7.1)
+
+	* Unittests for genzone are ready.
+
 2007-09-26 Jan Kryl (version 1.7.0)
 
 	* Mailer is capable of checking for undelivered email messages.

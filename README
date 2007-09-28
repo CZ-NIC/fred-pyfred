@@ -12,6 +12,7 @@ Content:
     3. Repository overview
     4. Configuration
     5. Dependencies
+    6. Testing
 
 
 1. Introduction
@@ -616,4 +617,11 @@ Here are explicitly listed the dependencies:
   *) pygresql package
   *) dnspython package
   *) python bindings for clearsilver library
+
+
+6. Testing
+
+There are unittests in directory "unittests". Currently there is only test
+for genzone component. For more information about unittest see comments in
+file.
 
