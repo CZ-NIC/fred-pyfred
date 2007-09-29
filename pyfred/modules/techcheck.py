@@ -609,28 +609,30 @@ This class implements TechCheck interface.
 			if outeof and erreof: break
 			self.l.log(self.l.WARNING, "<%d> Output of test not ready, "
 					"waiting (round %d)" % (id, round))
-			select.select([],[],[], 0.3) # give a little time for buffers to fill
-		# wait for child to terminate
-		for round in range(3):
-			if round == 1:
-				# kill child
-				self.l.log(self.l.WARNING, "<%d> TERM signal was sent." % (id))
-				os.kill(child.pid, signal.SIGTERM)
-				select.select([],[],[], 0.2) # time to exit
-			elif round == 2:
-				# really kill child
-				self.l.log(self.l.WARNING, "<%d> KILL signal was sent." % (id))
-				os.kill(child.pid, signal.SIGKILL)
-				select.select([],[],[], 0.2) # wait for a while
+			time.sleep(0.3) # give a little time for buffers to fill
+
+		status = os.waitpid(child.pid, os.WNOHANG)
+
+		if status[0] == 0:
+			time.sleep(1)
+			self.l.log(self.l.WARNING, "<%d> Child doesn't want to exit, TERM signal sent." % (id))
+			os.kill(child.pid, signal.SIGTERM)
+			time.sleep(1.2) # time to exit
 			status = os.waitpid(child.pid, os.WNOHANG)
-			#self.l.log(self.l.DEBUG, "<%d> %s (%s)" % (id, status, type(status)))
-			if status[0] == child.pid:
-				break
-			self.l.log(self.l.WARNING, "<%d> Child doesn't want to exit." % (id))
-			time.sleep(1) # wait one second
+
+			if status0 == 0:
+				self.l.log(self.l.WARNING, "<%d> Child doesn't want to die, KILL signal sent." % (id))
+				os.kill(child.pid, signal.SIGKILL)
+				time.sleep(1.2) # time to exit
+				status = os.waitpid(child.pid, os.WNOHANG)
+
 		stat = 2 # by default assume error
 		if outeof and erreof and (status[0] == child.pid) and os.WIFEXITED(status[1]):
-				stat = os.WEXITSTATUS(status[1])
+			stat = os.WEXITSTATUS(status[1])
+
+		child.fromchild.close()
+		child.childerr.close()
+
 		return stat, outdata, errdata
 
 	def __runTests(self, id, fqdns, nslist, level):
