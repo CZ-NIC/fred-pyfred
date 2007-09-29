@@ -723,6 +723,8 @@ class Mailer_i (ccReg__POA.Mailer):
 			buf = child.fromchild.read()
 		# wait for child to terminate
 		stat = os.WEXITSTATUS(child.wait())
+                child.fromchild.close()
+                child.childerr.close()
 		os.remove(tmpfile[1])
 		if stat:
 			if child.childerr:
