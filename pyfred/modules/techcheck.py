@@ -620,6 +620,9 @@ This class implements TechCheck interface.
 					"waiting (round %d)" % (id, round))
 			time.sleep(0.3) # give a little time for buffers to fill
 
+		child.fromchild.close()
+		child.childerr.close()
+
 		status = os.waitpid(child.pid, os.WNOHANG)
 
 		if status[0] == 0:
@@ -638,9 +641,6 @@ This class implements TechCheck interface.
 		stat = 2 # by default assume error
 		if outeof and erreof and (status[0] == child.pid) and os.WIFEXITED(status[1]):
 			stat = os.WEXITSTATUS(status[1])
-
-		child.fromchild.close()
-		child.childerr.close()
 
 		return stat, outdata, errdata
 

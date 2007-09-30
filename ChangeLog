@@ -1,3 +1,12 @@
+2007-09-30 Jan Kryl (version 1.7.4)
+
+	* File descriptors closing is done better way (before call to wait).
+	Credits Ondrej Sury.
+
+	* Techchecks were corrected. The situation when DNS server is not
+	responding when domain is not in zone delegated on him was not
+	expected.
+
 2007-09-30 Jan Kryl (version 1.7.3)
 
 	* Periodical technical checks may be turned off without affecting

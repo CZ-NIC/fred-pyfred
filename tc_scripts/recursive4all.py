@@ -52,7 +52,6 @@ def main():
 	query = dns.message.make_query(testdomain, "A")
 	# list of faulty nameservers
 	renegades = []
-	error = False
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
 		# get ip addresses of nameserver
@@ -65,12 +64,11 @@ def main():
 				message = dns.query.udp(query, addr, 3)
 				break
 			except dns.exception.Timeout, e:
-				pass
-		# did we got response for any of ip addresses of nameserver ?
-		if not message:
-			error = True
+				# timeout means that it is good - some nameservers do not
+				# send answers for domain which are not delegated on them
+				break
 		# if there is any answer it means that recursive query was done
-		elif len(message.answer):
+		if message and len(message.answer):
 			dbg_print("Length of answer is non zero: %s" % message.answer)
 			renegades.append(ns)
 	# epilog
@@ -78,8 +76,6 @@ def main():
 		for ns in renegades:
 			sys.stdout.write("%s " % ns)
 		return 1
-	if error:
-		return 2
 	return 0
 
 if __name__ == "__main__":

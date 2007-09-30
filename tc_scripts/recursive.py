@@ -16,8 +16,6 @@ import dns.resolver
 import dns.message
 import dns.query
 
-testdomain = "test-of-nameserver.cz"
-
 def get_ns_addrs(args):
 	"""
 	BEWARE!!! If you change something in this function, don't forget to
@@ -36,8 +34,7 @@ def main():
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
 		return 2
-	# create common query for all nameservers
-	query = dns.message.make_query(testdomain, "SOA")
+	domain = sys.stdin.read().strip().split(' ')[0] # try first domain only
 	# list of faulty nameservers
 	renegades = []
 	error = False
@@ -45,6 +42,8 @@ def main():
 	for nsarg in sys.argv[1:]:
 		# get ip addresses of nameserver
 		(ns, addrs) = get_ns_addrs(nsarg)
+		# create common query for all nameservers
+		query = dns.message.make_query(domain, "SOA")
 		message = None
 		for addr in addrs:
 			try:

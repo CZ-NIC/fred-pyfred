@@ -3,20 +3,20 @@
 
 """
 This script returns:
-	0 if all nameservers exist.
-	1 if any of nameservers does not exist.
+	0 if all nameservers answer at least for one domain.
+	1 if any of nameservers does not answer at all.
 	2 if usage or other error occurs.
 
-To stderr go error messages and to stdout go space separated fqdns of
-nameservers which do not exist.
+To stderr go error messages and to stdout go nameservers separated by space
+which don't answer.
+From stdin is read a list of domains for which a record must be present at
+nameserver.
 """
 
 import sys
 import dns.resolver
 import dns.message
 import dns.query
-
-testdomain = "test-of-nameserver.cz"
 
 def get_ns_addrs(args):
 	"""
@@ -36,19 +36,19 @@ def main():
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
 		return 2
-	# create common query for all nameservers (we don't care about type of query)
-	query = dns.message.make_query(testdomain, "ANY")
-	# list of faulty nameservers
-	renegades = []
+	domain = sys.stdin.read().strip().split(' ')[0] # try first domain only
+	# dictionary of renegades
+	renegades = {}
 	# process nameserver records
 	for nsarg in sys.argv[1:]:
+		# get ip addresses of nameserver
 		try:
-			# get ip addresses of nameserver
 			(ns, addrs) = get_ns_addrs(nsarg)
 		except dns.resolver.NXDOMAIN, e:
 			renegades.append(nsarg[0])
 			continue
-		# query nameserver
+		# create common query for all nameservers
+		query = dns.message.make_query(domain, "SOA")
 		message = None
 		for addr in addrs:
 			try:
@@ -58,11 +58,16 @@ def main():
 				pass
 		# did we got response for any of ip addresses of nameserver ?
 		if not message:
-			renegades.append(ns)
-	# print faulty nameservers to stdout if there are any
+			if not renegades.has_key(ns):
+				renegades[ns] = []
+			renegades[ns].append(domain)
 	if renegades:
 		for ns in renegades:
-			sys.stdout.write("%s " % ns)
+			domain_list = renegades[ns]
+			sys.stdout.write(ns)
+			for fqdn in domain_list:
+				sys.stdout.write(",%s" % fqdn)
+			sys.stdout.write(" ")
 		return 1
 	return 0
 

@@ -721,10 +721,10 @@ class Mailer_i (ccReg__POA.Mailer):
 		while buf:
 			signedmail += buf
 			buf = child.fromchild.read()
-		# wait for child to terminate
-		stat = os.WEXITSTATUS(child.wait())
 		child.fromchild.close()
 		child.childerr.close()
+		# wait for child to terminate
+		stat = os.WEXITSTATUS(child.wait())
 		os.remove(tmpfile[1])
 		if stat:
 			if child.childerr:
