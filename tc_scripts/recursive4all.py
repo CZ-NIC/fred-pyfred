@@ -18,7 +18,7 @@ import dns.message
 import dns.query
 
 debug = False
-testdomain = "enum.nic.cz"
+testdomain = "neexistuje.v.domene.nic.cz"
 
 def dbg_print(msg):
 	"""
