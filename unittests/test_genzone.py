@@ -10,7 +10,9 @@ Here is a hierarchy of test suites and test cases:
 genzone_suite
 	|-- SoaTest
 	|
-	|-- BasicZoneTest
+	|-- SyntaxTest
+	|
+	|-- DelegationTest
 	|		|-- test_nameserver_rr
 	|		|-- test_glue_rr
 	|
@@ -95,11 +97,12 @@ def open_db_connection():
 	return pgdb.connect(host = dbhost +":"+ dbport, database = dbname,
 			user = dbuser, password = dbpassword)
 
-def get_zone_lines(greps):
+def get_zone_lines(greps = None):
 	'''
 	Generate .cz zone with help of genzone_client program in /tmp/db.cz file
 	and grep strings in 'greps' list from the zone file. The result is a list
-	of stripped grepped lines.
+	of stripped grepped lines. If greps is None, then the zone file is
+	generated and left as it is (its name is returned as a return value).
 	'''
 	# generate zone
 	(status, output) = commands.getstatusoutput(
@@ -108,6 +111,9 @@ def get_zone_lines(greps):
 	if status != 0:
 		raise Exception('genzone_client error (status=%d): %s' %
 				(status, output))
+	if greps == None:
+		return '/tmp/db.cz'
+
 	# grep interesting lines
 	if len(greps) == 1:
 		cmdline = 'grep "%s" /tmp/db.cz' % greps[0]
@@ -159,7 +165,39 @@ class SoaTest(unittest.TestCase):
 			self.assert_((output == 'GENZONE OK'), 'genzone_test malfunction')
 
 
-class BasicZoneTest(unittest.TestCase):
+class SyntaxTest(unittest.TestCase):
+	'''
+	Checks basic syntax of zone file with help of zone-file-check script.
+	'''
+	def setUp(self):
+		'''
+		Generate zone file.
+		'''
+		self.zone_file = get_zone_lines()
+
+	def tearDown(self):
+		'''
+		Remove generated zone file.
+		'''
+		# delete generated zone file
+		(status, output) = commands.getstatusoutput('rm -f %s' % self.zone_file)
+		status = os.WEXITSTATUS(status) # translate status
+		if status != 0:
+			raise Exception('rm error (status=%d): %s' % (status, output))
+
+	def runTest(self):
+		'''
+		The test runs zone-file-check script, which tests basic syntax of
+		zone file.
+		'''
+		(status, errors) = commands.getstatusoutput('./zone-file-check %s' %
+				self.zone_file)
+		status = os.WEXITSTATUS(status) # translate status
+		self.assert_(not errors.strip(), 'Following lines have invalid '
+				'syntax:\n%s' % errors)
+
+
+class DelegationTest(unittest.TestCase):
 	'''
 	This test case generates zone and tests that all resource records
 	for fpu-domain-SALT.cz domain, which should be there, are really there.
@@ -426,11 +464,12 @@ if __name__ == '__main__':
 		if o in ('-v', '--verbose'):
 			level = int(a)
 	# put together test suite
-	zone_suite1 = unittest.TestLoader().loadTestsFromTestCase(BasicZoneTest)
+	zone_suite1 = unittest.TestLoader().loadTestsFromTestCase(DelegationTest)
 	zone_suite2 = unittest.TestLoader().loadTestsFromTestCase(FaultyGlueTest)
 	zone_suite3 = unittest.TestLoader().loadTestsFromTestCase(DomainFlagsTest)
 	genzone_suite = unittest.TestSuite()
 	genzone_suite.addTest(SoaTest())
+	genzone_suite.addTest(SyntaxTest())
 	genzone_suite.addTest(zone_suite1)
 	genzone_suite.addTest(zone_suite2)
 	genzone_suite.addTest(zone_suite3)

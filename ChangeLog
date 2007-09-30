@@ -1,4 +1,19 @@
-2007-09-28 Jan Kryl (version 1.7.1)
+2007-09-30 Jan Kryl (version 1.7.2)
+
+	* Periodical technical checks may be turned off without affecting
+	the out-of-order checks (issued over EPP interface). Usefull for
+	testing.
+
+	* Zone generator treated IPv6 address in SOA record as if it was
+	IPv4.
+
+	* Bug in heterogenous technical test was fixed (missing import).
+
+	* Typo in techcheck module introduced in previous tag was corrected.
+
+2007-09-29 Ondrej Sury (version 1.7.1)
+
+	* Techcheck now closes descriptors after it's childs
 
 	* Unittests for genzone are ready.
 

@@ -141,6 +141,7 @@ This class implements TechCheck interface.
 
 		# default configuration
 		self.testmode       = False
+		self.periodic_checks= True
 		self.scriptdir      = "/usr/libexec/pyfred/"
 		self.exMsg          = 7
 		self.mailer_object  = "Mailer"
@@ -171,6 +172,12 @@ This class implements TechCheck interface.
 				self.testmode = conf.getboolean("TechCheck", "testmode")
 				if self.testmode:
 					self.l.log(self.l.DEBUG, "Test mode is turned on.")
+			except ConfigParser.NoOptionError, e:
+				pass
+			try:
+				self.periodic_checks = conf.getboolean("TechCheck", "periodic_checks")
+				if not self.periodic_checks:
+					self.l.log(self.l.DEBUG, "Periodic checks are turned off.")
 			except ConfigParser.NoOptionError, e:
 				pass
 			try:
@@ -283,6 +290,8 @@ This class implements TechCheck interface.
 			return
 		# when there are not ooo requests, there is time for regular checks
 		# recruit new regular check
+		if not self.periodic_checks:
+			return
 		if self.idle_rounds > 0:
 			self.idle_rounds -= 1
 			if self.idle_rounds == 0:
@@ -620,7 +629,7 @@ This class implements TechCheck interface.
 			time.sleep(1.2) # time to exit
 			status = os.waitpid(child.pid, os.WNOHANG)
 
-			if status0 == 0:
+			if status[0] == 0:
 				self.l.log(self.l.WARNING, "<%d> Child doesn't want to die, KILL signal sent." % (id))
 				os.kill(child.pid, signal.SIGKILL)
 				time.sleep(1.2) # time to exit

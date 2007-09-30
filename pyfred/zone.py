@@ -69,6 +69,15 @@ class BindFilter (ZoneFilter):
 		"""
 		ZoneFilter.__init__(self, output)
 
+	def get_iptype(self, addr):
+		"""
+		Get IP address type (IPv4 or IPv6) for DNS record.
+		"""
+		if addr.find(".") != -1:
+			return "A"
+		else:
+			return "AAAA"
+
 	def write_soa(self,
 			zonename,
 			ttl,
@@ -99,7 +108,8 @@ class BindFilter (ZoneFilter):
 		# addresses of nameservers (only if there are any)
 		for ns in nameservers:
 			for addr in ns.inet:
-				self.output_fd.write("%s.\tIN\tA\t%s\n" % (ns.fqdn, addr))
+				self.output_fd.write("%s.\tIN\t%s\t%s\n" %
+						(ns.fqdn, self.get_iptype(addr), addr))
 		# domains, their nameservers and addresses
 		self.output_fd.write(";\n")
 		self.output_fd.write(";--- domain records ---\n")
@@ -122,12 +132,8 @@ class BindFilter (ZoneFilter):
 					self.output_fd.write("\n")
 				# distinguish ipv4 and ipv6 address
 				for addr in ns.inet:
-					if addr.find(".") != -1:
-						ipv = "A"
-					else:
-						ipv = "AAAA"
 					self.output_fd.write("%s.\tIN\t%s\t%s\n" %
-							(ns.fqdn, ipv, addr))
+							(ns.fqdn, self.get_iptype(addr), addr))
 
 
 class Zone (object):

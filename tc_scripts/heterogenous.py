@@ -3,14 +3,14 @@
 
 """
 This script returns:
-	0 if none of nameservers has recursive flag set in response.
-	1 if any of nameservers has recursive flag set.
+	0 if the nameservers are heterogenous
+	1 if the nameservers are not heterogenous
 	2 if usage or other error occurs.
 
 To stderr go debug and error messages, to stdout goes nothing.
 """
 
-import sys, commands, re
+import sys, commands, re, dns.resolver
 
 debug = False
 fpdnsbin = "fpdns"

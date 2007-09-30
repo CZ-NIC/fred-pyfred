@@ -370,7 +370,8 @@ The interface is pretty similar to search interfaces in other modules ("filter
 and search object" model).
 
 In background are continuosly performed technical checks of all registered
-nssets. This process is called regular technical checks.
+nssets. This process is called regular (or periodic) technical checks.
+These can be turned of in config file.
 
 There is one special test, which tests necessity of GLUE for nameserver. This
 test must be executed as first one, because it transforms a list of ip address
@@ -557,6 +558,10 @@ no default value, the square brackets are missing.
   *) testmode [Off] - If this is On the level 0 is assumed for all tested
      nssets, which practically disables execution of any tests. Use it if
      you have test data in database.
+
+  *) periodic_checks [On] - Turn this off if you want to avoid background
+     periodical checks, but still want to perform technical checks requested
+     explicitly by a client.
 
   *) scriptdir [/usr/libexec/pyfred] - Directory where technical test scripts
      are placed.

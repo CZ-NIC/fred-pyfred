@@ -3,8 +3,9 @@
 
 """
 This script returns:
-	0 if none of query for domain which 
-	1 if any of nameservers has recursive flag set.
+	0 if none of query for domain, which is certainly not in zone maintained
+	  by nameserver, returns resolved address.
+	1 if any of nameservers answers recursive query.
 	2 if usage or other error occurs.
 
 To stderr go debug and error messages and to stdout goes nameserver which
