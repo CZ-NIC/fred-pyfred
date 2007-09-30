@@ -1,4 +1,4 @@
-2007-09-30 Jan Kryl (version 1.7.2)
+2007-09-30 Jan Kryl (version 1.7.3)
 
 	* Periodical technical checks may be turned off without affecting
 	the out-of-order checks (issued over EPP interface). Usefull for
@@ -10,6 +10,10 @@
 	* Bug in heterogenous technical test was fixed (missing import).
 
 	* Typo in techcheck module introduced in previous tag was corrected.
+
+2007-09-29 Ondrej Sury (version 1.7.2)
+
+	* Mailer now closes descriptors when signing emails.
 
 2007-09-29 Ondrej Sury (version 1.7.1)
 
