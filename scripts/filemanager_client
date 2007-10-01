@@ -27,10 +27,12 @@ Options:
     -o, --output=FILE     Write file retrieved from FileManager to FILE.
     -s, --silent          Output to stdout plain data without text.
     -t, --type=NUMBER     File type of input file (use only with -i).
-    -x, --id=ID           ID of file.
+    -x, --id=ID           ID of file (greater then zero).
 
 Input and output parameter decides wether a file will be saved or loaded.
-If none of them is specified then meta-info about file is retrieved.
+If none of them is specified and id is specified, then meta-info about file
+with given id is retrieved. If none of input, output, id is specified, then
+the input is read from stdin.
 """)
 
 
@@ -144,9 +146,8 @@ def main():
 	output = ""
 	filetype = 0
 	label = ""
-	sid = '' # string ID
 	silent = False
-	id = None
+	id = 0
 	for o, a in opts:
 		if o in ("-h", "--help"):
 			usage()
@@ -166,30 +167,23 @@ def main():
 		elif o in ("-t", "--type"):
 			filetype = int(a)
 		elif o in ("-x", "--id"):
-			sid = a # string ID
+			id = int(a) # string ID
 	# options check
 	if input and output:
 		sys.stderr.write("--input and --output options cannot be both "
 				"specified.\n")
 		usage()
 		sys.exit(1)
-	if (not input) and (not output) and sys.stdin.isatty():
-		input = DEV_STDIN
+	if not (input or output):
+		# not input, not output and id = meta-info
+		if not id:
+			input = DEV_STDIN
 
-	if output or not input:
-		if not sid:
-			sys.stderr.write("ID must be specified.\n")
-			usage()
-			sys.exit(1)
-
-	if sid:
-		try:
-			id = int(sid)
-		except ValueError, msg:
-			sys.stderr.write("ValueError: %s\n"%msg)
-			sys.stderr.write("ID must be number in range <1,n>.\n")
-			usage()
-			sys.exit(1)
+	if not input and id == 0:
+		# output or meta-info mode
+		sys.stderr.write("ID must be specified.\n")
+		usage()
+		sys.exit(1)
 
 	#
 	# Initialise the ORB

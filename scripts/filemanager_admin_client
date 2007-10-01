@@ -11,7 +11,7 @@ from pyfred.idlstubs import ccReg
 
 def usage():
 	"""
-Print usage information.
+	Print usage information.
 	"""
 	sys.stderr.write("""filemanager_admin_client [options]
 
@@ -19,17 +19,17 @@ Script is a testing utility for admin interface of filemanager daemon.
 You can constraint search by various criteria given on command line.
 
 Options:
-    -c, --chunk NUMBER            Obtain files in chunks of given size.
+    -c, --chunk=NUMBER            Obtain files in chunks of given size.
     -e, --enumtype                List enumetation of possible file types.
     -h, --help                    Print this help message.
-    -i, --id NUMBER               Get file with given ID.
-    -l, --label NAME              Get files with given label (name).
-    -n, --nameservice HOST[:PORT] Set host where corba nameservice runs.
-    -m, --mime TYPE               Get file with given MIME type.
-    -o, --lowerdate DATETIME      Lower bound on creation date of file.
-    -p, --path PATH               Get file stored under given path.
-    -t, --type NUMBER             Get file of given type.
-    -u, --upperdate DATETIME      Upper bound on creation date of file.
+    -i, --id=NUMBER               Get file with given ID.
+    -l, --label=NAME              Get files with given label (name).
+    -n, --nameservice=HOST[:PORT] Set host where corba nameservice runs.
+    -m, --mime=TYPE               Get file with given MIME type.
+    -o, --lowerdate=DATETIME      Lower bound on creation date of file.
+    -p, --path=PATH               Get file stored under given path.
+    -t, --type=NUMBER             Get file of given type.
+    -u, --upperdate=DATETIME      Upper bound on creation date of file.
     -v, --verbose                 Switch to verbose mode.
 
 The format of DATETIME is '{YYYY}-{MM}-{DD}T{HH}:{MM}:{SS}'.
@@ -39,7 +39,7 @@ Option --enumtype may not be combined with any other option.
 
 def str2date(str):
 	"""
-Convert string to datetime CORBA structure.
+	Convert string to datetime CORBA structure.
 	"""
 	if len(str) != 19:
 		raise Exception("Bad format of date")
@@ -56,9 +56,9 @@ def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:],
 				"c:ehi:l:n:m:o:p:t:u:v",
-				["chunk", "enumtype", "help", "id", "label",
-				"nameservice", "mime", "lowerdate", "path",
-				"type", "upperdate", "verbose"]
+				["chunk=", "enumtype", "help", "id=", "label=",
+				"nameservice=", "mime=", "lowerdate=", "path=",
+				"type=", "upperdate=", "verbose"]
 				)
 	except getopt.GetoptError:
 		usage()
@@ -106,8 +106,7 @@ def main():
 		try:
 			fromdate = str2date(l_crdate)
 		except Exception, e:
-			sys.stderr.write("Bad format of date. See usage "
-					"(--help).\n")
+			sys.stderr.write("Bad format of date. See usage (--help).\n")
 			sys.exit(1)
 	else:
 		fromdate = str2date("0000-00-00T00:00:00")
@@ -115,8 +114,7 @@ def main():
 		try:
 			todate = str2date(u_crdate)
 		except Exception, e:
-			sys.stderr.write("Bad format of date. See usage "
-					"(--help).\n")
+			sys.stderr.write("Bad format of date. See usage (--help).\n")
 			sys.exit(1)
 	else:
 		todate = str2date("0000-00-00T00:00:00")

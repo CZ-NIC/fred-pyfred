@@ -129,10 +129,7 @@ def get_zone_lines(greps = None):
 	elif status != 0:
 		raise Exception('grep error (status=%d): %s' % (status, output))
 	# delete generated zone file
-	(status, output) = commands.getstatusoutput('rm -f /tmp/db.cz')
-	status = os.WEXITSTATUS(status) # translate status
-	if status != 0:
-		raise Exception('rm error (status=%d): %s' % (status, output))
+	os.unlink('/tmp/db.cz')
 	# return result
 	if not zonelines:
 		return []
@@ -160,6 +157,7 @@ class SoaTest(unittest.TestCase):
 		'''
 		for zone in self.zones:
 			(status,output) = commands.getstatusoutput('genzone_test %s' % zone)
+			status = os.WEXITSTATUS(status) # translate status
 			self.assertEqual(status, 0, 'Could not get SOA of %s zone' % zone)
 			# status code is crucial, output test is just a safety-catch
 			self.assert_((output == 'GENZONE OK'), 'genzone_test malfunction')
@@ -179,11 +177,7 @@ class SyntaxTest(unittest.TestCase):
 		'''
 		Remove generated zone file.
 		'''
-		# delete generated zone file
-		(status, output) = commands.getstatusoutput('rm -f %s' % self.zone_file)
-		status = os.WEXITSTATUS(status) # translate status
-		if status != 0:
-			raise Exception('rm error (status=%d): %s' % (status, output))
+		os.unlink(self.zone_file)
 
 	def runTest(self):
 		'''
@@ -383,7 +377,8 @@ class DomainFlagsTest(unittest.TestCase):
 		cur.close()
 		self.dbconn.commit()
 		# delete generated zone file (doesn't have to exist)
-		(status, output) = commands.getstatusoutput('rm -f /tmp/db.cz')
+		if os.access('/tmp/db.cz', os.F_OK):
+			os.unlink('/tmp/db.cz')
 
 	def test_outzonemanual(self):
 		'''

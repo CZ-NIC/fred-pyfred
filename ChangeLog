@@ -3,6 +3,10 @@
 	* Techcheck script recursive4all.py is working even for nic.cz domain
 	now.
 
+	* Error in condition in filemanager_client was corrected.
+
+	* Basic unittests for filemanager created.
+
 2007-09-30 Jan Kryl (version 1.7.4)
 
 	* File descriptors closing is done better way (before call to wait).
