@@ -68,7 +68,7 @@ def main():
 				# send answers for domain which are not delegated on them
 				break
 		# if there is any answer it means that recursive query was done
-		if message and len(message.answer):
+		if message and message.rcode() == dns.rcode.NXDOMAIN:
 			dbg_print("Length of answer is non zero: %s" % message.answer)
 			renegades.append(ns)
 	# epilog
