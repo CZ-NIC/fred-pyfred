@@ -7,6 +7,8 @@ from email.FeedParser import FeedParser
 
 IMAPUSER = 'testbank@nic.cz'
 IMAPPASS = 'heslo345G'
+#IMAPUSER = 'fred-banka@nic.cz'
+#IMAPPASS = 'meCh3quu'
 IMAPHOST = 'mail.nic.cz'
 FROM1    = 'notifikace@ps.ipb.cz'
 FROM2    = 'notifikace@ps.ipb.cz'
@@ -26,7 +28,6 @@ def debug(msg):
 
 def error(msg):
 	sys.stderr.write('Exiting due to an error: %s\n' % msg)
-	sys.exit(1)
 
 def main():
 	global verbose
@@ -67,20 +68,23 @@ def main():
 	server.select()
 	r, data = server.search(None, '((UNSEEN) (OR FROM "%s" FROM "%s"))'
 			% (FROM1, FROM2))
-	msgids = data[0].replace(' ', ',')
-	if not msgids:
+	msgids = data[0].split(' ')
+	if not msgids[0]:
 		debug('No new messages in mailbox')
 		sys.exit(0)
-	r, data = server.fetch(msgids, '(RFC822)')
-	# don't know why but we have to trim last message
-	data = data[:-1]
+	messages = {}
+	for msgid in msgids:
+		(r, data) = server.fetch(msgid, '(RFC822)')
+		messages[msgid] = data[0][1]
+	debug('%d new messages' % len(messages))
 	# since now, whatever bad happens, we must restore unseen flag
 	# on downloaded messages
+	processed_msgs = []
 	try:
-		debug('%d new messages' % len(data))
-		for rawmsg in data:
+		for msgid in messages:
+			rawmsg = messages[msgid]
 			fp = FeedParser()
-			fp.feed(rawmsg[1])
+			fp.feed(rawmsg)
 			mail = fp.close()
 			# separate attachment in which we are interested
 			if not mail.is_multipart():
@@ -99,45 +103,48 @@ def main():
 			octets = part.get_payload(decode = True)
 			debug('filename: %s' % filename)
 			debug('mimetype: %s' % mimetype)
-			debug('content:')
-			debug(octets[:300] + ' ...')
 			fd = tempfile.NamedTemporaryFile()
 			fd.write(octets)
 			fd.flush()
+			# process GPC format
+			if gpc_prog and filename.endswith('.gpc'):
+				cmd = '%s --bank-gpc "%s"' % (gpc_prog, fd.name)
+				(status, output) = commands.getstatusoutput(cmd)
+				if os.WEXITSTATUS(status) != 0:
+					error('Error when executing command: %s\n%s' % (cmd,output))
+					continue
+				else:
+					debug(cmd)
+					debug('GPC processor\'s output:')
+					debug(output)
 			# save the attachment via filemanager client
 			cmd = '%s --input="%s" --label="%s" --mime="%s" --type=4 '\
 					'--nameservice="%s"'\
 					% (FM_CMD, fd.name, filename, mimetype, nshost)
 			(status, output) = commands.getstatusoutput(cmd)
 			if os.WEXITSTATUS(status) != 0:
-				raise Exception('Error when executing command: %s\n%s' %
-						(cmd, output))
+				error('Error when executing command: %s\n%s' % (cmd, output))
+				error('!!! content of database desynchronized !!!')
+				continue
 			else:
 				debug(cmd)
 				debug('Filemanager\'s output:')
 				debug(output)
-			# process GPC format
-			if gpc_prog and filename.endswith('.gpc'):
-				cmd = '%s --bank-gpc "%s"' % (gpc_prog, fd.name)
-				(status, output) = commands.getstatusoutput(cmd)
-				if os.WEXITSTATUS(status) != 0:
-					raise Exception('Error when executing command: %s\n%s' %
-							(cmd, output))
-				else:
-					debug(cmd)
-					debug('GPC processor\'s output:')
-					debug(output)
-			# cut off successfully saved message from list
-			msgids = msgids[2:]
+			# update successfully saved messages
+			processed_msgs.append(msgid)
 	except Exception,e:
-		server.store(msgids, '-FLAGS', '\\Seen')
-		debug('Flag \Seen reverted for messages with id %s' % msgids)
-		server.close()
-		server.logout()
 		error(e.__str__())
-		# - not reached -
+		# we have to revert seen flag yet
+
+	for msgid in messages:
+		if msgid not in processed_msgs:
+			server.store(msgid, '-FLAGS', '\\Seen')
+			debug('Flag \Seen reverted for message with id %s' % msgid)
 	server.close()
 	server.logout()
+	# all messages processed?
+	if len(processed_msgs) != len(messages):
+		sys.exit(1)
 
 
 if __name__ == '__main__':

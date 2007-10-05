@@ -371,7 +371,7 @@ class Mailer_i (ccReg__POA.Mailer):
 				pop3.quit()
 				return
 			errorids = []
-			pattern = re.compile("^[Tt][Oo]:\s+<?return-(\d+)@.*$")
+			pattern = re.compile("^[Tt][Oo]:\s+<?(\d+)@return\..*$")
 			for mailid in mailids:
 				headers = pop3.top(mailid, 0)[1]
 				for header in headers:
@@ -684,7 +684,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		msg["Date"] = formatdate(localtime=True)
 		# Message-ID contains the domain part, which is needed in Message-ID
 		# header and for envelope From.
-		envelope_from = "return-%d@%s" % (mailid, msg["Message-ID"])
+		envelope_from = "%d@return.%s" % (mailid, msg["Message-ID"])
 		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()),
 				msg["Message-ID"])
 		# parseaddr returns sender's name and sender's address
