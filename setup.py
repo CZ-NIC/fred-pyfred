@@ -8,8 +8,10 @@ from distutils import log
 from distutils import util
 from distutils import errors
 from distutils import version
+from distutils.dir_util import remove_tree
 from distutils.command import config
 from distutils.command import build
+from distutils.command import clean
 
 core.DEBUG = False
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
@@ -149,12 +151,14 @@ class Build_idl (cmd.Command):
 
 	user_options = [
 			("omniidl=", "i", "omniidl program used to build stubs"),
-			("idldir=",  "d", "directory where IDL files reside")
+			("idldir=",  "d", "directory where IDL files reside"),
+			("idlforce",  "f", "force idl stubs to be always generated")
 			]
 
 	def initialize_options(self):
-		self.idldir  = None
-		self.omniidl = None
+		self.idldir   = None
+		self.idlforce = False
+		self.omniidl  = None
 		self.omniidl_params = ["-bpython", "-Wbinline"]
 		self.idlfiles = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
 
@@ -169,6 +173,10 @@ class Build_idl (cmd.Command):
 		global modules
 
 		self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
+		if not self.idlforce and os.access("pyfred/idlstubs/ccReg", os.F_OK):
+			log.info("IDL stubs found, skipping build_idl target. Use idlforce "
+					"option to compile idl stubs anyway or run clean target.")
+			return
 		util.execute(compile_idl,
 			(self.omniidl, self.omniidl_params,
 				[ gen_idl_name(self.idldir, module) for module in modules ]),
@@ -203,6 +211,59 @@ class Build (build.build):
 				   ]
 
 
+class Clean (clean.clean):
+	"""
+	This is here just to add cleaning of idl stub directory.
+	"""
+
+	user_options = [
+			('build-dir=', 'b',
+			 "base build directory (default: 'build')"),
+			('build-idl=', 'i',
+			 "idl stubs build directory (default: 'pyfred/idlstubs')")
+	]
+
+	def initialize_options(self):
+		self.build_dir = None
+		self.build_idl = None
+		self.idlfiles = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
+
+	def finalize_options(self):
+		if self.build_dir == None:
+			self.build_dir = "build"
+		if self.build_idl == None:
+			self.build_idl = "pyfred/idlstubs"
+
+	def run(self):
+		if os.path.exists(self.build_dir):
+			remove_tree(self.build_dir, self.verbose, self.dry_run)
+		else:
+			log.warn("'%s' does not exist -- can't clean it" % self.build_dir)
+
+		# remove ccReg
+		if os.path.exists(self.build_idl + "/ccReg"):
+			remove_tree(self.build_idl + "/ccReg", self.verbose, self.dry_run)
+		else:
+			log.warn("'%s' does not exist -- can't clean it" %
+					(self.build_idl + "/ccReg"))
+		# remove ccReg__POA
+		if os.path.exists(self.build_idl + "/ccReg__POA"):
+			remove_tree(self.build_idl + "/ccReg__POA", self.verbose, self.dry_run)
+		else:
+			log.warn("'%s' does not exist -- can't clean it" %
+					(self.build_idl + "/ccReg__POA"))
+		# remove module idls
+		for mod in self.idlfiles:
+			if os.path.exists(self.build_idl + "/" + mod + "_idl.py"):
+				log.info("Removing " + self.build_idl + "/" + mod + "_idl.py ")
+				if not self.dry_run:
+					os.unlink(self.build_idl + "/" + mod + "_idl.py")
+			else:
+				log.warn("'%s' does not exist -- can't clean it" %
+						(self.build_idl + "/" + mod + "_idl.py"))
+
+
+
 try:
 	core.setup(name="pyfred", version="1.7.4",
 			description="Component of FRED (Fast Registry for Enum and Domains)",
@@ -212,7 +273,8 @@ try:
 			license  = "GNU GPL",
 			cmdclass = { "config":Config,
 			             "build":Build,
-			             "build_idl":Build_idl },
+			             "build_idl":Build_idl,
+			             "clean":Clean },
 			packages = ["pyfred", "pyfred.modules", "pyfred.idlstubs",
 				"pyfred.idlstubs.ccReg", "pyfred.idlstubs.ccReg__POA"],
 			# XXX 'requires' option does not work allthough it is described in
