@@ -50,6 +50,19 @@ def qp_str(string):
 				maxlinelen=None)
 	return string
 
+def filter_email_addrs(str):
+	"""
+	addresses are separated by comma or whitespace, delete any address which
+	does not contain at-sign.
+	"""
+	str = str.replace(',', ' ')
+	result = ""
+	for addr in str.split():
+		if addr.find('@') > 0 and not addr.endswith('@'):
+			if result: result += ", "
+			result += addr
+	return result
+
 class Mailer_i (ccReg__POA.Mailer):
 	"""
 	This class implements Mailer interface.
@@ -473,9 +486,12 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur.close()
 		# headers which don't have defaults
 		msg["Subject"] = qp_str(subject)
-		msg["To"] = header.h_to
-		if header.h_cc: msg["Cc"] = header.h_cc
-		if header.h_bcc: msg["Bcc"] = header.h_bcc
+		msg["To"] = filter_email_addrs(header.h_to)
+		# 'To:' is the only mandatory header
+		if not msg["To"]:
+			raise ccReg.Mailer.InvalidHeader("To")
+		if header.h_cc: msg["Cc"] = filter_email_addrs(header.h_cc)
+		if header.h_bcc: msg["Bcc"] = filter_email_addrs(header.h_bcc)
 		# modify header struct in place based on default values
 		if not header.h_from:
 			header.h_from = defaults[0]
@@ -793,9 +809,6 @@ class Mailer_i (ccReg__POA.Mailer):
 		cs = neo_cs.CS(hdf)
 		cs.parseStr(subject_tpl)
 		subject = cs.render()
-		# 'To:' is the only mandatory header
-		if not header.h_to:
-			raise ccReg.Mailer.InvalidHeader("To")
 		# init email header (BEWARE that header struct is modified in this
 		# call to function, so it is filled with defaults for not provided
 		# headers, which is important for obtaining envelope sender).

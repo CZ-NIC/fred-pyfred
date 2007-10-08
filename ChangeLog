@@ -10,6 +10,9 @@
 	* build_idl target of setup.py doesn't generate IDL stubs if they
 	are already present.
 
+	* Email addresses of recipients in mailer, which do not contain
+	at-sign are silently discarded.
+
 2007-09-30 Jan Kryl (version 1.7.4)
 
 	* File descriptors closing is done better way (before call to wait).
