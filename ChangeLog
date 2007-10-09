@@ -1,4 +1,4 @@
-2007-10-08 Jan Kryl (version 1.7.5)
+2007-10-09 Jan Kryl (version 1.7.5)
 
 	* Techcheck script recursive4all.py is working even for nic.cz domain
 	now.
@@ -12,6 +12,13 @@
 
 	* Email addresses of recipients in mailer, which do not contain
 	at-sign are silently discarded.
+
+	* Message-ID header in generated emails is saved in database in
+	final form. This eliminates problems with incomplete message-id
+	or retransmission of same messages with different IDs.
+
+	* To multipart emails is not added extra newline before signing,
+	because it breaks signature verification in outlook client.
 
 2007-09-30 Jan Kryl (version 1.7.4)
 

@@ -25,15 +25,18 @@ from email.Utils import formatdate, parseaddr
 # POP3 stuff
 import poplib
 
-def contentfilter(mail):
+def contentfilter(mail, ismultipart):
 	"""
 	This routine slightly modifies email in order to prevent unexpected results
 	of email signing.
 	"""
 	# tabs might not be preserved during mail transfer
 	mail = mail.replace('\t', '        ')
-	# add newline at the end to make outlook - shitty client - happy
-	return mail + '\n'
+	# add newline at the end if email is not multipart to make outlook
+	# - shitty client - happy
+	if not ismultipart:
+		mail += '\n'
+	return mail
 
 def qp_str(string):
 	"""
@@ -472,7 +475,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur.close()
 		return id, subject, templates
 
-	def __dbSetHeaders(self, conn, subject, header, msg):
+	def __dbSetHeaders(self, conn, mailid, subject, header, msg):
 		"""
 		Method initializes headers of email object. Header struct is modified
 		as well, which is important for actual value of envelope sender.
@@ -502,7 +505,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		if not header.h_organization:
 			header.h_organization = defaults[3]
 		# headers which have default values
-		msg["Message-ID"] = defaults[5]
+		msg["Message-ID"] = "<%d.%d@%s>" %(mailid, int(time.time()), defaults[5])
 		msg["From"] = header.h_from
 		msg["Reply-to"] = header.h_reply_to
 		msg["Errors-to"] = header.h_errors_to
@@ -519,14 +522,12 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur.close()
 		return int(id)
 
-	def __dbArchiveEmail(self, conn, mailtype_id, mail, handles, attachs = []):
+	def __dbArchiveEmail(self, conn, mailid, mailtype_id, mail, handles,
+			attachs = []):
 		"""
 		Method archives email in database.
 		"""
 		cur = conn.cursor()
-		# get ID of next email in archive
-		cur.execute("SELECT nextval('mail_archive_id_seq')")
-		mailid = cur.fetchone()[0]
 		# save the generated email
 		cur.execute("INSERT INTO mail_archive (id, mailtype, message, status) "
 				"VALUES (%d, %d, %s, %d)" %
@@ -538,7 +539,6 @@ class Mailer_i (ccReg__POA.Mailer):
 			cur.execute("INSERT INTO mail_attachments (mailid, attachid) VALUES"
 					" (%d, %s)" % (mailid, attachid))
 		cur.close()
-		return mailid
 
 	def __dbGetReadyEmails(self, conn):
 		"""
@@ -698,13 +698,11 @@ class Mailer_i (ccReg__POA.Mailer):
 						(attachid, e.message))
 
 		msg["Date"] = formatdate(localtime=True)
-		# Message-ID contains the domain part, which is needed in Message-ID
-		# header and for envelope From.
-		envelope_from = "%d@return.%s" % (mailid, msg["Message-ID"])
-		msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()),
-				msg["Message-ID"])
+		# Message-ID contains the domain part, which is needed in envelope From.
+		domain = msg["Message-ID"][(msg["Message-ID"].find('@') + 1):-1]
+		envelope_from = "%d@return.%s" % (mailid, domain)
 		# parseaddr returns sender's name and sender's address
-		return contentfilter(msg.as_string()), envelope_from
+		return contentfilter(msg.as_string(), msg.is_multipart()), envelope_from
 
 	def __sign_email(self, mail):
 		"""
@@ -780,7 +778,7 @@ class Mailer_i (ccReg__POA.Mailer):
 
 		return status
 
-	def __prepareEmail(self, conn, mailtype, header, data):
+	def __prepareEmail(self, conn, mailid, mailtype, header, data):
 		"""
 		Method creates text part of email, it means without base64 encoded
 		attachments. This includes following steps:
@@ -789,8 +787,7 @@ class Mailer_i (ccReg__POA.Mailer):
 			2) Template subject
 			3) Create email headers
 			4) Run templating for all wanted templates and attach them
-			5) Archive email
-			6) Dump email in string form
+			5) Dump email in string form
 		"""
 		# Create multipart email object and init headers
 		msg = MIMEMultipart()
@@ -812,7 +809,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		# init email header (BEWARE that header struct is modified in this
 		# call to function, so it is filled with defaults for not provided
 		# headers, which is important for obtaining envelope sender).
-		self.__dbSetHeaders(conn, subject, header, msg)
+		self.__dbSetHeaders(conn, mailid, subject, header, msg)
 		# render text attachments
 		for item in templates:
 			cs = neo_cs.CS(hdf)
@@ -844,16 +841,18 @@ class Mailer_i (ccReg__POA.Mailer):
 
 			# connect to database
 			conn = self.db.getConn()
+			# get unique email id (based on primary key from database)
+			mailid = self.__dbNewEmailId(conn)
 
-			mail_text, mailtype_id = self.__prepareEmail(conn, mailtype,
+			mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype,
 					header, data)
 
 			if preview:
-				return (0, mail_text)
+				return (mailid, mail_text)
 
 			# archive email (without non-templated attachments)
-			mailid = self.__dbArchiveEmail(conn, mailtype_id, mail_text,
-					handles, attachs)
+			self.__dbArchiveEmail(conn, mailid, mailtype_id, mail_text, handles,
+					attachs)
 			# commit changes in mail archive
 			conn.commit()
 			self.db.releaseConn(conn)
