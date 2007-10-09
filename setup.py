@@ -265,7 +265,7 @@ class Clean (clean.clean):
 
 
 try:
-	core.setup(name="pyfred", version="1.7.4",
+	core.setup(name="pyfred", version="1.7.5",
 			description="Component of FRED (Fast Registry for Enum and Domains)",
 			author   = "Jan Kryl",
 			author_email="jan.kryl@nic.cz",

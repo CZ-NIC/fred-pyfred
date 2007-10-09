@@ -22,8 +22,8 @@ from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
 from email.Utils import formatdate, parseaddr
-# POP3 stuff
-import poplib
+# IMAP stuff
+import imaplib
 
 def contentfilter(mail, ismultipart):
 	"""
@@ -109,10 +109,10 @@ class Mailer_i (ccReg__POA.Mailer):
 		self.archstatus   = 1
 		self.maxattempts  = 3
 		self.undeliveredperiod = 0
-		self.POP3user     = "pyfred"
-		self.POP3pass     = ""
-		self.POP3server   = "localhost"
-		self.POP3port     = 110
+		self.IMAPuser     = "pyfred"
+		self.IMAPpass     = ""
+		self.IMAPserver   = "localhost"
+		self.IMAPport     = 143
 		# Parse Mailer-specific configuration
 		if conf.has_section("Mailer"):
 			# testmode
@@ -240,36 +240,36 @@ class Mailer_i (ccReg__POA.Mailer):
 						self.undeliveredperiod)
 			except ConfigParser.NoOptionError, e:
 				pass
-			# POP3user
+			# IMAPuser
 			try:
-				POP3user = conf.get("Mailer", "POP3user")
-				if POP3user:
-					self.l.log(self.l.DEBUG, "POP3user is %s" % POP3user)
-					self.POP3user = POP3user
+				IMAPuser = conf.get("Mailer", "IMAPuser")
+				if IMAPuser:
+					self.l.log(self.l.DEBUG, "IMAPuser is %s" % IMAPuser)
+					self.IMAPuser = IMAPuser
 			except ConfigParser.NoOptionError, e:
 				pass
-			# POP3pass
+			# IMAPpass
 			try:
-				POP3pass = conf.get("Mailer", "POP3pass")
-				if POP3pass:
-					self.l.log(self.l.DEBUG, "POP3pass is %s" % POP3pass)
-					self.POP3pass = POP3user
+				IMAPpass = conf.get("Mailer", "IMAPpass")
+				if IMAPpass:
+					self.l.log(self.l.DEBUG, "IMAPpass is %s" % IMAPpass)
+					self.IMAPpass = IMAPpass
 			except ConfigParser.NoOptionError, e:
 				pass
-			# POP3server
+			# IMAPserver
 			try:
-				POP3server = conf.get("Mailer", "POP3server")
-				if POP3server:
-					temp = POP3server.split(':')
+				IMAPserver = conf.get("Mailer", "IMAPserver")
+				if IMAPserver:
+					temp = IMAPserver.split(':')
 					if len(temp) == 1:
-						self.POP3server = temp[0]
+						self.IMAPserver = temp[0]
 					else:
-						self.POP3server = temp[0]
-						self.POP3port = int(temp[1])
-						self.l.log(self.l.DEBUG, "POP3port is %d" %
-								self.POP3port)
-					self.l.log(self.l.DEBUG, "POP3server is %s" %
-							self.POP3server)
+						self.IMAPserver = temp[0]
+						self.IMAPport = int(temp[1])
+						self.l.log(self.l.DEBUG, "IMAPport is %d" %
+								self.IMAPport)
+					self.l.log(self.l.DEBUG, "IMAPserver is %s" %
+							self.IMAPserver)
 			except ConfigParser.NoOptionError, e:
 				pass
 
@@ -379,42 +379,48 @@ class Mailer_i (ccReg__POA.Mailer):
 		self.l.log(self.l.DEBUG, "Regular check-undelivered procedure.")
 		# get emails from mailbox
 		try:
-			pop3 = poplib.POP3(self.POP3server, self.POP3port)
-			pop3.user(self.POP3user)
-			pop3.pass_(self.POP3pass)
-			mailids = [ record.split()[0] for record in pop3.list()[1] ]
-			if (len(mailids) == 0):
-				pop3.quit()
+			server = imaplib.IMAP4(self.IMAPserver, self.IMAPport)
+			server.login(self.IMAPuser, self.IMAPpass)
+			server.select()
+			# XXX potencial source of error - hardcoded return.nic.cz
+			(r, data) = server.search(None, '((UNSEEN) (TO return.nic.cz))')
+			mailids = data[0].split(' ')
+			if not mailids[0]:
+				self.l.log(self.l.DEBUG, "No new undelivered messages.")
+				server.close()
+				server.logout()
 				return
-			errorids = []
-			pattern = re.compile("^[Tt][Oo]:\s+<?(\d+)@return\..*$")
+			pattern = re.compile("^[Tt][Oo]:\s+<?(\d+)@return\.nic\.cz.*$")
+			self.l.log(self.l.DEBUG, "%d new undelivered messages" %len(mailids))
+			conn = None
 			for mailid in mailids:
-				headers = pop3.top(mailid, 0)[1]
-				for header in headers:
-					m = pattern.match(header)
-					if m:
-						result = m.groups()[0]
-						mail = [ line + '\n' for line in pop3.retr(mailid)[1] ]
-						errorids.append( (int(result[0]), "".join(mail)[:3000]))
-						break
-				pop3.dele(mailid)
-			pop3.quit()
-		except poplib.error_proto, e:
-			self.l.log(self.l.ERR, "POP3 protocol error: %s" % e)
-			return
-		if len(errorids) > 0:
-			self.l.log(self.l.DEBUG, "Messages with IDs %s weren't delivered." %
-					[ item[0] for item in errorids ] )
-			# update status in database if the message with error-id exists
-			try:
-				conn = self.db.getConn()
-				for errorid in errorids:
-					self.__dbSetUndelivered(conn, errorid[0], errorid[1])
+				if not conn:
+					conn = self.db.getConn()
+				temp = server.fetch(mailid, "(BODY[HEADER.FIELDS (TO)])")
+				to_header = temp[1][0][1].strip()
+				m = pattern.match(to_header)
+				if m:
+					msgid = int(m.groups()[0])
+					msgbody = server.fetch(mailid, "(RFC822)")[1][0][1]
+					self.l.log(self.l.DEBUG, "Email with ID %d undelivered." %
+							msgid)
+					try:
+						self.__dbSetUndelivered(conn, msgid, msgbody)
+						server.store(mailid, 'FLAGS', '(\Deleted)')
+					except ccReg.Mailer.UnknownMailid, e:
+						self.l.log(self.l.WARNING, "Mail with id %s not sent."%e)
+				else:
+					self.l.log(self.l.WARNING, "Invalid email identifier found.")
+			if conn:
 				conn.commit()
 				self.db.releaseConn(conn)
-			except pgdb.DatabaseError, e:
-				self.l.log(self.l.ERR, "Database error (%s). Information about "
-						"undelivered emails is lost!" % e)
+			server.expunge()
+			server.close()
+			server.logout()
+		except pgdb.DatabaseError, e:
+			self.l.log(self.l.ERR, "Database error: %s" % e)
+		except imaplib.IMAP4.error, e:
+			self.l.log(self.l.ERR, "IMAP protocol error: %s" % e)
 
 	def __getFileManagerObject(self):
 		"""

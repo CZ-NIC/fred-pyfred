@@ -71,6 +71,8 @@ def main():
 	msgids = data[0].split(' ')
 	if not msgids[0]:
 		debug('No new messages in mailbox')
+		server.close()
+		server.logout()
 		sys.exit(0)
 	messages = {}
 	for msgid in msgids:

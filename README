@@ -291,11 +291,8 @@ pyfred and deliver these error messages to special mailbox, which is
 accessed by mailer module in regular intervals and checked for new emails.
 If user part of email address in "To" header matches identifier associated
 with sent email archived in database, the email is marked as undelivered.
-This process of downloading emails over pop3 is optional and may be turned
-off in configuration file. To help test this functionality there is
-pop3_server.py script, which simulates pop3 server (note that if you want
-to run this script, you have to install twisted python framework, which is
-not listed among dependencies of pyfred).
+This process of downloading emails over imap is optional and may be turned
+off in configuration file.
 
 Emails in archive may have assigned several status values, which are numbers
 from 0 to 4. Here is their meaning:
@@ -538,15 +535,15 @@ no default value, the square brackets are missing.
      attempts to send email before the mailer gives up.
 
   *) undeliveredperiod [0] - Regularly check for undelivered email messages
-     over POP3. The interval is in seconds. If this is zero, the checks are
+     over IMAP. The interval is in seconds. If this is zero, the checks are
      turned off and all directives related to checking of undelivered emails
      are meaningless.
 
-  *) POP3user [pyfred] - Username for POP3 account.
+  *) IMAPuser [pyfred] - Username for IMAP account.
 
-  *) POP3pass [] - Password for POP3 account.
+  *) IMAPpass [] - Password for IMAP account.
 
-  *) POP3server [localhost] - Host and optional port where POP3 daemon runs
+  *) IMAPserver [localhost] - Host and optional port where IMAP daemon runs
      in format host[:port].
 
   *) idletreshold and checkperiod are used to control lifetime of CORBA

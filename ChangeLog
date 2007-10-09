@@ -20,6 +20,9 @@
 	* To multipart emails is not added extra newline before signing,
 	because it breaks signature verification in outlook client.
 
+	* Check undelivered procedure in mailer rewritten from POP3 to IMAP.
+	The name of POP3* configuration directives was changed to IMAP*.
+
 2007-09-30 Jan Kryl (version 1.7.4)
 
 	* File descriptors closing is done better way (before call to wait).
