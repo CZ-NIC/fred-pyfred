@@ -478,6 +478,9 @@ no default value, the square brackets are missing.
 
   *) piddir [/var/run] - Directory where pidfile pyfred.pid is created.
 
+  *) host [] - IP address or hostname where pyfred listens. If empty then
+     pyfred binds to all available IP addresses.
+
   *) port [2225] - Port where pyfred server listens.
 
   Genzone

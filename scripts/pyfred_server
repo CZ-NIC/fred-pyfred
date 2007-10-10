@@ -179,6 +179,7 @@ def getConfiguration(configs):
 			"loglevel":"LOG_INFO",
 			"logfacility":"LOG_LOCAL1",
 			"piddir":"/var/run",
+			"host":"",
 			"port":"2225"})
 	# read configuration file
 	for cfile in configs:
@@ -329,8 +330,8 @@ def main(argv):
 		nsname = "NameService=corbaname::" + conf.get("General", "nshost") + \
 				":" + conf.get("General", "nsport")
 		orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8", "-ORBInitRef",
-				nsname, "-ORBendPoint", ":::" + conf.get("General", "port")],
-				CORBA.ORB_ID)
+				nsname, "-ORBendPoint", "::%s:%s" %
+				(conf.get("General", "host"), conf.get("General", "port"))])
 		rootpoa = orb.resolve_initial_references("RootPOA")
 		# create persistent poa
 		ps = [rootpoa.create_lifespan_policy(PortableServer.PERSISTENT),

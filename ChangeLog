@@ -1,4 +1,4 @@
-2007-10-09 Jan Kryl (version 1.7.5)
+2007-10-10 Jan Kryl (version 1.7.5)
 
 	* Techcheck script recursive4all.py is working even for nic.cz domain
 	now.
@@ -22,6 +22,9 @@
 
 	* Check undelivered procedure in mailer rewritten from POP3 to IMAP.
 	The name of POP3* configuration directives was changed to IMAP*.
+
+	* It is possible to specify IP address where pyfred listens by new
+	host configuration directive.
 
 2007-09-30 Jan Kryl (version 1.7.4)
 
