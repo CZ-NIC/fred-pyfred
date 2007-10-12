@@ -18,14 +18,14 @@ def usage():
     NSSET is handle of nsset which should be tested and must be given.
 
 Options:
-    -c, --cltestid STRING         ID of test assigned by client.
+    -c, --cltestid=STRING         ID of test assigned by client.
     -d, --dig                     Dig all domain fqdns which use nsset and
                                   test them too.
-    -f, --fqdn NAME               FQDN of domain which should be tested with
+    -f, --fqdn=NAME               FQDN of domain which should be tested with
                                   nsset. May be specified multipletimes.
     -h, --help                    Print this help message.
-    -l, --level NUMBER            Explicit specification of test level (1-10).
-    -n, --nameservice HOST[:PORT] Set host where corba nameservice runs.
+    -l, --level=NUMBER            Explicit specification of test level (1-10).
+    -n, --nameservice=HOST[:PORT] Set host where corba nameservice runs.
     -r, --regid                   Set handle of registrator whom should be
                                   queued the message with results. This means
                                   that the test will be run asynchronously.
@@ -44,8 +44,8 @@ def convStatus(status):
 def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:],
-				"c:df:hl:n:r:s", ["cltestid", "dig", "fqdn", "help", "level",
-					"nameservice", "regid", "save"]
+				"c:df:hl:n:r:s", ["cltestid=", "dig", "fqdn=", "help", "level=",
+					"nameservice=", "regid=", "save"]
 				)
 	except getopt.GetoptError:
 		usage()
