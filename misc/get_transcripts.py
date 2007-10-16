@@ -27,7 +27,7 @@ def debug(msg):
 		sys.stderr.write(msg + '\n')
 
 def error(msg):
-	sys.stderr.write('Exiting due to an error: %s\n' % msg)
+	sys.stderr.write(msg + '\n')
 
 def main():
 	global verbose
