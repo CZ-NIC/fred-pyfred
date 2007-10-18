@@ -1,3 +1,17 @@
+2007-10-18 Jan Kryl (version 1.7.6)
+
+	* Error in techcheck script existence was corrected. Due to the error
+	nameservers which could not be resolved triggered unknown result
+	instead of error result.
+
+	* Techcheck script existence was improved. Now it performs four
+	types of queries in hope that at least one will trigger response
+	from server. This gives fairly good results even if we have no domain
+	to ask for.
+
+	* Not matched DNS servers in heterogenous technical check were not
+	treated well.
+
 2007-10-10 Jan Kryl (version 1.7.5)
 
 	* Techcheck script recursive4all.py is working even for nic.cz domain

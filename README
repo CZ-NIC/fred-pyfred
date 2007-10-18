@@ -47,7 +47,7 @@ There are following servers each of which has at least one client:
 
 Note: Content of clients column needs some explanation. Almost every interface
       defines two kinds of functions: custom and administrative. Custom
-      functions fulfil the purpose of server's existance, it means that
+      functions fulfil the purpose of server's existence, it means that
       without these functions there is no reason for server to exist.
       Adminstrative functions constitute completion to normal operation of
       server. They implement more advanced functionality of server. These

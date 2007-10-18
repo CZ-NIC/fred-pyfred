@@ -16,6 +16,8 @@ import dns.resolver
 import dns.message
 import dns.query
 
+default_domain = "neexistuje.v.domene.nic.cz"
+
 def get_ns_addrs(args):
 	"""
 	BEWARE!!! If you change something in this function, don't forget to
@@ -31,10 +33,14 @@ def get_ns_addrs(args):
 	return (ns, addrs)
 
 def main():
+	global default_domain
+
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
 		return 2
 	domain = sys.stdin.read().strip().split(' ')[0] # try first domain only
+	if not domain:
+		domain = default_domain
 	# list of faulty nameservers
 	renegades = []
 	error = False

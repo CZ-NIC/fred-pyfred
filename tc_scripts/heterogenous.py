@@ -66,12 +66,12 @@ def main():
 			# others
 			retval = 0
 			continue
-		dns_soft = label.groups()[0]
+		dns_soft = label.groups()[0].strip()
 		dbg_print("Matched item: %s" % dns_soft)
 		if not software:
 			software = dns_soft
 		else:
-			if software != dns_soft:
+			if software != dns_soft or dns_soft == "No match found":
 				# two different softwares were found! Exiting
 				retval = 0
 	return retval

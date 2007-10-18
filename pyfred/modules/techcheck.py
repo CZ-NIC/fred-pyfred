@@ -421,8 +421,8 @@ This class implements TechCheck interface.
 		testsuite = {}
 		# Get all enabled tests
 		cur = conn.cursor()
-		cur.execute("SELECT id, name, severity, script, need_domain "
-				"FROM check_test WHERE disabled = False")
+		cur.execute("SELECT id, name, severity, script, need_domain, req_domain"
+				" FROM check_test WHERE disabled = False")
 		tests = cur.fetchall()
 		# Get dependencies of tests
 		for test in tests:
@@ -486,13 +486,12 @@ This class implements TechCheck interface.
 		else:
 			cur.execute("SELECT oreg.name, oreg.id, oreg.historyid, oreg.name, "
 						"ns.checklevel "
-					"FROM object_registry oreg "
-					"LEFT JOIN check_nsset cn ON (cn.nsset_hid=oreg.historyid), "
-						"nsset ns "
+					"FROM object_registry oreg LEFT JOIN check_nsset cn "
+						"ON (cn.nsset_hid=oreg.historyid), nsset ns "
 					"WHERE (oreg.id = ns.id) AND (oreg.type = 2) AND "
 						"(cn.nsset_hid NOT IN "
 							"(SELECT nsset_hid FROM check_nsset "
-							 "WHERE (age(now(),checkdate)) <interval '%d days') "
+							 "WHERE (age(now(),checkdate)) <interval '%d days')"
 						"OR cn.id IS NULL) LIMIT 1" % self.oldperiod)
 
 		if cur.rowcount == 0:
@@ -500,9 +499,9 @@ This class implements TechCheck interface.
 			raise ccReg.TechCheck.NssetNotFound()
 		handle, objid, histid, handle, level = cur.fetchone()
 		# get nameservers (fqdns and ip addresses) of hosts belonging to nsset
-		cur.execute("SELECT h.fqdn, ip.ipaddr FROM host h LEFT JOIN "
-				"host_ipaddr_map ip ON (h.id = ip.hostid) WHERE h.nssetid = %d "
-				"ORDER BY h.fqdn" % objid)
+		cur.execute("SELECT h.fqdn, ip.ipaddr FROM host h "
+				"LEFT JOIN host_ipaddr_map ip ON (h.id = ip.hostid) "
+				"WHERE h.nssetid = %d ORDER BY h.fqdn" % objid)
 		row = cur.fetchone()
 		nameservers = {}
 		while row:
@@ -683,7 +682,7 @@ This class implements TechCheck interface.
 			if not req_ok:
 				# prerequisities were not satisfied
 				continue
-			if test["need_domain"] and not fqdns:
+			if test["need_domain"] == 1 and not fqdns:
 				# list of domains is required for the test but is not given
 				self.l.log(self.l.DEBUG, "<%d> Omitting test '%s' because "
 						"no domains are provided." % (id, test["name"]))
@@ -733,7 +732,7 @@ This class implements TechCheck interface.
 						cmd += ",%s" % addr
 				# decide if list of domains is needed
 				stdin = ''
-				if test["need_domain"]:
+				if test["need_domain"] != 0:
 					# send space separated list of domain fqdns to stdin
 					for fqdn in fqdns:
 						stdin += fqdn + ' '
@@ -814,7 +813,7 @@ This class implements TechCheck interface.
 				j = 0
 				for ns in result["data"].split():
 					j += 1
-					if test["need_domain"]:
+					if test["need_domain"] == 1:
 						ns_and_fqdns = ns.split(',')
 						tpldata.append(ccReg.KeyValue("tests.%d.ns.%d" % (i,j),
 									ns_and_fqdns[0]) )
@@ -952,7 +951,7 @@ This class implements TechCheck interface.
 			for testid in self.testsuite:
 				test = self.testsuite[testid]
 				tests.append( ccReg.CheckTest(testid, test["name"],
-					test["level"], test["need_domain"]) )
+					test["level"], test["need_domain"] == 1) )
 			return tests
 
 		except pgdb.DatabaseError, e:

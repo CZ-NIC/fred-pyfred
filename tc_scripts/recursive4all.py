@@ -43,6 +43,8 @@ def get_ns_addrs(args):
 	return (ns, addrs)
 
 def main():
+	global testdomain
+
 	if len(sys.argv) < 2:
 		sys.stderr.write("Usage error")
 		return 2
@@ -69,7 +71,7 @@ def main():
 				break
 		# if there is any answer it means that recursive query was done
 		if message and message.rcode() == dns.rcode.NXDOMAIN:
-			dbg_print("Length of answer is non zero: %s" % message.answer)
+			dbg_print("Answer with result received")
 			renegades.append(ns)
 	# epilog
 	if renegades:
