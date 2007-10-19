@@ -36,7 +36,7 @@ cz zone as of 17.10.2007. Any change on these nameservers may break the tests.
 
 fingerprint (a.ns.nic.cz, 217.31.205.180): ISC BIND 9.2.3rc1 -- 9.4.0a0  
 fingerprint (b.ns.nic.cz, 217.31.205.188): ISC BIND 9.2.3rc1 -- 9.4.0a0  
-fingerprint (c.ns.nic.cz, 217.31.205.188): Unknown
+fingerprint (c.ns.nic.cz, 195.66.241.202): Unknown
 fingerprint (d.ns.nic.cz, 193.29.206.1):   ISC BIND 9.2.3rc1 -- 9.4.0a0  
 
 As an example of recursive DNS was taken wren.office.nic.cz.
@@ -52,10 +52,10 @@ import unittest
 BIND1_NS     = 'a.ns.nic.cz'
 BIND2_NS     = 'b.ns.nic.cz'
 BIND2_NS_IP  = '217.31.205.188'
-OTHER1_NS    = 'd.ns.nic.cz'
-OTHER1_NS_IP = '217.31.205.188'
+OTHER1_NS    = 'c.ns.nic.cz'
+OTHER1_NS_IP = '195.66.241.202'
 OTHER2_NS    = 'f.ns.nic.cz'
-REC_NS       = 'wren.office.nic.cz'
+REC_NS       = 'nsd.csas.cz'
 NONS_HOST    = 'nic.cz'
 NONS_HOST_IP = '217.31.205.50'
 NOHOSTED_DOMAIN = 'blabla-long-coffeee-domain.cz'
@@ -151,8 +151,8 @@ class TestAll(unittest.TestCase):
 		self.assertEqual(len(res.tests), 8, 'Number of executed tests is less '
 				'than expected\n%s' % res)
 		for test in res.tests:
-			self.assertEqual(test, 'Passed', 'Test %s failed and should have '
-					'been ok\n%s' % (test, res))
+			self.assertEqual(res.tests[test], 'Passed',
+					'Test %s failed and should have been ok\n%s' % (test, res))
 
 
 class Existence(unittest.TestCase):
@@ -197,15 +197,15 @@ class RecursiveNs(unittest.TestCase):
 	def test_authoritative(self):
 		self.assertEqual(self.res.tests['authoritative'], 'Failed',
 				'Not authoritative answer from %s not detected\n%s' %
-				(REC_NS, res))
+				(REC_NS, self.res))
 
 	def test_recursive(self):
-		self.assertEqual(self.res.tests['recursive'], 'Failed',
-				'Recursive nameserver %s not detected\n%s' % (REC_NS, res))
+		self.assertEqual(self.res.tests['notrecursive'], 'Failed',
+				'Recursive nameserver %s not detected\n%s' % (REC_NS, self.res))
 
 	def test_recursive4all(self):
-		self.assertEqual(self.res.tests['recursive4all'], 'Failed',
-				'Recursive nameserver %s not detected\n%s' % (REC_NS, res))
+		self.assertEqual(self.res.tests['notrecursive4all'], 'Failed',
+				'Recursive nameserver %s not detected\n%s' % (REC_NS, self.res))
 
 	def tearDown(self):
 		epp_cmd_exec('update_nsset NSSID:PFUT-NSSET () (((%s)))' % REC_NS)
@@ -219,15 +219,16 @@ class Heterogenous(unittest.TestCase):
 	def setUp(self):
 		epp_cmd_exec('update_nsset NSSID:PFUT-NSSET (((%s (%s)))) (((%s)))' %
 				(BIND2_NS, BIND2_NS_IP, OTHER1_NS))
-		res = techcheck_exec('NSSID:PFUT-NSSET', 6, False)
+		self.res = techcheck_exec('NSSID:PFUT-NSSET', 6, False)
 
 	def test_heterogenous(self):
 		self.assertEqual(self.res.tests['heterogenous'], 'Failed',
-				'Heterogenous software not detected\n%s' % res)
+				'Heterogenous software not detected\n%s' % self.res)
 
 	def test_autonomous(self):
 		self.assertEqual(self.res.tests['autonomous'], 'Failed',
-				'Servers from same autonomous system not detected\n%s' % res)
+				'Servers from same autonomous system not detected\n%s' %
+				self.res)
 
 	def tearDown(self):
 		epp_cmd_exec('update_nsset NSSID:PFUT-NSSET (((%s (%s)))) (((%s)))' %
@@ -246,14 +247,14 @@ if __name__ == '__main__':
 		if o in ('-v', '--verbose'):
 			level = int(a)
 	# put together test suite
-	genzone_suite = unittest.TestSuite()
-	genzone_suite.addTest(DigFlag())
-	genzone_suite.addTest(TestAll())
-	genzone_suite.addTest(Existence())
-	genzone_suite.addTest(Presence())
-	genzone_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(RecursiveNs))
-	genzone_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Heterogenous))
+	tc_suite = unittest.TestSuite()
+	tc_suite.addTest(DigFlag())
+	tc_suite.addTest(TestAll())
+	tc_suite.addTest(Existence())
+	tc_suite.addTest(Presence())
+	tc_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(RecursiveNs))
+	tc_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Heterogenous))
 
 	# Run unittests
-	unittest.TextTestRunner(verbosity = level).run(genzone_suite)
+	unittest.TextTestRunner(verbosity = level).run(tc_suite)
 

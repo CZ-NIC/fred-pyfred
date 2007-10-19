@@ -1,4 +1,4 @@
-2007-10-18 Jan Kryl (version 1.7.6)
+2007-10-19 Jan Kryl (version 1.7.6)
 
 	* Error in techcheck script existence was corrected. Due to the error
 	nameservers which could not be resolved triggered unknown result
@@ -11,6 +11,11 @@
 
 	* Not matched DNS servers in heterogenous technical check were not
 	treated well.
+
+	* Technical test recursive4all was corrected to work for cz
+	nameservers as well.
+
+	* Basic unittests for techcheck created.
 
 2007-10-10 Jan Kryl (version 1.7.5)
 

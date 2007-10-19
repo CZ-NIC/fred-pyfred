@@ -40,10 +40,6 @@ import commands, ConfigParser, sys, getopt, os, re, random
 import pgdb
 import unittest
 
-# Random salt which is part of name of created objects in order to avoid
-# safe period restriction.
-SALT = random.randint(1, 9999)
-
 def usage():
 	print '%s [-v LEVEL | --verbose=LEVEL]' % sys.argv[0]
 	print
@@ -194,15 +190,15 @@ class SyntaxTest(unittest.TestCase):
 class DelegationTest(unittest.TestCase):
 	'''
 	This test case generates zone and tests that all resource records
-	for fpu-domain-SALT.cz domain, which should be there, are really there.
+	for fpug-domain.cz domain, which should be there, are really there.
 	'''
 
 	def setUp(self):
 		'''
 		Generate zone and grep appropriate lines from zone.
 		'''
-		self.zone_lines = get_zone_lines(['pfu-domain-%s.cz' % SALT,
-				'ns.pfu-domain-%s.cz' % SALT, 'ns.pfu-domain-%s.net' % SALT])
+		self.zone_lines = get_zone_lines(['pfug-domain.cz',
+				'ns.pfug-domain.cz', 'ns.pfug-domain.net'])
 		self.rr_lines = ''
 		for line in self.zone_lines:
 			self.rr_lines += line + '\n'
@@ -210,40 +206,40 @@ class DelegationTest(unittest.TestCase):
 	def test_nameserver_rr(self):
 		'''
 		Test domain delegation, said otherwise, presence of two NS resource
-		records for pfu-domain-SALT.cz domain in zone.
+		records for pfug-domain.cz domain in zone.
 		'''
 		# compile resource record patterns
-		patt_ns1 = re.compile('pfu-domain-%s\.cz\.\s+IN\s+NS\s+'
-				'ns\.pfu-domain-%s\.cz\.' % (SALT, SALT))
-		patt_ns2 = re.compile('pfu-domain-%s\.cz\.\s+IN\s+NS\s+'
-				'ns\.pfu-domain-%s\.net\.' % (SALT, SALT))
+		patt_ns1 = re.compile('pfug-domain\.cz\.\s+IN\s+NS\s+'
+				'ns\.pfug-domain\.cz\.')
+		patt_ns2 = re.compile('pfug-domain\.cz\.\s+IN\s+NS\s+'
+				'ns\.pfug-domain\.net\.')
 		# test their presence
 		found = False
 		for line in self.zone_lines:
 			if patt_ns1.match(line):
 				found = True
 				break
-		self.assert_(found, 'Record for nameserver ns.pfu-domain-%s.cz not '
-				'generated.\n%s' % (SALT, self.rr_lines))
+		self.assert_(found, 'Record for nameserver ns.pfug-domain.cz not '
+				'generated.\n%s' % self.rr_lines)
 		found = False
 		for line in self.zone_lines:
 			if patt_ns2.match(line):
 				found = True
 				break
-		self.assert_(found, 'Record for nameserver ns.pfu-domain-%s.net not '
-				'generated.\n%s' % (SALT, self.rr_lines))
+		self.assert_(found, 'Record for nameserver ns.pfug-domain.net not '
+				'generated.\n%s' % self.rr_lines)
 
 	def test_glue_rr(self):
 		'''
 		Test presence of two GLUEs (ipv4 and ipv6), said otherwise,
-		presence of A record for ns.pfu-domain-SALT.cz nameserver and
-		presence of AAAA record for ns.pfu-domain-SALT.cz nameserver.
+		presence of A record for ns.pfug-domain.cz nameserver and
+		presence of AAAA record for ns.pfug-domain.cz nameserver.
 		'''
 		# compile resource record patterns
-		patt_glue4 = re.compile('ns\.pfu-domain-%s\.cz\.\s+IN\s+A\s+'
-				'217\.31\.206\.129' % SALT)
-		patt_glue6 = re.compile('ns\.pfu-domain-%s\.cz\.\s+IN\s+AAAA\s+'
-				'2001:db8::1428:57ab' % SALT)
+		patt_glue4 = re.compile('ns\.pfug-domain\.cz\.\s+IN\s+A\s+'
+				'217\.31\.206\.129')
+		patt_glue6 = re.compile('ns\.pfug-domain\.cz\.\s+IN\s+AAAA\s+'
+				'2001:db8::1428:57ab')
 		# test GLUE record presence
 		found = False
 		for line in self.zone_lines:
@@ -251,14 +247,14 @@ class DelegationTest(unittest.TestCase):
 				found = True
 				break
 		self.assert_(found, 'IPv4 GLUE record for nameserver '
-				'ns.pfu-domain-%s.cz not generated.\n%s' % (SALT,self.rr_lines))
+				'ns.pfug-domain.cz not generated.\n%s' % self.rr_lines)
 		found = False
 		for line in self.zone_lines:
 			if patt_glue6.match(line):
 				found = True
 				break
 		self.assert_(found, 'IPv6 GLUE record for nameserver '
-				'ns.pfu-domain-%s.cz not generated.\n%s' % (SALT,self.rr_lines))
+				'ns.pfu-domain.cz not generated.\n%s' % self.rr_lines)
 
 class FaultyGlueTest(unittest.TestCase):
 	'''
@@ -277,19 +273,17 @@ class FaultyGlueTest(unittest.TestCase):
 		self.dbconn = open_db_connection()
 		# change information in db
 		cur = self.dbconn.cursor()
-		cur.execute("SELECT id FROM host WHERE fqdn = 'ns.pfu-domain-%s.cz'" %
-				SALT)
+		cur.execute("SELECT id FROM host WHERE fqdn = 'ns.pfug-domain.cz'")
 		self.ns_cz_id = cur.fetchone()[0]
-		cur.execute("SELECT id FROM host WHERE fqdn = 'ns.pfu-domain-%s.net'" %
-				SALT)
+		cur.execute("SELECT id FROM host WHERE fqdn = 'ns.pfug-domain.net'")
 		self.ns_net_id = cur.fetchone()[0]
 		cur.execute("UPDATE host_ipaddr_map SET hostid = %d WHERE hostid = %d" %
 				(self.ns_net_id, self.ns_cz_id))
 		cur.close()
 		self.dbconn.commit()
 		# generate zone and grep lines
-		self.zone_lines = get_zone_lines(['ns.pfu-domain-%s.cz' % SALT,
-				'ns.pfu-domain-%s.net' % SALT])
+		self.zone_lines = get_zone_lines(['ns.pfug-domain.cz',
+				'ns.pfug-domain.net'])
 		self.rr_lines = ''
 		for line in self.zone_lines:
 			self.rr_lines += line + '\n'
@@ -312,13 +306,13 @@ class FaultyGlueTest(unittest.TestCase):
 		not be generated in zone.
 		'''
 		# compile delegation pattern
-		patt_ns1 = re.compile('pfu-domain-%s\.cz\.\s+IN\s+NS\s+'
-				'ns\.pfu-domain-%s\.cz\.' % (SALT, SALT))
+		patt_ns1 = re.compile('pfug-domain\.cz\.\s+IN\s+NS\s+'
+				'ns\.pfug-domain\.cz\.')
 		# assure that nameserver is not in zone
 		for line in self.zone_lines:
 			self.assert_(not patt_ns1.match(line),
-					'Nameserver ns.pfu-domain-%s.cz with missing GLUE was '
-					'generated.\n%s' % (SALT, self.rr_lines))
+					'Nameserver ns.pfu-domain.cz with missing GLUE was '
+					'generated.\n%s' % self.rr_lines)
 
 	def test_extraGlue(self):
 		'''
@@ -327,19 +321,19 @@ class FaultyGlueTest(unittest.TestCase):
 		be generated.
 		'''
 		# compile GLUE patterns
-		patt_glue4 = re.compile('ns\.pfu-domain-%s\.net\.\s+IN\s+A\s+'
-				'217\.31\.206\.129' % SALT)
-		patt_glue6 = re.compile('ns\.pfu-domain-%s\.net\.\s+IN\s+AAAA\s+'
-				'2001:db8::1428:57ab' % SALT)
+		patt_glue4 = re.compile('ns\.pfu-domain\.net\.\s+IN\s+A\s+'
+				'217\.31\.206\.129')
+		patt_glue6 = re.compile('ns\.pfu-domain\.net\.\s+IN\s+AAAA\s+'
+				'2001:db8::1428:57ab')
 		# assure that GLUEs are not in zone
 		for line in self.zone_lines:
 			self.assert_(not patt_glue4.match(line),
-					'Not needed glue for nameserver ns.pfu-domain-%s.net was '
-					'generated.\n%s' % (SALT, self.rr_lines))
+					'Not needed glue for nameserver ns.pfug-domain.net was '
+					'generated.\n%s' % self.rr_lines)
 		for line in self.zone_lines:
 			self.assert_(not patt_glue6.match(line),
-					'Not needed glue for nameserver ns.pfu-domain-%s.net was '
-					'generated.\n%s' % (SALT, self.rr_lines))
+					'Not needed glue for nameserver ns.pfug-domain.net was '
+					'generated.\n%s' % self.rr_lines)
 
 class DomainFlagsTest(unittest.TestCase):
 	'''
@@ -356,7 +350,7 @@ class DomainFlagsTest(unittest.TestCase):
 		# change information in db
 		cur = self.dbconn.cursor()
 		cur.execute("SELECT id FROM object_registry "
-				"WHERE name = 'pfu-domain-%s.cz'" % SALT)
+				"WHERE name = 'pfug-domain.cz'")
 		self.domainid = cur.fetchone()[0]
 		cur.execute("SELECT exdate FROM domain WHERE id = %d" % self.domainid)
 		self.exdate = cur.fetchone()[0]
@@ -394,7 +388,7 @@ class DomainFlagsTest(unittest.TestCase):
 		cur.close()
 		self.dbconn.commit()
 		# generate zone and grep lines
-		self.assert_(not get_zone_lines(['pfu-domain-%s.cz' % SALT]),
+		self.assert_(not get_zone_lines(['pfug-domain.cz']),
 				'Domain with status outzonemanual is in zone')
 
 	def test_protected(self):
@@ -409,7 +403,7 @@ class DomainFlagsTest(unittest.TestCase):
 		cur.close()
 		self.dbconn.commit()
 		# generate zone and grep lines
-		self.assert_(get_zone_lines(['pfu-domain-%s.cz' % SALT]),
+		self.assert_(get_zone_lines(['pfug-domain.cz']),
 				'Domain which is in protected period is not in zone')
 
 	def test_unprotected(self):
@@ -423,7 +417,7 @@ class DomainFlagsTest(unittest.TestCase):
 		cur.close()
 		self.dbconn.commit()
 		# generate zone and grep lines
-		self.assert_(not get_zone_lines(['pfu-domain-%s.cz' % SALT]),
+		self.assert_(not get_zone_lines(['pfug-domain.cz']),
 				'Domain which is past the protected period is in zone')
 
 	def test_inzonemanual(self):
@@ -442,7 +436,7 @@ class DomainFlagsTest(unittest.TestCase):
 		cur.close()
 		self.dbconn.commit()
 		# generate zone and grep lines
-		self.assert_(not get_zone_lines(['pfu-domain-%s.cz' % SALT]),
+		self.assert_(not get_zone_lines(['pfug-domain.cz']),
 				'Domain with status inzonemanual is not in zone')
 
 
@@ -459,33 +453,16 @@ if __name__ == '__main__':
 		if o in ('-v', '--verbose'):
 			level = int(a)
 	# put together test suite
-	zone_suite1 = unittest.TestLoader().loadTestsFromTestCase(DelegationTest)
-	zone_suite2 = unittest.TestLoader().loadTestsFromTestCase(FaultyGlueTest)
-	zone_suite3 = unittest.TestLoader().loadTestsFromTestCase(DomainFlagsTest)
 	genzone_suite = unittest.TestSuite()
 	genzone_suite.addTest(SoaTest())
 	genzone_suite.addTest(SyntaxTest())
-	genzone_suite.addTest(zone_suite1)
-	genzone_suite.addTest(zone_suite2)
-	genzone_suite.addTest(zone_suite3)
-
-	# create test environment:
-	#     create object contact, nsset, domain
-	epp_cmd_exec('create_contact CID:PFU-CONTACT-%s '
-			'"Jan Ban" info@mail.com Street Brno 123000 CZ' % SALT)
-	epp_cmd_exec('create_nsset NSSID:PFU-NSSET-%s '
-			'((ns.pfu-domain-%s.cz (217.31.206.129, 2001:db8::1428:57ab)),'
-			'(ns.pfu-domain-%s.net)) CID:PFU-CONTACT-%s' %
-			(SALT, SALT, SALT, SALT))
-	epp_cmd_exec('create_domain pfu-domain-%s.cz '
-			'CID:PFU-CONTACT-%s nsset=NSSID:PFU-NSSET-%s' %
-			(SALT, SALT, SALT))
+	genzone_suite.addTest(
+			unittest.TestLoader().loadTestsFromTestCase(DelegationTest))
+	genzone_suite.addTest(
+			unittest.TestLoader().loadTestsFromTestCase(FaultyGlueTest))
+	genzone_suite.addTest(
+			unittest.TestLoader().loadTestsFromTestCase(DomainFlagsTest))
 
 	# Run unittests
 	unittest.TextTestRunner(verbosity = level).run(genzone_suite)
 
-	# destroy test environment:
-	#     delete object domain, nsset and contact
-	epp_cmd_exec('delete_domain  pfu-domain-%s.cz' % SALT)
-	epp_cmd_exec('delete_nsset   NSSID:PFU-NSSET-%s' % SALT)
-	epp_cmd_exec('delete_contact CID:PFU-CONTACT-%s' % SALT)
