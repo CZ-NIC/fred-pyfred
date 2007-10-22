@@ -522,10 +522,7 @@ no default value, the square brackets are missing.
   *) keyfile  - Path to certificate's key. The key must not be protected by
      passphrase!
 
-  *) vcard [Off] - Attach to each email a vcard attachment. You are strongly
-     advised to turn this on, if you are dealing with MS Outlook email clients,
-     since they are not be able to open MIME multipart an email which consists
-     of only one part
+  *) vcard [Off] - Attach to each email a vcard attachment.
 
   *) sendperiod [300] - Interval (in seconds) in which are looked up and sent
      "ready-to-be-send" emails.

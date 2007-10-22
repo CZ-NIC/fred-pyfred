@@ -784,20 +784,18 @@ class Mailer_i (ccReg__POA.Mailer):
 
 		return status
 
-	def __prepareEmail(self, conn, mailid, mailtype, header, data):
+	def __prepareEmail(self, conn, mailid, mailtype, header, data, attlen):
 		"""
 		Method creates text part of email, it means without base64 encoded
 		attachments. This includes following steps:
 
 			1) Create HDF dataset (base of templating)
 			2) Template subject
-			3) Create email headers
-			4) Run templating for all wanted templates and attach them
+			3) Run templating for all wanted templates and attach them
+			4) Create email headers
 			5) Dump email in string form
 		"""
-		# Create multipart email object and init headers
-		msg = MIMEMultipart()
-
+		# init headers
 		hdf = neo_util.HDF()
 		# pour defaults in data set
 		for pair in self.__dbGetDefaults(conn):
@@ -808,30 +806,41 @@ class Mailer_i (ccReg__POA.Mailer):
 
 		mailtype_id, subject_tpl, templates = self.__dbGetMailTypeData(conn,
 				mailtype)
+
 		# render subject
 		cs = neo_cs.CS(hdf)
 		cs.parseStr(subject_tpl)
 		subject = cs.render()
+
+		# Create email object multi or single part (we have to decide now)
+		if attlen > 0 or len(templates) > 1 or self.vcard:
+			msg = MIMEMultipart()
+			# render text attachments
+			for item in templates:
+				cs = neo_cs.CS(hdf)
+				cs.parseStr(item["template"])
+				mimetext = MIMEText(cs.render().strip() + '\n', item["type"])
+				mimetext.set_charset("utf-8")
+				# Leave this commented out, otherwise it duplicates header
+				#   Content-Transfer-Encoding
+				#Encoders.encode_7or8bit(mimetext)
+				msg.attach(mimetext)
+			# Attach vcard attachment if configured so
+			if self.vcard:
+				mimetext = MIMEText(self.vcard, "x-vcard")
+				mimetext.set_charset("utf-8")
+				msg.attach(mimetext)
+		else:
+			# render text attachment
+			cs = neo_cs.CS(hdf)
+			cs.parseStr(templates[0]["template"])
+			msg = MIMEText(cs.render().strip()+'\n', templates[0]["type"])
+			msg.set_charset("utf-8")
+
 		# init email header (BEWARE that header struct is modified in this
 		# call to function, so it is filled with defaults for not provided
 		# headers, which is important for obtaining envelope sender).
 		self.__dbSetHeaders(conn, mailid, subject, header, msg)
-		# render text attachments
-		for item in templates:
-			cs = neo_cs.CS(hdf)
-			cs.parseStr(item["template"])
-			mimetext = MIMEText(cs.render().strip() + '\n', item["type"])
-			mimetext.set_charset("utf-8")
-			# Leave this commented out, otherwise it duplicates header
-			#   Content-Transfer-Encoding
-			#Encoders.encode_7or8bit(mimetext)
-			msg.attach(mimetext)
-		# Attach vcard attachment if configured so
-		if self.vcard:
-			mimetext = MIMEText(self.vcard, "x-vcard")
-			mimetext.set_charset("utf-8")
-			msg.attach(mimetext)
-
 		return msg.as_string(), mailtype_id
 
 	def mailNotify(self, mailtype, header, data, handles, attachs, preview):
@@ -851,7 +860,7 @@ class Mailer_i (ccReg__POA.Mailer):
 			mailid = self.__dbNewEmailId(conn)
 
 			mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype,
-					header, data)
+					header, data, len(attachs))
 
 			if preview:
 				return (mailid, mail_text)
