@@ -421,7 +421,7 @@ This class implements TechCheck interface.
 		testsuite = {}
 		# Get all enabled tests
 		cur = conn.cursor()
-		cur.execute("SELECT id, name, severity, script, need_domain, req_domain"
+		cur.execute("SELECT id, name, severity, script, need_domain "
 				" FROM check_test WHERE disabled = False")
 		tests = cur.fetchall()
 		# Get dependencies of tests
