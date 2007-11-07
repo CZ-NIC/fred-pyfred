@@ -1,4 +1,4 @@
-2007-10-22 Jan Kryl (version 1.7.6)
+2007-11-07 Jan Kryl (version 1.7.6)
 
 	* Error in techcheck script existence was corrected. Due to the error
 	nameservers which could not be resolved triggered unknown result
@@ -18,6 +18,9 @@
 	* Basic unittests for techcheck created.
 
 	* Mailer produces non-multipart emails if there are no attachments.
+
+	* Make sure the database schema is upgraded before starting pyfred.
+	Column req_domain was renamed to need_domain and its type was changed.
 
 2007-10-10 Jan Kryl (version 1.7.5)
 
