@@ -1,3 +1,6 @@
+        * RPM building, renaming conf files, change package name to
+	fred-pyfred
+
 2007-11-07 Jan Kryl (version 1.7.6)
 
 	* Error in techcheck script existence was corrected. Due to the error

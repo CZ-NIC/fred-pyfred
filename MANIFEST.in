@@ -1,0 +1,4 @@
+include *.conf
+include tc_scripts/*
+include setup.cfg
+include rpm-install.sh

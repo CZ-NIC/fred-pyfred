@@ -265,7 +265,7 @@ class Clean (clean.clean):
 
 
 try:
-	core.setup(name="pyfred", version="1.7.6",
+	core.setup(name="fred-pyfred", version="1.7.6",
 			description="Component of FRED (Fast Registry for Enum and Domains)",
 			author   = "Jan Kryl",
 			author_email="jan.kryl@nic.cz",
@@ -305,7 +305,7 @@ try:
 						"tc_scripts/recursive.py"
 					]
 				),
-#				("/etc/fred", ["pyfred.conf-example"])
+				("/etc/fred", ["pyfred.conf","genzone.conf"])
 				]
 			)
 
