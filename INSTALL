@@ -32,24 +32,22 @@ start/stop/status script.
   ------
     $ python setup.py config
 
-  Step 2: Generate libraries from IDL files.
-  ------
-    $ python setup.py build_idl
-
-    Note: You may need to adjust 'idldir' in your setup.cfg to point to correct
-          directory where your IDL files reside.
-
-  Step 3: Build the pyfred (this is fairly trivial step since we do not need to
-  ------  compile anything, it's more or less about copying files in build
+  Step 2: Build the pyfred. In this step will be generated libraries from IDL
+  ------  files. Rest of this step is fairly trivial since we do not need to
+      compile anything (it's more or less about copying files in build
 	  directory).
 
-    $ python setup.py build
+    $python setup.py build
 
-  Step 4: Install it!
+	Note: You may need to adjust 'idldir' in your setup.cfg to point to correct
+	      directory where your IDL files reside. This you can also do by pass
+		  option '-idldir' with correct path on command line.
+
+  Step 3: Install it!
   ------
     $ python setup.py install
 
-  Step 5: Configure it. Here we assume that your configuration directory is
+  Step 4: Configure it. Here we assume that your configuration directory is
   ------  /etc, this might not be always true. You will need probably root
 	  privileges for this step. Hopefully the default configuration will
 	  work for you.
@@ -57,14 +55,14 @@ start/stop/status script.
     # cd /etc/fred
     # cp pyfred.conf-example pyfred.conf
 
-  Step 6: Run it! Again you will need root privileges for this step.
+  Step 5: Run it! Again you will need root privileges for this step.
   ------  Theoretically it should be possible to run pyfred under non-privileged
 	  account, however it was not tried yet and you may encounter
 	  unexpected problems when trying to do so.
 
     $ pyfred_server
 
-  Step 7: See your log file (depends on where your syslogd redirects log
+  Step 6: See your log file (depends on where your syslogd redirects log
   ------  messages destinned for the facility LOCAL1).
 
 
@@ -92,8 +90,8 @@ Is same as for classic installation with a few differences:
 
 3. Running pyfred directly from repository
 
-Step 1, 2, 3 and 7 is the same as for classic installation, however the rest is
-either different or not needed. We will describe the steps between step 3 and 7
+Step 1, 2 and 6 is the same as for classic installation, however the rest is
+either different or not needed. We will describe the steps between step 2 and 6
 of classic installation ($TOP refers to top of pyfred's repository, you have
 to substitute it with real directory in following howto):
 

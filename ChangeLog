@@ -1,3 +1,10 @@
+2008-03-28 Ales Dolezal
+		
+		* Build step 'build_ild' merged into 'build' step.
+
+		* pyfred.conf is now teplate, modifiable by options
+	passed to setup.py during install phase.
+
 2008-02-09 Jaromir Talir (version 1.8.0)
 	
         * RPM building, renaming conf files, change package name to

@@ -168,12 +168,12 @@ def getConfiguration(configs):
 	"""
 	# set defaults
 	confparser = ConfigParser.SafeConfigParser({
-			"context":"fred",
-			"dbhost":"",
+			"dbhost":"localhost",
 			"dbname":"fred",
 			"dbport":"5432",
 			"dbuser":"fred",
 			"dbpassword":"",
+			"nscontext":"fred",
 			"nshost":"localhost",
 			"nsport":"2809",
 			"loglevel":"LOG_INFO",
@@ -269,6 +269,12 @@ def main(argv):
 
 	# get list of modules to import
 	modulenames = conf.get("General", "modules").split(" ")
+	#remove zero-length module names
+	try:
+		while 1:
+			modulenames.remove('')
+	except ValueError:
+		pass
 	# load all modules
 	sys.stdout.write("Importing modules %s\n" % modulenames)
 	try:
@@ -358,18 +364,20 @@ def main(argv):
 		syslog.syslog(syslog.LOG_ERR, msg)
 		sys.exit(1)
 
-	# Bind a context named "fred.context" to the root context
+	# Bind a context named by default "fred.context" to the root context
 	# This context is a container for all registered objects
-	name = [CosNaming.NameComponent(conf.get("General", "context"), "context")]
+	name = [CosNaming.NameComponent(conf.get("General", "nscontext"), "context")]
 	try:
 		fredContext = nsref.bind_new_context(name)
-		syslog.syslog(syslog.LOG_INFO, "New fred context bound")
+		syslog.syslog(syslog.LOG_INFO, "New %s context bound" % 
+				conf.get("General", "nscontext"))
 	except CosNaming.NamingContext.AlreadyBound, ex:
-		syslog.syslog(syslog.LOG_NOTICE, "fred context already exists")
+		syslog.syslog(syslog.LOG_NOTICE, "%s context already exists" % 
+				conf.get("General", "nscontext"))
 		obj = nsref.resolve(name)
 		fredContext = obj._narrow(CosNaming.NamingContext)
 		if fredContext is None:
-			msg = "fred.context exists but is not a NamingContext"
+			msg = "%s.context exists but is not a NamingContext" % conf.get("General", "nscontext")
 			sys.stderr.write(msg + '\n')
 			syslog.syslog(syslog.LOG_ERR, msg)
 			sys.exit(1)

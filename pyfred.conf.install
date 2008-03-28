@@ -10,18 +10,18 @@
 # basic configuration of pyfred
 #
 [General]
-modules=genzone  filemanager techcheck
-dbuser=fred
-dbname=fred
-dbhost=localhost
-dbport=5432
-dbpassword=
+modules=MODULES
+dbuser=DBUSER
+dbname=DBNAME
+dbhost=DBHOST
+dbport=DBPORT
+dbpassword=DBPASS
 loglevel=LOG_DEBUG
 logfacility=log_local1
 port=2225
-nscontext=fred
-nshost=localhost
-nsport=2809
+nscontext=NSCONTEXT
+nshost=NSHOST
+nsport=NSPORT
 #
 # configuration of zone generator
 #
@@ -34,7 +34,7 @@ nsport=2809
 [Mailer]
 testmode=on
 tester=
-sendmail=
+sendmail=SENDMAIL
 filemanager_object=FileManager
 signing=off
 sendperiod=30

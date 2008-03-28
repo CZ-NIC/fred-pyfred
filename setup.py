@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # vim: set ts=4 sw=4:
 #
-import sys, os.path, string, commands
+import sys, os.path, string, commands, re
 from distutils import core
 from distutils import cmd
 from distutils import log
@@ -12,6 +12,22 @@ from distutils.dir_util import remove_tree
 from distutils.command import config
 from distutils.command import build
 from distutils.command import clean
+from distutils.command import install
+
+PROJECT_NAME = 'pyfred_server'
+PACKAGE_NAME = 'pyfred_server'
+PACKAGE_VERSION = '1.8.0'
+DEFAULT_CONFIG = '/etc/fred/pyfred.conf'
+DEFAULT_DBUSER = 'fred'
+DEFAULT_DBNAME = 'fred'
+DEFAULT_DBHOST = 'localhost'
+DEFAULT_DBPORT = '5432'
+DEFAULT_DBPASS = ''
+DEFAULT_MODULES = 'genzone mailer filemanager techcheck'
+DEFAULT_NSCONTEXT = 'fred'
+DEFAULT_NSHOST = 'localhost'
+DEFAULT_NSPORT = '2809'
+DEFAULT_SENDMAIL = '/usr/sbin/sendmail'
 
 core.DEBUG = False
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
@@ -141,21 +157,19 @@ def gen_idl_name(dir, name):
 	"""
 	return os.path.join(dir, name + ".idl")
 
-class Build_idl (cmd.Command):
+class Build (build.build, object):
 	"""
-	This class realizes a subcommand of build command and is used for building
-	IDL stubs.
+	This is here just to override default sub_commands list of build class.
+	We added 'build_idl' item.
 	"""
-
-	description = "Generate python stubs from IDL files"
-
-	user_options = [
-			("omniidl=", "i", "omniidl program used to build stubs"),
-			("idldir=",  "d", "directory where IDL files reside"),
-			("idlforce",  "f", "force idl stubs to be always generated")
-			]
+	user_options = []
+	user_options.extend(build.build.user_options)
+	user_options.append(("omniidl=", "i", "omniidl program used to build stubs"))
+	user_options.append(("idldir=",  "d", "directory where IDL files reside"))
+	user_options.append(("idlforce", "o", "force idl stubs to be always generated"))
 
 	def initialize_options(self):
+		super(Build, self).initialize_options()
 		self.idldir   = None
 		self.idlforce = False
 		self.omniidl  = None
@@ -163,31 +177,13 @@ class Build_idl (cmd.Command):
 		self.idlfiles = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
 
 	def finalize_options(self):
+		super(Build, self).finalize_options()
 		if not self.omniidl:
 			self.omniidl = "omniidl"
 		if not self.idldir:
 			raise errors.DistutilsOptionError("idldir option to \"build\" "
 					"command must be specified")
 
-	def run(self):
-		global modules
-
-		self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
-		if not self.idlforce and os.access("pyfred/idlstubs/ccReg", os.F_OK):
-			log.info("IDL stubs found, skipping build_idl target. Use idlforce "
-					"option to compile idl stubs anyway or run clean target.")
-			return
-		util.execute(compile_idl,
-			(self.omniidl, self.omniidl_params,
-				[ gen_idl_name(self.idldir, module) for module in modules ]),
-				"Generating python stubs from IDL files")
-
-
-class Build (build.build):
-	"""
-	This is here just to override default sub_commands list of build class.
-	We added 'build_idl' item.
-	"""
 	def has_pure_modules (self):
 		return self.distribution.has_pure_modules()
 
@@ -200,16 +196,115 @@ class Build (build.build):
 	def has_scripts (self):
 		return self.distribution.has_scripts()
 
-	def has_idl_files (self):
-		return True
-
-	sub_commands = [('build_idl',     has_idl_files),
-					('build_py',      has_pure_modules),
+	sub_commands = [('build_py',      has_pure_modules),
 					('build_clib',    has_c_libraries),
 					('build_ext',     has_ext_modules),
-					('build_scripts', has_scripts)
+					('build_scripts', has_scripts),
 				   ]
 
+	def run (self):
+		global modules
+
+		self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
+		if not self.idlforce and os.access("pyfred/idlstubs/ccReg", os.F_OK):
+			log.info("IDL stubs found, skipping build_idl target. Use idlforce "
+					"option to compile idl stubs anyway or run clean target.")
+			return
+		util.execute(compile_idl,
+			(self.omniidl, self.omniidl_params,
+				[ gen_idl_name(self.idldir, module) for module in modules ]),
+				"Generating python stubs from IDL files")
+		super(Build, self).run()
+
+class Install (install.install, object):
+	user_options = []
+	user_options.extend(install.install.user_options)
+	user_options.append(
+			('config=', None, 'Copy config file into path and name'))
+	user_options.append(
+			('modules=', None, 'which pyfred modules will be loaded \
+					(default isi genzone, mailer, filemanager and techcheck'))
+	user_options.append(
+			('nscontext=', None, 'CORBA nameservice context name (default is fred)'))
+	user_options.append(
+			('nshost=', None, 'CORBA nameservice host (default is localhost)'))
+	user_options.append(
+			('nsport=', None, 'Port where CORBA nameservice listen (default is 2809)'))
+	user_options.append(
+			('dbuser=', None, 'Name of FRED database user (default is fred)'))
+	user_options.append(
+			('dbname=', None, 'Name of FRED database (default is fred)'))
+	user_options.append(
+			('dbhost=', None, 'FRED database host (default is localhost)'))
+	user_options.append(
+			('dbport=', None, 'Port where PostgreSQL database listening (default is 5432)'))
+	user_options.append(
+			('dbpass=', None, 'Password to FRED database (default is empty string)'))
+	user_options.append(
+			('preservepath', None, 'Preserve path in configuration file.'))
+
+	def __init__(self, *attrs):
+		super(Install, self).__init__(*attrs)
+		self.config = DEFAULT_CONFIG
+		self.basedir = None
+		self.interactive = None
+		self.preservepath = None
+		self.is_bdist_mode = None
+		
+		self.dbuser = DEFAULT_DBUSER
+		self.dbname = DEFAULT_DBNAME
+		self.dbhost = DEFAULT_DBHOST
+		self.dbport = DEFAULT_DBPORT
+		self.dbpass = DEFAULT_DBPASS
+		self.nscontext = DEFAULT_NSCONTEXT
+		self.nshost = DEFAULT_NSHOST
+		self.nsport = DEFAULT_NSPORT
+		self.sendmail = DEFAULT_SENDMAIL
+		self.modules = DEFAULT_MODULES
+
+		for dist in attrs:
+			for name in dist.commands:
+				if re.match('bdist', name): #'bdist' or 'bdist_rpm'
+					self.is_bdist_mode = 1 #it is bdist mode - creating a package
+					break
+			if self.is_bdist_mode:
+				break
+
+	def find_sendmail(self):
+		path = os.popen2('whereis -b sendmail | cut -d: -f2')[1].read()
+		if path.isspace():
+			print "Sendmail not found - disable mailer pyfred module"
+			self.sendmail = ''
+			self.modules = self.modules.replace('mailer', '')
+		else:
+			self.sendmail = path.strip()
+
+	def update_server_config(self):
+		self.find_sendmail()
+		root = self.get_actual_root()
+		body = open('pyfred.conf.install').read()
+
+		body = re.sub('MODULES', self.modules, body)
+		body = re.sub('DBUSER', self.dbuser, body)
+		body = re.sub('DBNAME', self.dbname, body)
+		body = re.sub('DBHOST', self.dbhost, body)
+		body = re.sub('DBPORT', self.dbport, body)
+		body = re.sub('DBPASS', self.dbpass, body)
+		body = re.sub('NSCONTEXT', self.nscontext, body)
+		body = re.sub('NSHOST', self.nshost, body)
+		body = re.sub('NSPORT', self.nsport, body)
+		body = re.sub('SENDMAIL', self.sendmail, body)
+
+		open(os.path.basename(self.config), 'w').write(body)
+		print "Configuration file has been updated"
+
+	def get_actual_root(self):
+		'''Return actual root only in case if the process is not in creation of the package'''
+		return ((self.is_bdist_mode or self.preservepath) and [''] or [type(self.root) is not None and self.root or ''])[0]
+
+	def run(self):
+		self.update_server_config()
+		super(Install, self).run()
 
 class Clean (clean.clean):
 	"""
@@ -273,8 +368,8 @@ try:
 			license  = "GNU GPL",
 			cmdclass = { "config":Config,
 			             "build":Build,
-			             "build_idl":Build_idl,
-			             "clean":Clean },
+			             "clean":Clean,
+						 "install":Install},
 			packages = ["pyfred", "pyfred.modules", "pyfred.idlstubs",
 				"pyfred.idlstubs.ccReg", "pyfred.idlstubs.ccReg__POA"],
 			# XXX 'requires' option does not work allthough it is described in
