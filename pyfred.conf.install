@@ -49,12 +49,13 @@ undeliveredperiod=0
 # configuration of a module which manages files
 #
 [FileManager]
-rootdir=/var/tmp/filemanager
+rootdir=FILEMANAGERFILES
 
 #
 # configuration of module executing technical checks
 #
 [TechCheck]
+scriptdir=TECHCHECKSCRIPTDIR
 msgLifetime=7
 queueperiod=5
 oldperiod=30
