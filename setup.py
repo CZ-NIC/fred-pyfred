@@ -29,6 +29,8 @@ DEFAULT_NSPORT = '2809'
 DEFAULT_SENDMAIL = '/usr/sbin/sendmail'
 DEFAULT_FILEMANAGERFILES = 'var/lib/pyfred/filemanager/'
 DEFAULT_TECHCHECKSCRIPTDIR = 'libexec/'
+DEFAULT_PIDFILE = 'var/run/pyfred.pid'
+DEFAULT_PYFREDSERVER = 'bin/pyfred_server'
 
 core.DEBUG = False
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
@@ -300,10 +302,24 @@ class Install (install.install, object):
         body = re.sub('SENDMAIL', self.sendmail, body)
         body = re.sub('FILEMANAGERFILES', os.path.join(prefix, DEFAULT_FILEMANAGERFILES), body)
         body = re.sub('TECHCHECKSCRIPTDIR', os.path.join(prefix, DEFAULT_TECHCHECKSCRIPTDIR), body)
+        body = re.sub('PIDFILE', os.path.join(prefix, DEFAULT_PIDFILE), body)
+        body = re.sub('PYFREDSERVER', os.path.join(prefix, DEFAULT_PYFREDSERVER), body)
 
         #open(os.path.basename(self.config), 'w').write(body)
         open('pyfred.conf', 'w').write(body)
         print "Configuration file has been updated"
+
+    def update_pyfredctl(self, prefix):
+        """
+        Update paths in pyfredctl file
+        """
+        body = open('scripts/pyfredctl').read()
+
+        body = re.sub(r'(pidfile = )\'[\w/_ \.]*\'', r'\1' + "'"  + os.path.join(prefix, DEFAULT_PIDFILE) + "'", body)
+        body = re.sub(r'(pyfred_server = )\'[\w/_ \.]*\'', r'\1' + "'" + os.path.join(prefix, DEFAULT_PYFREDSERVER) + "'", body)
+
+        open('scripts/pyfredctl', 'w').write(body)
+        print "pyfredctl file has been updated"
 
     def get_actual_root(self):
         '''Return actual root only in case if the process is not in creation of the package'''
@@ -311,6 +327,7 @@ class Install (install.install, object):
 
     def run(self):
         self.update_server_config(self.prefix)
+        self.update_pyfredctl(self.prefix)
         super(Install, self).run()
 
 class Clean (clean.clean):

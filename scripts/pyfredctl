@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # vim:set ts=4 sw=4:
 
-import os, sys, commands, time, signal
+import os, sys, commands, time, signal, ConfigParser
 
-pidfile = "/var/run/pyfred.pid"
-pyfred_server = "/usr/bin/pyfred_server"
+# value of variables pidfile and pyfred_server are replaced by setup.py
+# during install phase
+pidfile = '/opt/fred/var/run/pyfred.pid'
+pyfred_server = '/opt/fred/bin/pyfred_server'
 
 def usage():
 	sys.stderr.write("Usage: pyfredctl [ start | stop | status ]\n")
