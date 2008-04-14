@@ -184,7 +184,6 @@ def getConfiguration(configs):
             "port":"2225"})
     # read configuration file
     for cfile in configs:
-        print cfile
         try:
             if len(confparser.read(cfile)) == 1:
                 sys.stdout.write("File %s used as config file\n" % cfile)
