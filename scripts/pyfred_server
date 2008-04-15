@@ -214,7 +214,7 @@ def main(argv):
     # if server should detach from terminal after startup
     detach = True
     # default places where to look for configs
-    configs = ["/tmp/fredik/usr/etc/fred/pyfred.conf",
+    configs = ["/opt/fred/etc/fred/pyfred.conf",
             "/etc/fred/pyfred.conf",
             "/usr/local/etc/fred/pyfred.conf",
             "pyfred.conf"]
@@ -459,7 +459,7 @@ def main(argv):
 if __name__ == "__main__":
     # setup.py will change this path to reflect changes in prefix
     # and/or root option during install
-    sys.path.append('/tmp/fredik/usr/lib/python2.5/site-packages')
+    sys.path.append('/opt/fred/lib/python2.5/site-packages')
     try:
         main(sys.argv)
     except SystemExit, e:

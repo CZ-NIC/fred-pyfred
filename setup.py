@@ -176,7 +176,7 @@ class Install (install.install, object):
     user_options.append(('sysconfdir=', None, 
         'System configuration directory [PREFIX/etc]'))
     user_options.append(('libexecdir=', None,
-        'Program executables [PREFIX/libexecdir]'))
+        'Program executables [PREFIX/libexec]'))
     user_options.append(('localstatedir=', None,
         'Modifiable single machine data [PREFIX/var]'))
     user_options.append(('nscontext=', None, 
@@ -269,8 +269,8 @@ class Install (install.install, object):
                     break
 
         if not self.libexecdir:
-            #if not set then prefix/libexecdir
-            self.libexecdir=os.path.join(self.prefix, "libexecdir")
+            #if not set then prefix/libexec
+            self.libexecdir=os.path.join(self.prefix, "libexec")
         else:
             #else input value plus "pyfred"
             for i in self.distribution.data_files:
@@ -413,9 +413,26 @@ class Install (install.install, object):
     def get_actual_root(self):
         '''
         Return actual root only in case if the process is not in creation of the package
-    '''
+        '''
         return ((self.is_bdist_mode or self.preservepath) and [''] or 
                 [type(self.root) is not None and self.root or ''])[0]
+
+    def createDirectories(self):
+        """
+        this create required directories if need
+        """
+        if self.get_actual_root():
+            fileManagerDir = os.path.join(self.root, self.localstatedir[1:], DEFAULT_FILEMANAGERFILES)
+            pidDir = os.path.join(self.root, self.localstatedir[1:], 'run')
+        else:
+            fileManagerDir = os.path.join(self.localstatedir, DEFAULT_FILEMANAGERFILES)
+            pidDir = os.path.join(self.localstatedir, 'run')
+
+        if not os.path.exists(pidDir):
+            os.makedirs(pidDir)
+
+        if not os.path.exists(fileManagerDir):
+            os.makedirs(fileManagerDir)
 
     def run(self):
         self.py_modules = self.distribution.py_modules
@@ -438,6 +455,8 @@ class Install (install.install, object):
         self.update_server_config()
         self.update_pyfredctl()
         self.update_pyfred_server()
+
+        self.createDirectories()
 
         super(Install, self).run()
 
