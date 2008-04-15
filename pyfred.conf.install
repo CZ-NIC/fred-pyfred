@@ -22,6 +22,7 @@ port=2225
 nscontext=NSCONTEXT
 nshost=NSHOST
 nsport=NSPORT
+pidfile=PIDFILE
 #
 # configuration of zone generator
 #

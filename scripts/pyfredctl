@@ -5,8 +5,8 @@ import os, sys, commands, time, signal, ConfigParser
 
 # value of variables pidfile and pyfred_server are replaced by setup.py
 # during install phase
-pidfile = '/opt/fred/var/run/pyfred.pid'
-pyfred_server = '/opt/fred/bin/pyfred_server'
+pidfile = '/tmp/fredik/usr/var/run/pyfred.pid'
+pyfred_server = '/tmp/fredik/usr/bin/pyfred_server'
 
 def usage():
 	sys.stderr.write("Usage: pyfredctl [ start | stop | status ]\n")

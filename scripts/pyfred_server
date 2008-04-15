@@ -179,7 +179,7 @@ def getConfiguration(configs):
             "nsport":"2809",
             "loglevel":"LOG_INFO",
             "logfacility":"LOG_LOCAL1",
-            "piddir":"/var/run",
+            "pidfile":"var/run/pyfred.pid",
             "host":"",
             "port":"2225"})
     # read configuration file
@@ -214,8 +214,10 @@ def main(argv):
     # if server should detach from terminal after startup
     detach = True
     # default places where to look for configs
-    configs = ["../etc/fred/pyfred.conf", "/etc/fred/pyfred.conf",
-            "/usr/local/etc/fred/pyfred.conf", "pyfred.conf"]
+    configs = ["/tmp/fredik/usr/etc/fred/pyfred.conf",
+            "/etc/fred/pyfred.conf",
+            "/usr/local/etc/fred/pyfred.conf",
+            "pyfred.conf"]
     for arg in argv[1:]:
         if arg == "-d":
             detach = False
@@ -228,7 +230,7 @@ def main(argv):
         sys.exit(1)
 
     # Check pidfile
-    pidfile = os.path.join(conf.get("General", "piddir"), "pyfred.pid")
+    pidfile = conf.get("General", "pidfile")
     if os.access(pidfile, os.F_OK):
         pidfd = open(pidfile, "r")
         pidline = pidfd.readline()
@@ -455,6 +457,9 @@ def main(argv):
     #orb.run()
 
 if __name__ == "__main__":
+    # setup.py will change this path to reflect changes in prefix
+    # and/or root option during install
+    sys.path.append('/tmp/fredik/usr/lib/python2.5/site-packages')
     try:
         main(sys.argv)
     except SystemExit, e:
