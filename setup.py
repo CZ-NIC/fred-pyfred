@@ -428,11 +428,20 @@ class Install (install.install, object):
             fileManagerDir = os.path.join(self.localstatedir, DEFAULT_FILEMANAGERFILES)
             pidDir = os.path.join(self.localstatedir, 'run')
 
+
         if not os.path.exists(pidDir):
-            os.makedirs(pidDir)
+            try:
+                os.makedirs(pidDir)
+                print "creating directory", pidDir
+            except OSError, e:
+                print e
 
         if not os.path.exists(fileManagerDir):
-            os.makedirs(fileManagerDir)
+            try:
+                os.makedirs(fileManagerDir)
+                print "creating directory", fileManagerDir
+            except OSError, e:
+                print e
 
     def run(self):
         self.py_modules = self.distribution.py_modules
