@@ -421,25 +421,24 @@ class Install (install.install, object):
         """
         this create required directories if need
         """
-        if self.get_actual_root():
+        if self.root:
             fileManagerDir = os.path.join(self.root, self.localstatedir[1:], DEFAULT_FILEMANAGERFILES)
             pidDir = os.path.join(self.root, self.localstatedir[1:], 'run')
         else:
             fileManagerDir = os.path.join(self.localstatedir, DEFAULT_FILEMANAGERFILES)
             pidDir = os.path.join(self.localstatedir, 'run')
 
-
         if not os.path.exists(pidDir):
             try:
                 os.makedirs(pidDir)
-                print "creating directory", pidDir
+                print "Creating directory", pidDir
             except OSError, e:
                 print e
 
         if not os.path.exists(fileManagerDir):
             try:
                 os.makedirs(fileManagerDir)
-                print "creating directory", fileManagerDir
+                print "Creating directory", fileManagerDir
             except OSError, e:
                 print e
 
