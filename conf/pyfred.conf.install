@@ -10,19 +10,19 @@
 # basic configuration of pyfred
 #
 [General]
-modules=genzone mailer filemanager techcheck
-dbuser=fred
-dbname=fred
-dbhost=localhost
-dbport=5432
-dbpassword=
+modules=MODULES
+dbuser=DBUSER
+dbname=DBNAME
+dbhost=DBHOST
+dbport=DBPORT
+dbpassword=DBPASS
 loglevel=LOG_DEBUG
 logfacility=log_local1
-port=2225
-nscontext=fred
-nshost=localhost
-nsport=2809
-pidfile=/usr/var/run/pyfred.pid
+port=PYFREDPORT
+nscontext=NSCONTEXT
+nshost=NSHOST
+nsport=NSPORT
+pidfile=PIDFILE
 #
 # configuration of zone generator
 #
@@ -35,7 +35,7 @@ pidfile=/usr/var/run/pyfred.pid
 [Mailer]
 testmode=on
 tester=
-sendmail=/usr/sbin/sendmail
+sendmail=SENDMAIL
 filemanager_object=FileManager
 signing=off
 sendperiod=30
@@ -50,13 +50,13 @@ undeliveredperiod=0
 # configuration of a module which manages files
 #
 [FileManager]
-rootdir=/usr/var/lib/pyfred/filemanager/
+rootdir=FILEMANAGERFILES
 
 #
 # configuration of module executing technical checks
 #
 [TechCheck]
-scriptdir=/usr/libexec/pyfred
+scriptdir=TECHCHECKSCRIPTDIR
 msgLifetime=7
 queueperiod=5
 oldperiod=30

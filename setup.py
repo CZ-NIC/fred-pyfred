@@ -19,6 +19,7 @@ from distutils.command.build_ext import build_ext
 from distutils.command.build_scripts import build_scripts
 from distutils.command.build_scripts import first_line_re
 from distutils.command.install_data import install_data
+from distutils.command.install_scripts import install_scripts
 from distutils.command import install
 from distutils.core import Command
 
@@ -34,19 +35,30 @@ DEFAULT_MODULES = 'genzone mailer filemanager techcheck'
 DEFAULT_NSCONTEXT = 'fred'
 DEFAULT_NSHOST = 'localhost'
 DEFAULT_NSPORT = '2809'
+DEFAULT_PYFREDPORT = '2225'
 DEFAULT_SENDMAIL = '/usr/sbin/sendmail'
+#$localstatedir/lib/pyfred/filemanager
 DEFAULT_FILEMANAGERFILES = 'lib/pyfred/filemanager/'
-#whole path is by default prefix/libexecdir/pyfred
+#whole path is by default $libexecdir/pyfred
 DEFAULT_TECHCHECKSCRIPTDIR = 'pyfred' 
+#whole is $localstatedir/run/pyfred.pid
 DEFAULT_PIDFILE = 'run/pyfred.pid'
+#$prefix/bin/pyfred_server
 DEFAULT_PYFREDSERVER = 'bin/pyfred_server'
+#$prefix/etc/fred/pyfred.conf
 DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
+#whole is $localstatedir/zonebackup
+DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 
 core.DEBUG = False
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
 
-g_callPrefix = ''
-g_srcdir = None
+#directory containing setup.py script itself (and other sources as well)
+g_srcdir = '.'
+#store what return Install::get_actual_root method
+g_actualRoot = ''
+#variable to store content of --root install/build option
+g_root = ''
 
 class Config (config.config):
     """
@@ -197,28 +209,14 @@ class Build_py (build_py, object):
     implements this funkcionality. This code is from 
     http://lists.mysql.com/ndb-connectors/617 
     """
-    user_options = build_py.user_options
-    user_options.append(
-            ('srcdir=', None, 'directory holding the source [%s]' % os.curdir))
-    def initialize_options(self):
-        self.srcdir = None
-        return build_py.initialize_options(self)
-
-    def finalize_options(self):
-        self.set_undefined_options('build', ('srcdir', 'srcdir'))
-        if self.srcdir is None:
-            self.srcdir = os.curdir
-        global g_srcdir
-        if g_srcdir is not None:
-            self.srcdir = g_srcdir
-        return build_py.finalize_options(self)
-
     def get_package_dir(self, package):
         """
         Return the directory, relative to the top of the source
         distribution, where package 'package' should be found
         (at least according to the 'package_dir' option, if any).
         """
+        global g_srcdir
+        self.srcdir = g_srcdir
         path = string.split(package, '.')
 
         if not self.package_dir:
@@ -262,28 +260,14 @@ class Build_py (build_py, object):
 #class Build_py
 
 class Build_scripts(build_scripts):
-    user_options = build_scripts.user_options
-    user_options.append(
-            ('srcdir=', None, 'directory holding the source [%s]' % os.curdir))
-    def initialize_options(self):
-        self.srcdir = None
-        return build_scripts.initialize_options(self)
-
-    def finalize_options(self):
-        self.set_undefined_options('build', ('srcdir', 'srcdir'))
-        if self.srcdir is None:
-            self.srcdir = os.curdir
-        global g_srcdir
-        if g_srcdir is not None:
-            self.srcdir = g_srcdir
-        return build_scripts.finalize_options(self)
-
     def copy_scripts (self):
         """Copy each script listed in 'self.scripts'; if it's marked as a
         Python script in the Unix way (first line matches 'first_line_re',
         ie. starts with "\#!" and contains "python"), then adjust the first
         line to refer to the current Python interpreter as we copy.
         """
+        global g_srcdir
+        self.srcdir = g_srcdir
         self.mkpath(self.build_dir)
         outfiles = []
         for script in self.scripts:
@@ -357,21 +341,9 @@ class Build_scripts(build_scripts):
 #class Build_scripts
 
 class Build_ext(build_ext):
-    user_options = build_ext.user_options
-    user_options.append(
-            ('srcdir=', None, 'directory holding the source [%s]' % os.curdir))
-
-    def initialize_options(self):
-        self.srcdir=None
-        return build_ext.initialize_options(self)
-
-    def finalize_options(self):
-        self.set_undefined_options('build', ('srcdir', 'srcdir'))
-        if self.srcdir is None:
-            self.srcdir = os.curdir
-        return build_ext.finalize_options(self)
-
     def build_extension(self, ext):
+        global g_srcdir
+        self.srcdir = g_srcdir
         sources = ext.sources
         if sources is None or type(sources) not in (ListType, TupleType):
             raise DistutilsSetupError, \
@@ -385,17 +357,6 @@ class Build_ext(build_ext):
         return build_ext.build_extension(self, ext)
     #build_extension()
 #class Build_ext
-
-
-
-class Build (build):
-    user_options = build.user_options
-    user_options.append(
-            ('srcdir=', None, 'directory holding the source [%s]' % os.curdir))
-    def initialize_options(self):
-        self.srcdir=None
-        return build.initialize_options(self)
-#class Build
 
 class Install (install.install, object):
     user_options = []
@@ -422,6 +383,7 @@ class Install (install.install, object):
     user_options.append(('dbport=', None, 
         'Port where PostgreSQL database listening [5432]'))
     user_options.append(('dbpass=', None, 'Password to FRED database []'))
+    user_options.append(('pyfredport=', None, '  [2225]'))
     user_options.append(('preservepath', None, 
         'Preserve path in configuration file.'))
     user_options.append(("omniidl=", "i", 
@@ -430,12 +392,11 @@ class Install (install.install, object):
         "directory where IDL files reside [PREFIX/share/idl/fred/]"))
     user_options.append(("idlforce", "o", 
     "force idl stubs to be always generated"))
-    user_options.append(("srcdir=", None, ''))
 
     def __init__(self, *attrs):
         super(Install, self).__init__(*attrs)
-        global g_callPrefix
-        self.callPrefix = g_callPrefix
+        global g_srcdir
+        self.srcdir = g_srcdir
 
         self.basedir = None
         self.interactive = None
@@ -452,6 +413,7 @@ class Install (install.install, object):
         self.nsport = DEFAULT_NSPORT
         self.sendmail = DEFAULT_SENDMAIL
         self.modules = DEFAULT_MODULES
+        self.pyfredport = DEFAULT_PYFREDPORT
 
         for dist in attrs:
             for name in dist.commands:
@@ -472,7 +434,6 @@ class Install (install.install, object):
         self.sysconfdir = None
         self.libexecdir = None
         self.localstatedir = None
-        self.srcdir = None
 
     def finalize_options(self):
         super(Install, self).finalize_options()
@@ -514,13 +475,6 @@ class Install (install.install, object):
                     self.distribution.data_files.append(tup)
                     break
 
-        global g_srcdir
-        if not self.srcdir:
-            self.srcdir = os.curdir
-            g_srcdir = None
-        else:
-            g_srcdir = self.srcdir
-
     def find_sendmail(self):
         self.sendmail = DEFAULT_SENDMAIL
         paths = ['/usr/bin', '/usr/sbin']
@@ -539,7 +493,7 @@ class Install (install.install, object):
         """
         #try to find sendmail binary
         self.find_sendmail()
-        body = open(os.path.join(self.callPrefix, 'pyfred.conf.install')).read()
+        body = open(os.path.join(self.srcdir, 'conf', 'pyfred.conf.install')).read()
 
         #change configuration options
         body = re.sub('MODULES', self.modules, body)
@@ -552,6 +506,7 @@ class Install (install.install, object):
         body = re.sub('NSHOST', self.nshost, body)
         body = re.sub('NSPORT', self.nsport, body)
         body = re.sub('SENDMAIL', self.sendmail, body)
+        body = re.sub('PYFREDPORT', self.pyfredport, body)
 
         #change paths to filemanager files and techcheck scripts and pid
         #file location
@@ -573,86 +528,23 @@ class Install (install.install, object):
         open('build/pyfred.conf', 'w').write(body)
         print "Configuration file has been updated"
 
-    def update_pyfredctl(self):
+    def update_genzone_config(self):
         """
-        Update paths in pyfredctl file (location of pid file and pyfred_server file)
+        Update paths in genzone.conf file.
         """
-        print os.path.join(self.callPrefix, 'scripts', 'pyfredctl')
-        body = open(os.path.join(self.callPrefix, 'scripts', 'pyfredctl')).read()
+        body = open(os.path.join(self.srcdir, 'conf', 'genzone.conf.install')).read()
 
-        #search path for pid and fred server file and replace it with correct one
-        if self.get_actual_root():
-            body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
-                    os.path.join(self.root, self.localstatedir[1:], 
-                        DEFAULT_PIDFILE) + "'", body)
-            body = re.sub(r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.root, self.prefix[1:], 
-                        DEFAULT_PYFREDSERVER) + "'", body)
-        else:
-            body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
-                    os.path.join(self.localstatedir, DEFAULT_PIDFILE) + "'", body)
-            body = re.sub(r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.prefix, DEFAULT_PYFREDSERVER) + "'", body)
-
-        open('build/pyfredctl', 'w').write(body)
-        print "pyfredctl file has been updated"
-    #update_pyfredctl()
-
-    def update_pyfred_server(self):
-        """
-        Update paths in pyfred_server file (path to config file and search path for modules).
-        """
-        body = open(os.path.join(self.callPrefix, 'scripts/pyfred_server')).read()
-
-        # create path where python modules are located
-        pythonLibPath = os.path.join('lib', 'python' +
-                str(sys.version_info[0]) + '.' + 
-                str(sys.version_info[1]), 'site-packages')
+        body = re.sub('NSHOST', self.nshost, body)
 
         if self.get_actual_root():
-            body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
-                    os.path.join(self.root, self.sysconfdir[1:], 
-                        DEFAULT_PYFREDSERVERCONF) + '",', body)
-            body = re.sub(r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', r'\1' + 
-                    "('" + os.path.join(self.root, self.prefix[1:], pythonLibPath) + 
-                    "')", body)
+            body = re.sub('ZONEBACKUPDIR', os.path.join(self.root,
+                self.localstatedir[1:], DEFAULT_ZONEBACKUPDIR), body)
         else:
-            body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
-                    os.path.join(self.sysconfdir, DEFAULT_PYFREDSERVERCONF) + 
-                    '",', body)
-            body = re.sub(r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', r'\1' + 
-                    "('" + os.path.join(self.prefix, pythonLibPath) + "')", body)
+            body = re.sub('ZONEBACKUPDIR', os.path.join(self.localstatedir,
+                DEFAULT_ZONEBACKUPDIR), body)
 
-        open('build/pyfred_server', 'w').write(body)
-        print "pyfred_server file has been updated"
-    #update_pyfred_server()
-
-    def copyIdlStubs(self):
-        """
-        Copy created idl stubs into build directory, so install then copy these
-        files into proper location.
-        """
-        dest = os.path.join(os.getcwd(), 'build', 'lib')
-        src = os.getcwd()
-        sources = self.py_modules
-        for source in sources:
-            source = source.replace('.', os.path.sep)
-            if isDir(os.path.join(src, source)):
-                try:
-                    os.makedirs(os.path.join(dest, source))
-                    print "creating %s directory" % os.path.join(dest, source)
-                except OSError, e:
-                    print e
-                for i in os.listdir(os.path.join(src, source)):
-                    if isFile(os.path.join(src, source, i)):
-                        try:
-                            shutil.copyfile(
-                                    os.path.join(src, source, i), 
-                                    os.path.join(dest, source, i))
-                            print "file %s copied" % os.path.join(src, source, i)
-                        except OSError, e:
-                            print e
-    #copyIdlStubs()
+        open('build/genzone.conf', 'w').write(body)
+        print "genzone configuration file has been updated"
 
     def get_actual_root(self):
         '''
@@ -660,7 +552,6 @@ class Install (install.install, object):
         '''
         return ((self.is_bdist_mode or self.preservepath) and [''] or 
                 [type(self.root) is not None and self.root or ''])[0]
-    #get_actual_root()
 
     def createDirectories(self):
         """
@@ -686,9 +577,14 @@ class Install (install.install, object):
                 print "Creating directory", fileManagerDir
             except OSError, e:
                 print e
-    #createDirectories()
 
     def run(self):
+        global g_actualRoot, g_root
+        #set actual root for install_script class which has no opportunity
+        #to reach get_actual_root method
+        g_actualRoot = self.get_actual_root()
+        g_root = self.root
+
         self.py_modules = self.distribution.py_modules
         self.data_files = self.distribution.data_files
 
@@ -702,41 +598,131 @@ class Install (install.install, object):
                 (self.omniidl, self.omniidl_params,
                     [ gen_idl_name(self.idldir, module) for module in modules ]),
                     "Generating python stubs from IDL files")
-        #lets copy just created idl stubs into build/lib directory
-        #self.copyIdlStubs()
 
-        #update scripts, config files, etc.
         self.update_server_config()
-        self.update_pyfredctl()
-        self.update_pyfred_server()
-
+        self.update_genzone_config()
         self.createDirectories()
 
         super(Install, self).run()
-    #run()
 #class Install
+
+class Install_scripts(install_scripts):
+    """
+    Copy of standart distutils install_scripts with some small
+    addons (new options derived from install class)
+    """
+    user_options = install_scripts.user_options
+    user_options.append(('prefix=', None,
+        'installation prefix'))
+    user_options.append(('libexecdir=', None,
+        'Program executables [PREFIX/libexec]'))
+    user_options.append(('localstatedir=', None,
+        'Modifiable single machine data [PREFIX/var]'))
+
+    def initialize_options(self):
+        self.prefix = None
+        self.sysconfdir = None
+        self.localstatedir = None
+        return install_scripts.initialize_options(self)
+
+    def finalize_options(self):
+        self.set_undefined_options('install',
+                ('prefix', 'prefix'),
+                ('sysconfdir', 'sysconfdir'),
+                ('localstatedir', 'localstatedir'))
+        if not self.prefix:
+            # prefix is empty - set it to the default value
+            self.prefix="/usr/local/"
+
+        if not self.localstatedir:
+            #if localstatedir not set then it will be prefix/opt/
+            self.localstatedir=os.path.join(self.prefix, 'var')
+
+        if not self.sysconfdir:
+            #if sysconfdir param is not set then set it to prefix/etc/
+            self.sysconfdir=os.path.join(self.prefix, "etc")
+        else:
+            #otherwise set it to input value plus 'fred'
+            for i in self.distribution.data_files:
+                if i[0] == 'etc/fred':
+                    tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
+                    #replace old and new path
+                    self.distribution.data_files.remove(i)
+                    self.distribution.data_files.append(tup)
+                    break
+        return install_scripts.finalize_options(self)
+
+    def get_actual_root(self):
+        return self.actualRoot
+
+    def update_pyfredctl(self):
+        """
+        Update paths in pyfredctl file (location of pid file and pyfred_server file)
+        """
+        body = open(os.path.join(self.build_dir, 'pyfredctl')).read()
+
+        #search path for pid and fred server file and replace it with correct one
+        if self.get_actual_root():
+            body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
+                    os.path.join(self.root, self.localstatedir[1:], 
+                        DEFAULT_PIDFILE) + "'", body)
+            body = re.sub(r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
+                    os.path.join(self.root, self.prefix[1:], 
+                        DEFAULT_PYFREDSERVER) + "'", body)
+        else:
+            body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
+                    os.path.join(self.localstatedir, DEFAULT_PIDFILE) + "'", body)
+            body = re.sub(r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
+                    os.path.join(self.prefix, DEFAULT_PYFREDSERVER) + "'", body)
+
+        open(os.path.join(self.build_dir, 'pyfredctl'), 'w').write(body)
+        print "pyfredctl file has been updated"
+
+    def update_pyfred_server(self):
+        """
+        Update paths in pyfred_server file (path to config file and search path for modules).
+        """
+        body = open(os.path.join(self.build_dir, 'pyfred_server')).read()
+
+        #create path where python modules are located
+        pythonLibPath = os.path.join('lib', 'python' +
+                str(sys.version_info[0]) + '.' + 
+                str(sys.version_info[1]), 'site-packages')
+
+        if self.get_actual_root():
+            body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
+                    os.path.join(self.root, self.sysconfdir[1:], 
+                        DEFAULT_PYFREDSERVERCONF) + '",', body)
+            body = re.sub(r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', r'\1' + 
+                    "('" + os.path.join(self.root, self.prefix[1:], pythonLibPath) + 
+                    "')", body)
+        else:
+            body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
+                    os.path.join(self.sysconfdir, DEFAULT_PYFREDSERVERCONF) + 
+                    '",', body)
+            body = re.sub(r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', r'\1' + 
+                    "('" + os.path.join(self.prefix, pythonLibPath) + "')", body)
+
+        open(os.path.join(self.build_dir, 'pyfred_server'), 'w').write(body)
+        print "pyfred_server file has been updated"
+
+    def run(self):
+        global g_actualRoot, g_root
+        self.actualRoot = g_actualRoot
+        self.root = g_root
+        self.update_pyfredctl()
+        self.update_pyfred_server()
+        return install_scripts.run(self)
+#class Install_scripts
 
 class Install_data(install_data):
     """
     This is copy of standart distutils install_data class,
-    with some mirror changes in run and *_options methods,
-    due to srcdir option add
+    with some mirror changes in run method, due to srcdir option add
     """
-    user_options = install_data.user_options
-    user_options.append(
-            ('srcdir=', None, 'directory holding the source [%s]' % os.curdir))
-
-    def initialize_options(self):
-        self.srcdir = None
-        return install_data.initialize_options(self)
-
-    def finalize_options(self):
-        self.set_undefined_options('install', ('srcdir', 'srcdir'))
-        if self.srcdir is None:
-            self.srcdir = os.curdir
-        return install_data.finalize_options(self)
-
     def run(self):
+        global g_srcdir
+        self.srcdir = g_srcdir
         self.mkpath(self.install_dir)
         for f in self.data_files:
             if type(f) is types.StringType:
@@ -758,7 +744,7 @@ class Install_data(install_data):
                 if not os.path.isabs(dir):
                     dir = os.path.join(self.install_dir, dir)
                 elif self.root:
-                    dir = change_root(self.root, dir)
+                    dir = util.change_root(self.root, dir)
                 self.mkpath(dir)
 
                 if f[1] == []:
@@ -769,6 +755,10 @@ class Install_data(install_data):
                 else:
                     # Copy files, adding them to the list of output files.
                     for data in f[1]:
+                        #first look into ./build directory for requested
+                        #data file. If this exists in build dir then
+                        #use it and copy it into proper destination,
+                        #otherwise use file from srcdir/
                         if os.path.exists(os.path.join('build', data)):
                             data = os.path.join('build', data)
                         else:
@@ -842,12 +832,12 @@ def main():
                 license  = "GNU GPL",
                 cmdclass = { "config":Config,
                              "clean":Clean,
-                             "build":Build,
                              "build_py":Build_py,
                              "build_ext":Build_ext,
                              "build_scripts":Build_scripts,
                              "install":Install,
-                             "install_data":Install_data},
+                             "install_data":Install_data,
+                             "install_scripts":Install_scripts},
                 packages = ["pyfred", "pyfred.modules"],
                 py_modules = ['pyfred.idlstubs',
                     'pyfred.idlstubs.ccReg',
@@ -869,7 +859,6 @@ def main():
                     "scripts/techcheck_client",
                     ],
                 data_files = [
-                    #"README",
                     ("libexec/pyfred",
                         [
                             "tc_scripts/authoritative.py",
@@ -889,5 +878,8 @@ def main():
         log.error("Error: %s", e)
 
 if __name__ == '__main__':
-    g_callPrefix = os.path.dirname(sys.argv[0])
+    g_srcdir = os.path.dirname(sys.argv[0])
+    if not g_srcdir:
+        g_srcdir = os.curdir
     main()
+    print "All done"
