@@ -1,6 +1,7 @@
-include *.conf
+include INSTALL ChangeLog
 include tc_scripts/*
 include setup.cfg
 include rpm-install.sh
 
-include pyfred.conf.install
+include conf/pyfred.conf.install
+include conf/genzone.conf.install
