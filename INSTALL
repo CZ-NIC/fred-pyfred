@@ -39,13 +39,13 @@ start/stop/status script.
 
     $python setup.py build
 
-	Note: You may need to adjust 'idldir' in your setup.cfg to point to correct
-	      directory where your IDL files reside. This you can also do by pass
-		  option '-idldir' with correct path on command line.
-
   Step 3: Install it!
   ------
     $ python setup.py install
+
+	Note: You may need to adjust 'idldir' in your setup.cfg to point to correct
+	      directory where your IDL files reside. This you can also do by pass
+		  option '-idldir' with correct path on command line. 
 
   Step 4: Configure it. Here we assume that your configuration directory is
   ------  /etc, this might not be always true. You will need probably root

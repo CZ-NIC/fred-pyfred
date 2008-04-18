@@ -1,3 +1,17 @@
+2008-04-18 Ales Dolezal
+
+		* IDL files are now created automatically during
+	install step. IDL files are searched in directory which
+	location depends on PREFIX variable.
+
+		* Added abilily to run setup.py outside its directory.
+	Files that setup.py produced (e.g. python bytecode or
+	source distribution packages) are stored in current working
+	directory.
+
+		* Added some setup command line options (e.g. sysconfdir,
+	localstatedir) for better output emplacement of corresponding files.
+
 2008-03-28 Ales Dolezal
 		
 		* Build step 'build_ild' merged into 'build' step.
