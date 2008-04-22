@@ -87,7 +87,6 @@ class Config (config.config):
             *) Python version
             *) presence of omniORB, pygresql, dnspython, clearsilver modules
         """
-
         # List of tests which follow
         error = False
 
@@ -1157,15 +1156,30 @@ class Bdist_rpm(bdist_rpm):
         return bdist_rpm.initialize_options(self)
 
     def finalize_options(self):
-        global g_srcdir
         self.srcdir = g_srcdir
         self.set_undefined_options('install',
                 ('idldir', 'idldir'))
         if not self.idldir:
             self.idldir = os.path.join(self.prefix, 'share', 'idl', 'fred')
 
-        #extra parameters for spec file
-        self.install_extra_pars = "--idldir=%s" % self.idldir
+        if not self.requires or not self.install_script:
+            body = open(os.path.join(self.srcdir, 'setup.cfg')).readlines()
+
+            if not self.requires:
+                for line in body:
+                    if re.search('requires[\ ]*=[\ ]*', line):
+                        self.requires = line[line.find('=')+1:].strip()
+            if not self.install_script:
+                for line in body:
+                    if re.search('install_script[\ ]*=[\ ]*', line):
+                        self.install_script = line[line.find('=')+1:].strip()
+                        if not os.path.isabs(self.install_script):
+                            self.install_script = os.path.join(
+                                    self.srcdir, self.install_script)
+
+        #extra parameters for spec file, must start with space
+        #and ends with endline character
+        self.install_extra_pars = " --idldir=%s" % self.idldir
 
         return bdist_rpm.finalize_options(self)
 
@@ -1281,9 +1295,7 @@ class Bdist_rpm(bdist_rpm):
             ('install', 'install_script',
              ("%s install "
               "--root=$RPM_BUILD_ROOT "
-              "--record=INSTALLED_FILES "
-              #DIST next line is only one changed in _make_spec_file
-              "%s") % (def_setup_call, self.install_extra_pars)),
+              "--record=INSTALLED_FILES ") % def_setup_call),
             ('clean', 'clean_script', "rm -rf $RPM_BUILD_ROOT"),
             ('verifyscript', 'verify_script', None),
             ('pre', 'pre_install', None),
@@ -1305,6 +1317,11 @@ class Bdist_rpm(bdist_rpm):
                 else:
                     spec_file.append(default)
 
+        #DIST next 4 lines added
+        for line in spec_file:
+            if re.search('python setup.py install', line):
+                spec_file[spec_file.index(line)] = \
+                        line.strip() + self.install_extra_pars
 
         # files section
         spec_file.extend([
