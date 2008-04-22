@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # vim: set ts=4 sw=4:
 #
+# All changes in classes against standart distutils is marked with `DIST'
+# string in comments above each change.
+
 import sys, os, string, commands, re, shutil, stat, types
 from glob import glob
 from distutils import core
@@ -25,6 +28,8 @@ from distutils.command.build_scripts import first_line_re
 from distutils.command.install_data import install_data
 from distutils.command.install_scripts import install_scripts
 from distutils.command.sdist import sdist
+from distutils.command.bdist import bdist
+from distutils.command.bdist_rpm import bdist_rpm
 from distutils.command import install
 from distutils.core import Command
 
@@ -54,6 +59,8 @@ DEFAULT_PYFREDSERVER = 'bin/pyfred_server'
 DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 #whole is $localstatedir/zonebackup
 DEFAULT_ZONEBACKUPDIR = 'zonebackup'
+
+ETC_FRED_DIR = 'etc/fred'
 
 core.DEBUG = False
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
@@ -220,14 +227,16 @@ class Build_py (build_py, object):
         distribution, where package 'package' should be found
         (at least according to the 'package_dir' option, if any).
         """
-        global g_srcdir
+        #DIST line added
         self.srcdir = g_srcdir
         path = string.split(package, '.')
 
         if not self.package_dir:
             if path:
+                #DIST line changed
                 return os.path.join(self.srcdir, apply(os.path.join, path))
             else:
+                #DIST line changed
                 return self.srcdir
         else:
             tail = []
@@ -239,6 +248,7 @@ class Build_py (build_py, object):
                     del path[-1]
                 else:
                     tail.insert(0, pdir)
+                    #DIST line changed
                     return os.path.join(self.srcdir, apply(os.path.join, tail))
             else:
                 # Oops, got all the way through 'path' without finding a
@@ -253,15 +263,12 @@ class Build_py (build_py, object):
                     tail.insert(0, pdir)
 
                 if tail:
+                    #DIST line changed
                     return os.path.join(self.srcdir, apply(os.path.join, tail))
                 else:
+                    #DIST line changed
                     return self.srcdir
     #get_package_dir()
-
-    def check_package(self, package, package_dir):
-        if package_dir != "" and not os.path.exists(package_dir):
-            os.makedirs(package_dir)
-        return build_py.check_package(self, package, package_dir)
 #class Build_py
 
 class Build_scripts(build_scripts):
@@ -271,14 +278,13 @@ class Build_scripts(build_scripts):
         ie. starts with "\#!" and contains "python"), then adjust the first
         line to refer to the current Python interpreter as we copy.
         """
-        global g_srcdir
+        #DIST line added
         self.srcdir = g_srcdir
         self.mkpath(self.build_dir)
         outfiles = []
         for script in self.scripts:
             adjust = 0
-            #next line is only one added to perform scrdir option demands
-            #(some other were completed only with module specification)
+            #DIST line added
             script = os.path.join(self.srcdir, script)
             script = util.convert_path(script)
             outfile = os.path.join(self.build_dir, os.path.basename(script))
@@ -347,16 +353,17 @@ class Build_scripts(build_scripts):
 
 class Build_ext(build_ext):
     def build_extension(self, ext):
-        global g_srcdir
+        #DIST line added
         self.srcdir = g_srcdir
         sources = ext.sources
-        if sources is None or type(sources) not in (ListType, TupleType):
+        if sources is None or type(sources) not in (types.ListType, types.TupleType):
             raise DistutilsSetupError, \
                     ("in 'ext_modules' option (extension '%s'), " +
                             "'sources' must be present and must be " +
                             "a list of source filenames") % ext.name
         new_sources = []
         for source in sources: 
+            #DIST line changed
             new_sources.append(os.path.join(self.srcdir,source))
         ext.sources = new_sources
         return build_ext.build_extension(self, ext)
@@ -366,8 +373,8 @@ class Build_ext(build_ext):
 class Install (install.install, object):
     user_options = []
     user_options.extend(install.install.user_options)
-    user_options.append(('modules=', None, 'which pyfred modules will be loaded \
-        [genzone mailer filemanager techcheck]'))
+    user_options.append(('modules=', None, 'which pyfred modules will be loaded'
+        ' [genzone mailer filemanager techcheck]'))
     user_options.append(('sysconfdir=', None, 
         'System configuration directory [PREFIX/etc]'))
     user_options.append(('libexecdir=', None,
@@ -441,7 +448,11 @@ class Install (install.install, object):
         self.localstatedir = None
 
     def finalize_options(self):
-        super(Install, self).finalize_options()
+        cmd_obj = self.distribution.get_command_obj('bdist', False)
+        if cmd_obj:
+            #this will be proceeded only if install command will be
+            #invoked from bdist command
+            self.idldir = cmd_obj.idldir
         if not self.omniidl:
             self.omniidl = "omniidl"
         if not self.prefix:
@@ -460,7 +471,7 @@ class Install (install.install, object):
         else:
             #otherwise set it to input value plus 'fred'
             for i in self.distribution.data_files:
-                if i[0] == 'etc/fred':
+                if i[0] == ETC_FRED_DIR:
                     tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
                     #replace old and new path
                     self.distribution.data_files.remove(i)
@@ -479,6 +490,7 @@ class Install (install.install, object):
                     self.distribution.data_files.remove(i)
                     self.distribution.data_files.append(tup)
                     break
+        super(Install, self).finalize_options()
 
     def find_sendmail(self):
         self.sendmail = DEFAULT_SENDMAIL
@@ -588,6 +600,63 @@ class Install (install.install, object):
             except OSError, e:
                 print e
 
+    def update_record_file(self):
+        """
+        This methods purpose is to add some files (listed in `files' variable -
+        see below) to record file - this list is used by rpmbuild to decide
+        which files are part of rpm archive.
+        """
+        bodyNew = None
+        #proceed only if i wish to record installed files
+        if self.record:
+            body = open(self.record).readlines()
+            bodyNew = []
+            for i in body:
+                if self.get_actual_root():
+                    iNew = os.path.join('/', i)
+                else:
+                    iNew = os.path.join(self.root, i)
+                bodyNew.append(iNew)
+            if self.get_actual_root():
+                prefix = self.prefix
+            else:
+                prefix = os.path.join(self.root, self.prefix[1:])
+                
+            #this path is prepended to each record in files variable
+            libdir = 'lib/python2.5/site-packages'
+
+            #list of files which i want add to record list.
+            #each directory is represended by tuple, first entry is directory,
+            #second is list of files in this directory
+            files = [
+                ('pyfred', 
+                    ('__init__.pyc')), 
+                ('pyfred/idlstubs', ('__init__.py', '__init__.pyc',
+                    'FileManager_idl.py', 'FileManager_idl.pyc',
+                    'Mailer_idl.py', 'Mailer_idl.pyc',
+                    'TechCheck_idl.py', 'TechCheck_idl.pyc',
+                    'ZoneGenerator_idl.py', 'ZoneGenerator_idl.pyc')),
+                ('pyfred/idlstubs/ccReg', ('__init__.py',
+                    '__init__.pyc')),
+                ('pyfred/idlstubs/ccReg__POA', ('__init__.py',
+                    '__init__.pyc'))]
+
+            for record in files:
+                dir = record[0]
+                files = record[1]
+                if type(files) == types.TupleType:
+                    for file in files:
+                        fileline = os.path.join(prefix, libdir, dir, file) + '\n'
+                        if fileline not in bodyNew:
+                            bodyNew.append(fileline)
+                else:
+                    fileline = os.path.join(prefix, libdir, dir, files)+ '\n'
+                    if fileline in bodyNew:
+                        bodyNew.append(fileline)
+
+            open(self.record, 'w').writelines(bodyNew)
+            print "record file has been updated"
+
     def run(self):
         global g_actualRoot, g_root
         #set actual root for install_script class which has no opportunity
@@ -595,8 +664,8 @@ class Install (install.install, object):
         g_actualRoot = self.get_actual_root()
         g_root = self.root
 
-        self.py_modules = self.distribution.py_modules
-        self.data_files = self.distribution.data_files
+        # self.py_modules = self.distribution.py_modules
+        # self.data_files = self.distribution.data_files
 
         #create (if need) idl files
         self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
@@ -614,6 +683,10 @@ class Install (install.install, object):
         self.createDirectories()
 
         super(Install, self).run()
+
+        #append idl stubs to record file - due to rpm creation
+        self.update_record_file()
+
 #class Install
 
 class Install_scripts(install_scripts):
@@ -654,7 +727,7 @@ class Install_scripts(install_scripts):
         else:
             #otherwise set it to input value plus 'fred'
             for i in self.distribution.data_files:
-                if i[0] == 'etc/fred':
+                if i[0] == ETC_FRED_DIR:
                     tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
                     #replace old and new path
                     self.distribution.data_files.remove(i)
@@ -728,14 +801,15 @@ class Install_scripts(install_scripts):
 class Install_data(install_data):
     """
     This is copy of standart distutils install_data class,
-    with some mirror changes in run method, due to srcdir option add
+    with some minor changes in run method, due to srcdir option add
     """
     def run(self):
-        global g_srcdir
+        #DIST line added
         self.srcdir = g_srcdir
         self.mkpath(self.install_dir)
         for f in self.data_files:
             if type(f) is types.StringType:
+                #DIST next four lines added
                 if os.path.exists(os.path.join('build', f)):
                     f = os.path.join('build', f)
                 else:
@@ -769,12 +843,12 @@ class Install_data(install_data):
                         #data file. If this exists in build dir then
                         #use it and copy it into proper destination,
                         #otherwise use file from srcdir/
+                        #DIST next four lines added
                         if os.path.exists(os.path.join('build', data)):
                             data = os.path.join('build', data)
                         else:
                             data = os.path.join(self.srcdir, data)
                         data = util.convert_path(data)
-                        print data
                         (out, _) = self.copy_file(data, dir)
                         self.outfiles.append(out)
     #run()
@@ -815,6 +889,7 @@ class Sdist(sdist):
         # manifest, but there's no template -- which will happen if the
         # developer elects to generate a manifest some other way -- then we
         # can't regenerate the manifest, so we don't.)
+        #DIST next command changed
         self.distribution.script_name = os.path.join(
                 self.srcdir, self.distribution.script_name)
         self.debug_print("checking if %s newer than %s" %
@@ -846,6 +921,7 @@ class Sdist(sdist):
                 self.warn(("manifest template '%s' does not exist " +
                            "(using default file list)") %
                           self.template)
+            #DIST changes in next six lines
             self.filelist.findall(self.srcdir)
             if self.srcdir == os.curdir:
                 for i in range(len(self.filelist.allfiles)):
@@ -884,6 +960,7 @@ class Sdist(sdist):
         else is optional.
         """
 
+        #DIST self.srcdir added
         standards = [(
             os.path.join(self.srcdir, 'README'),
             os.path.join(self.srcdir, 'README.txt')),
@@ -908,6 +985,7 @@ class Sdist(sdist):
                 else:
                     self.warn("standard file '%s' not found" % fn)
 
+        #DIST self.srcdir added
         optional = [
                 os.path.join(self.srcdir, 'test/test*.py'),
                 os.path.join(self.srcdir, 'setup.cfg')]
@@ -934,6 +1012,7 @@ class Sdist(sdist):
             #proper paths (e.g. full paths), only build_scripts
             #hasn't. So we must expand filenames with srcdir
             scripts_sources = build_scripts.get_source_files()
+            #DIST self.srcdir added
             for i in range(len(scripts_sources)):
                 scripts_sources[i] = os.path.join(
                         self.srcdir, scripts_sources[i])
@@ -966,12 +1045,15 @@ class Sdist(sdist):
             if chopped[0] in ('include', 'exclude', 'global-include',
                     'global-exclude'):
                 for i in range(1, len(chopped)):
+                    #DIST self.srcdir added
                     chopped[i] = os.path.join(self.srcdir, chopped[i])
                 line = ' '.join(chopped)
             elif chopped[0] in ('resursive-include', 'recursive-exclude'):
+                #DIST self.srcdir added
                 chopped[1] = os.path.join(self.srcdir, chopped[1])
                 line = ' '.join(chopped)
             elif chopped[0] in ('graft', 'prune'):
+                #DIST self.srcdir added
                 chopped[1] = os.path.join(self.srcdir, chopped[1])
                 line = ' '.join(chopped)
             try:
@@ -995,6 +1077,7 @@ class Sdist(sdist):
         #same as files but with striped full path
         files_wo_path = []
         for file in files:
+            #DIST self.srcdir added
             files_wo_path.append(file[len(self.srcdir)+1:])
         # Create all the directories under 'base_dir' necessary to
         # put 'files' there; the 'mkpath()' is just so we don't die
@@ -1024,6 +1107,7 @@ class Sdist(sdist):
             if not os.path.isfile(file):
                 log.warn("'%s' not a regular file -- skipping" % file)
             else:
+                #DIST self.srcdir added
                 dest = os.path.join(base_dir, file[len(self.srcdir)+1:])
                 self.copy_file(file, dest, link=link)
 
@@ -1033,6 +1117,218 @@ class Sdist(sdist):
 
 
 #class Sdist
+
+class Bdist(bdist):
+    """
+    bdist class
+    """
+    user_options = bdist.user_options
+    user_options.append(("idldir=",  "d", 
+        "directory where IDL files reside [/usr/local/share/idl/fred/]"))
+
+    def initialize_options(self):
+        self.prefix = None
+        self.idldir = None
+        return bdist.initialize_options(self)
+
+    def finalize_options(self):
+        global g_srcdir
+        self.srcdir = g_srcdir
+        self.set_undefined_options('install',
+                ('idldir', 'idldir'))
+        if not self.idldir:
+            self.idldir = os.path.join(self.prefix, 'share', 'idl', 'fred')
+        return bdist.finalize_options(self)
+    def run(self):
+        bdist.run(self)
+#class Bdist
+
+class Bdist_rpm(bdist_rpm):
+    """
+    bdist_rpm class
+    """
+    user_options = bdist_rpm.user_options
+    user_options.append(("idldir=",  "d", 
+        "directory where IDL files reside [/usr/local/share/idl/fred/]"))
+
+    def initialize_options(self):
+        self.prefix = None
+        self.idldir = None
+        return bdist_rpm.initialize_options(self)
+
+    def finalize_options(self):
+        global g_srcdir
+        self.srcdir = g_srcdir
+        self.set_undefined_options('install',
+                ('idldir', 'idldir'))
+        if not self.idldir:
+            self.idldir = os.path.join(self.prefix, 'share', 'idl', 'fred')
+
+        #extra parameters for spec file
+        self.install_extra_pars = "--idldir=%s" % self.idldir
+
+        return bdist_rpm.finalize_options(self)
+
+    def _make_spec_file(self):
+        """Generate the text of an RPM spec file and return it as a
+        list of strings (one per line).
+        """
+        # definitions and headers
+        spec_file = [
+            '%define name ' + self.distribution.get_name(),
+            '%define version ' + self.distribution.get_version().replace('-','_'),
+            '%define unmangled_version ' + self.distribution.get_version(),
+            '%define release ' + self.release.replace('-','_'),
+            '',
+            'Summary: ' + self.distribution.get_description(),
+            ]
+
+        # put locale summaries into spec file
+        # XXX not supported for now (hard to put a dictionary
+        # in a config file -- arg!)
+        #for locale in self.summaries.keys():
+        #    spec_file.append('Summary(%s): %s' % (locale,
+        #                                          self.summaries[locale]))
+
+        spec_file.extend([
+            'Name: %{name}',
+            'Version: %{version}',
+            'Release: %{release}',])
+
+        # XXX yuck! this filename is available from the "sdist" command,
+        # but only after it has run: and we create the spec file before
+        # running "sdist", in case of --spec-only.
+        if self.use_bzip2:
+            spec_file.append('Source0: %{name}-%{unmangled_version}.tar.bz2')
+        else:
+            spec_file.append('Source0: %{name}-%{unmangled_version}.tar.gz')
+
+        spec_file.extend([
+            'License: ' + self.distribution.get_license(),
+            'Group: ' + self.group,
+            'BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot',
+            'Prefix: %{_prefix}', ])
+
+        if not self.force_arch:
+            # noarch if no extension modules
+            if not self.distribution.has_ext_modules():
+                spec_file.append('BuildArch: noarch')
+        else:
+            spec_file.append( 'BuildArch: %s' % self.force_arch )
+
+        for field in ('Vendor',
+                      'Packager',
+                      'Provides',
+                      'Requires',
+                      'Conflicts',
+                      'Obsoletes',
+                      ):
+            val = getattr(self, string.lower(field))
+            if type(val) is types.ListType:
+                spec_file.append('%s: %s' % (field, string.join(val)))
+            elif val is not None:
+                spec_file.append('%s: %s' % (field, val))
+
+
+        if self.distribution.get_url() != 'UNKNOWN':
+            spec_file.append('Url: ' + self.distribution.get_url())
+
+        if self.distribution_name:
+            spec_file.append('Distribution: ' + self.distribution_name)
+
+        if self.build_requires:
+            spec_file.append('BuildRequires: ' +
+                             string.join(self.build_requires))
+
+        if self.icon:
+            spec_file.append('Icon: ' + os.path.basename(self.icon))
+
+        if self.no_autoreq:
+            spec_file.append('AutoReq: 0')
+
+        spec_file.extend([
+            '',
+            '%description',
+            self.distribution.get_long_description()
+            ])
+
+        # put locale descriptions into spec file
+        # XXX again, suppressed because config file syntax doesn't
+        # easily support this ;-(
+        #for locale in self.descriptions.keys():
+        #    spec_file.extend([
+        #        '',
+        #        '%description -l ' + locale,
+        #        self.descriptions[locale],
+        #        ])
+
+        # rpm scripts
+        # figure out default build script
+        def_setup_call = "%s %s" % (self.python,os.path.basename(sys.argv[0]))
+        def_build = "%s build" % def_setup_call
+        if self.use_rpm_opt_flags:
+            def_build = 'env CFLAGS="$RPM_OPT_FLAGS" ' + def_build
+
+        # insert contents of files
+
+        # XXX this is kind of misleading: user-supplied options are files
+        # that we open and interpolate into the spec file, but the defaults
+        # are just text that we drop in as-is.  Hmmm.
+
+        script_options = [
+            ('prep', 'prep_script', "%setup -n %{name}-%{unmangled_version}"),
+            ('build', 'build_script', def_build),
+            ('install', 'install_script',
+             ("%s install "
+              "--root=$RPM_BUILD_ROOT "
+              "--record=INSTALLED_FILES "
+              #DIST next line is only one changed in _make_spec_file
+              "%s") % (def_setup_call, self.install_extra_pars)),
+            ('clean', 'clean_script', "rm -rf $RPM_BUILD_ROOT"),
+            ('verifyscript', 'verify_script', None),
+            ('pre', 'pre_install', None),
+            ('post', 'post_install', None),
+            ('preun', 'pre_uninstall', None),
+            ('postun', 'post_uninstall', None),
+        ]
+
+        for (rpm_opt, attr, default) in script_options:
+            # Insert contents of file referred to, if no file is referred to
+            # use 'default' as contents of script
+            val = getattr(self, attr)
+            if val or default:
+                spec_file.extend([
+                    '',
+                    '%' + rpm_opt,])
+                if val:
+                    spec_file.extend(string.split(open(val, 'r').read(), '\n'))
+                else:
+                    spec_file.append(default)
+
+
+        # files section
+        spec_file.extend([
+            '',
+            '%files -f INSTALLED_FILES',
+            '%defattr(-,root,root)',
+            ])
+
+        if self.doc_files:
+            spec_file.append('%doc ' + string.join(self.doc_files))
+
+        if self.changelog:
+            spec_file.extend([
+                '',
+                '%changelog',])
+            spec_file.extend(self.changelog)
+
+        return spec_file
+
+    # _make_spec_file ()
+
+    def run(self):
+        bdist_rpm.run(self)
+#class Bdist
 
 class Clean (clean.clean):
     """
@@ -1102,7 +1398,9 @@ def main():
                              "install":Install,
                              "install_data":Install_data,
                              "install_scripts":Install_scripts,
-                             "sdist":Sdist},
+                             "sdist":Sdist,
+                             "bdist":Bdist,
+                             "bdist_rpm":Bdist_rpm},
                 packages = ["pyfred", "pyfred.modules"],
                 py_modules = ['pyfred.idlstubs',
                     'pyfred.idlstubs.ccReg',
@@ -1135,7 +1433,7 @@ def main():
                             "tc_scripts/recursive.py"
                         ]
                     ),
-                    ("etc/fred", ["pyfred.conf","genzone.conf"]),
+                    (ETC_FRED_DIR, ["pyfred.conf","genzone.conf"]),
                     ]
                 )
         return True
