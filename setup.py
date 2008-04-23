@@ -406,7 +406,6 @@ class Install (install.install, object):
 
     def __init__(self, *attrs):
         super(Install, self).__init__(*attrs)
-        global g_srcdir
         self.srcdir = g_srcdir
 
         self.basedir = None
@@ -657,7 +656,6 @@ class Install (install.install, object):
             print "record file has been updated"
 
     def run(self):
-        global g_actualRoot, g_root
         #set actual root for install_script class which has no opportunity
         #to reach get_actual_root method
         g_actualRoot = self.get_actual_root()
@@ -789,7 +787,6 @@ class Install_scripts(install_scripts):
         print "pyfred_server file has been updated"
 
     def run(self):
-        global g_actualRoot, g_root
         self.actualRoot = g_actualRoot
         self.root = g_root
         self.update_pyfredctl()
@@ -808,12 +805,8 @@ class Install_data(install_data):
         self.mkpath(self.install_dir)
         for f in self.data_files:
             if type(f) is types.StringType:
-                #DIST next four lines added
-                if os.path.exists(os.path.join('build', f)):
-                    f = os.path.join('build', f)
-                else:
-                    f = os.path.join(self.srcdir, f)
-                f = util.convert_path(f)
+                #DIST next line changed
+                f = util.convert_path(os.path.join(self.srcdir, f))
                 if self.warn_dir:
                     self.warn("setup script did not provide a directory for "
                               "'%s' -- installing right in '%s'" %
@@ -838,16 +831,8 @@ class Install_data(install_data):
                 else:
                     # Copy files, adding them to the list of output files.
                     for data in f[1]:
-                        #first look into ./build directory for requested
-                        #data file. If this exists in build dir then
-                        #use it and copy it into proper destination,
-                        #otherwise use file from srcdir/
-                        #DIST next four lines added
-                        if os.path.exists(os.path.join('build', data)):
-                            data = os.path.join('build', data)
-                        else:
-                            data = os.path.join(self.srcdir, data)
-                        data = util.convert_path(data)
+                        #DIST next line changed
+                        data = util.convert_path(os.path.join(self.srcdir, data))
                         (out, _) = self.copy_file(data, dir)
                         self.outfiles.append(out)
     #run()
@@ -862,7 +847,6 @@ class Sdist(sdist):
 
     def finalize_options(self):
         sdist.finalize_options(self)
-        global g_srcdir
         self.srcdir = g_srcdir
         self.manifest = os.path.join(self.srcdir, self.manifest)
         self.template = os.path.join(self.srcdir, self.template)
@@ -1131,7 +1115,6 @@ class Bdist(bdist):
         return bdist.initialize_options(self)
 
     def finalize_options(self):
-        global g_srcdir
         self.srcdir = g_srcdir
         self.set_undefined_options('install',
                 ('idldir', 'idldir'))
@@ -1450,7 +1433,9 @@ def main():
                             "tc_scripts/recursive.py"
                         ]
                     ),
-                    (ETC_FRED_DIR, ["pyfred.conf","genzone.conf"]),
+                    (ETC_FRED_DIR, [
+                        os.path.join("build", "pyfred.conf"),
+                        os.path.join("build", "genzone.conf"]),
                     ]
                 )
         return True
