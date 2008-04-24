@@ -6,32 +6,38 @@
 
 import sys, os, string, commands, re, shutil, stat, types
 from glob import glob
-from distutils import core
-from distutils import cmd
+# from distutils import core
+# from distutils import cmd
 from distutils import log
 from distutils import util
-from distutils import dep_util
-from distutils import errors
-from distutils import version
-from distutils import sysconfig
-from distutils import dir_util, dep_util, file_util, archive_util
-from distutils.dir_util import remove_tree
-from distutils.filelist import FileList
-from distutils.text_file import TextFile
+# from distutils import dep_util
+# from distutils import errors
+# from distutils import version
+# from distutils import sysconfig
+# from distutils import dir_util, dep_util, file_util, archive_util
+# from distutils.dir_util import remove_tree
+# from distutils.filelist import FileList
+# from distutils.text_file import TextFile
 from distutils.command import config
 from distutils.command import clean
-from distutils.command.build import build
-from distutils.command.build_py import build_py
-from distutils.command.build_ext import build_ext
-from distutils.command.build_scripts import build_scripts
-from distutils.command.build_scripts import first_line_re
-from distutils.command.install_data import install_data
-from distutils.command.install_scripts import install_scripts
+# from distutils.command.build import build
+# from distutils.command.build_py import build_py
+# from distutils.command.build_ext import build_ext
+# from distutils.command.build_scripts import build_scripts
+# from distutils.command.build_scripts import first_line_re
+# from distutils.command.install_data import install_data
+# from distutils.command.install_scripts import install_scripts
 from distutils.command.sdist import sdist
 from distutils.command.bdist import bdist
 from distutils.command.bdist_rpm import bdist_rpm
-from distutils.command import install
-from distutils.core import Command
+# from distutils.command import install
+# from distutils.core import Command
+
+from freddist import core
+from freddist.command import install
+from freddist.command.install_scripts import install_scripts
+from freddist.command.install_data import install_data
+
 
 PROJECT_NAME = 'pyfred_server'
 PACKAGE_NAME = 'pyfred_server'
@@ -60,6 +66,7 @@ DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 #whole is $localstatedir/zonebackup
 DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 
+LIBEXEC_FRED_DIR = 'libexecdir/pyfred'
 ETC_FRED_DIR = 'etc/fred'
 
 core.DEBUG = False
@@ -214,82 +221,17 @@ def gen_idl_name(dir, name):
     """
     return os.path.join(dir, name + ".idl")
 
-class Build_py (build_py, object):
-    """
-    Standart distutils build_py does not support scrdir option. So Build_py class
-    implements this funkcionality. This code is from 
-    http://lists.mysql.com/ndb-connectors/617 
-    """
-    def get_package_dir(self, package):
-        """
-        Return the directory, relative to the top of the source
-        distribution, where package 'package' should be found
-        (at least according to the 'package_dir' option, if any).
-        """
-        #DIST line added
-        self.srcdir = g_srcdir
-        path = string.split(package, '.')
-
-        if not self.package_dir:
-            if path:
-                #DIST line changed
-                return os.path.join(self.srcdir, apply(os.path.join, path))
-            else:
-                #DIST line changed
-                return self.srcdir
-        else:
-            tail = []
-            while path:
-                try:
-                    pdir = self.package_dir[string.join(path, '.')]
-                except KeyError:
-                    tail.insert(0, path[-1])
-                    del path[-1]
-                else:
-                    tail.insert(0, pdir)
-                    #DIST line changed
-                    return os.path.join(self.srcdir, apply(os.path.join, tail))
-            else:
-                # Oops, got all the way through 'path' without finding a
-                # match in package_dir.  If package_dir defines a directory
-                # for the root (nameless) package, then fallback on it;
-                # otherwise, we might as well have not consulted
-                # package_dir at all, as we just use the directory implied
-                # by 'tail' (which should be the same as the original value
-                # of 'path' at this point).
-                pdir = self.package_dir.get('')
-                if pdir is not None:
-                    tail.insert(0, pdir)
-
-                if tail:
-                    #DIST line changed
-                    return os.path.join(self.srcdir, apply(os.path.join, tail))
-                else:
-                    #DIST line changed
-                    return self.srcdir
-    #get_package_dir()
-#class Build_py
-
-class Build_scripts(build_scripts):
-    def run(self):
-        #DIST next 4 lines added
-        self.scrdir = g_srcdir
-        for i in range(len(self.scripts)):
-            self.scripts[i] = os.path.join(self.scrdir, self.scripts[i])
-        build_scripts.run(self)
-#class Build_scripts
-
 class Install (install.install, object):
     user_options = []
     user_options.extend(install.install.user_options)
     user_options.append(('modules=', None, 'which pyfred modules will be loaded'
         ' [genzone mailer filemanager techcheck]'))
-    user_options.append(('sysconfdir=', None, 
-        'System configuration directory [PREFIX/etc]'))
-    user_options.append(('libexecdir=', None,
-        'Program executables [PREFIX/libexec]'))
-    user_options.append(('localstatedir=', None,
-        'Modifiable single machine data [PREFIX/var]'))
+    # user_options.append(('sysconfdir=', None, 
+        # 'System configuration directory [PREFIX/etc]'))
+    # user_options.append(('libexecdir=', None,
+        # 'Program executables [PREFIX/libexec]'))
+    # user_options.append(('localstatedir=', None,
+        # 'Modifiable single machine data [PREFIX/var]'))
     user_options.append(('nscontext=', None, 
         'CORBA nameservice context name [fred]'))
     user_options.append(('nshost=', None, 
@@ -305,8 +247,8 @@ class Install (install.install, object):
         'Port where PostgreSQL database listening [5432]'))
     user_options.append(('dbpass=', None, 'Password to FRED database []'))
     user_options.append(('pyfredport=', None, '  [2225]'))
-    user_options.append(('preservepath', None, 
-        'Preserve path in configuration file.'))
+    # user_options.append(('preservepath', None, 
+        # 'Preserve path in configuration file.'))
     user_options.append(("omniidl=", "i", 
         "omniidl program used to build stubs [omniidl]"))
     user_options.append(("idldir=",  "d", 
@@ -316,11 +258,10 @@ class Install (install.install, object):
 
     def __init__(self, *attrs):
         super(Install, self).__init__(*attrs)
-        self.srcdir = g_srcdir
 
         self.basedir = None
         self.interactive = None
-        self.preservepath = None
+        #self.preservepath = None
         self.is_bdist_mode = None
         
         self.dbuser = DEFAULT_DBUSER
@@ -335,25 +276,25 @@ class Install (install.install, object):
         self.modules = DEFAULT_MODULES
         self.pyfredport = DEFAULT_PYFREDPORT
 
-        for dist in attrs:
-            for name in dist.commands:
-                if re.match('bdist', name): #'bdist' or 'bdist_rpm'
-                    self.is_bdist_mode = 1 #it is bdist mode - creating a package
-                    break
-            if self.is_bdist_mode:
-                break
+        # for dist in attrs:
+            # for name in dist.commands:
+                # if re.match('bdist', name): #'bdist' or 'bdist_rpm'
+                    # self.is_bdist_mode = 1 #it is bdist mode - creating a package
+                    # break
+            # if self.is_bdist_mode:
+                # break
 
     def initialize_options(self):
         super(Install, self).initialize_options()
-        self.prefix = None
+        # self.prefix = None
         self.idldir   = None
         self.idlforce = False
         self.omniidl  = None
         self.omniidl_params = ["-Cbuild/lib", "-bpython", "-Wbinline"]
         self.idlfiles = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
-        self.sysconfdir = None
-        self.libexecdir = None
-        self.localstatedir = None
+        # self.sysconfdir = None
+        # self.libexecdir = None
+        # self.localstatedir = None
 
     def finalize_options(self):
         cmd_obj = self.distribution.get_command_obj('bdist', False)
@@ -361,44 +302,58 @@ class Install (install.install, object):
             #this will be proceeded only if install command will be
             #invoked from bdist command
             self.idldir = cmd_obj.idldir
+        super(Install, self).finalize_options()
         if not self.omniidl:
             self.omniidl = "omniidl"
-        if not self.prefix:
-            # prefix is empty - set it to the default value
-            self.prefix="/usr/local/"
+        # if not self.prefix:
+            # #prefix is empty - set it to the default value
+            # self.prefix= os.path.join('/', 'usr', 'local')
         if not self.idldir:
             # set idl directory to prefix/share/idl/fred/
             self.idldir=os.path.join(self.prefix, "share", "idl", "fred")
-        if not self.localstatedir:
-            #if localstatedir not set then it will be prefix/opt/
-            self.localstatedir=os.path.join(self.prefix, 'var')
 
-        if not self.sysconfdir:
-            #if sysconfdir param is not set then set it to prefix/etc/
-            self.sysconfdir=os.path.join(self.prefix, "etc")
-        else:
-            #otherwise set it to input value plus 'fred'
-            for i in self.distribution.data_files:
-                if i[0] == ETC_FRED_DIR:
-                    tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
-                    #replace old and new path
-                    self.distribution.data_files.remove(i)
-                    self.distribution.data_files.append(tup)
-                    break
+        for i in self.distribution.data_files:
+            if i[0] == ETC_FRED_DIR:
+                tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
+                self.distribution.data_files.remove(i)
+                self.distribution.data_files.append(tup)
 
-        if not self.libexecdir:
-            #if not set then prefix/libexec
-            self.libexecdir=os.path.join(self.prefix, "libexec")
-        else:
-            #else input value plus "pyfred"
-            for i in self.distribution.data_files:
-                if i[0] == 'libexec/pyfred':
-                    tup = (os.path.join(
-                        self.libexecdir, DEFAULT_TECHCHECKSCRIPTDIR), i[1])
-                    self.distribution.data_files.remove(i)
-                    self.distribution.data_files.append(tup)
-                    break
-        super(Install, self).finalize_options()
+        for i in self.distribution.data_files:
+            if i[0] == LIBEXEC_FRED_DIR:
+                tup = (os.path.join(self.libexecdir, 'pyfred'), i[1])
+                self.distribution.data_files.remove(i)
+                self.distribution.data_files.append(tup)
+
+        # if not self.localstatedir:
+            # #if localstatedir not set then it will be prefix/opt/
+            # self.localstatedir=os.path.join(self.prefix, 'var')
+# 
+        # if not self.sysconfdir:
+            # #if sysconfdir param is not set then set it to prefix/etc/
+            # self.sysconfdir=os.path.join(self.prefix, "etc")
+        # else:
+            # #otherwise set it to input value plus 'fred'
+            # for i in self.distribution.data_files:
+                # if i[0] == ETC_FRED_DIR:
+                    # tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
+                    # #replace old and new path
+                    # self.distribution.data_files.remove(i)
+                    # self.distribution.data_files.append(tup)
+                    # break
+# 
+        # if not self.libexecdir:
+            # #if not set then prefix/libexec
+            # self.libexecdir=os.path.join(self.prefix, "libexec")
+        # else:
+            # #else input value plus "pyfred"
+            # for i in self.distribution.data_files:
+                # if i[0] == 'libexec/pyfred':
+                    # tup = (os.path.join(
+                        # self.libexecdir, DEFAULT_TECHCHECKSCRIPTDIR), i[1])
+                    # self.distribution.data_files.remove(i)
+                    # self.distribution.data_files.append(tup)
+                    # break
+        # super(Install, self).finalize_options()
 
     def find_sendmail(self):
         self.sendmail = DEFAULT_SENDMAIL
@@ -407,7 +362,9 @@ class Install (install.install, object):
         for i in paths:
             if os.path.exists(os.path.join(i, filename)):
                 self.sendmail = os.path.join(i, filename)
+                log.info("sendmail found in %s" % i)
                 return
+        log.warn("Warning: sendmail not found.")
         # self.sendmail= ''
         # self.modules = self.modules.replace('mailer', '')
 
@@ -418,6 +375,7 @@ class Install (install.install, object):
         """
         #try to find sendmail binary
         self.find_sendmail()
+        print self.srcdir
         body = open(os.path.join(self.srcdir, 'conf', 'pyfred.conf.install')).read()
 
         #change configuration options
@@ -476,12 +434,12 @@ class Install (install.install, object):
         open('build/genzone.conf', 'w').write(body)
         print "genzone configuration file has been updated"
 
-    def get_actual_root(self):
-        '''
-        Return actual root only in case if the process is not in creation of the package
-        '''
-        return ((self.is_bdist_mode or self.preservepath) and [''] or 
-                [type(self.root) is not None and self.root or ''])[0]
+    # def get_actual_root(self):
+        # '''
+        # Return actual root only in case if the process is not in creation of the package
+        # '''
+        # return ((self.is_bdist_mode or self.preservepath) and [''] or 
+                # [type(self.root) is not None and self.root or ''])[0]
 
     def createDirectories(self):
         """
@@ -568,6 +526,7 @@ class Install (install.install, object):
     def run(self):
         #set actual root for install_script class which has no opportunity
         #to reach get_actual_root method
+        global g_actualRoot, g_root
         g_actualRoot = self.get_actual_root()
         g_root = self.root
 
@@ -601,49 +560,9 @@ class Install_scripts(install_scripts):
     Copy of standart distutils install_scripts with some small
     addons (new options derived from install class)
     """
-    user_options = install_scripts.user_options
-    user_options.append(('prefix=', None,
-        'installation prefix'))
-    user_options.append(('libexecdir=', None,
-        'Program executables [PREFIX/libexec]'))
-    user_options.append(('localstatedir=', None,
-        'Modifiable single machine data [PREFIX/var]'))
 
-    def initialize_options(self):
-        self.prefix = None
-        self.sysconfdir = None
-        self.localstatedir = None
-        return install_scripts.initialize_options(self)
-
-    def finalize_options(self):
-        self.set_undefined_options('install',
-                ('prefix', 'prefix'),
-                ('sysconfdir', 'sysconfdir'),
-                ('localstatedir', 'localstatedir'))
-        if not self.prefix:
-            # prefix is empty - set it to the default value
-            self.prefix="/usr/local/"
-
-        if not self.localstatedir:
-            #if localstatedir not set then it will be prefix/opt/
-            self.localstatedir=os.path.join(self.prefix, 'var')
-
-        if not self.sysconfdir:
-            #if sysconfdir param is not set then set it to prefix/etc/
-            self.sysconfdir=os.path.join(self.prefix, "etc")
-        else:
-            #otherwise set it to input value plus 'fred'
-            for i in self.distribution.data_files:
-                if i[0] == ETC_FRED_DIR:
-                    tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
-                    #replace old and new path
-                    self.distribution.data_files.remove(i)
-                    self.distribution.data_files.append(tup)
-                    break
-        return install_scripts.finalize_options(self)
-
-    def get_actual_root(self):
-        return self.actualRoot
+    # def get_actual_root(self):
+        # return self.actualRoot
 
     def update_pyfredctl(self):
         """
@@ -697,56 +616,12 @@ class Install_scripts(install_scripts):
         print "pyfred_server file has been updated"
 
     def run(self):
-        self.actualRoot = g_actualRoot
-        self.root = g_root
+        # self.actualRoot = g_actualRoot
+        # self.root = g_root
         self.update_pyfredctl()
         self.update_pyfred_server()
         return install_scripts.run(self)
 #class Install_scripts
-
-class Install_data(install_data):
-    """
-    This is copy of standart distutils install_data class,
-    with some minor changes in run method, due to srcdir option add
-    """
-    def run(self):
-        #DIST line added
-        self.srcdir = g_srcdir
-        self.mkpath(self.install_dir)
-        for f in self.data_files:
-            if type(f) is types.StringType:
-                #DIST next line changed
-                f = util.convert_path(os.path.join(self.srcdir, f))
-                if self.warn_dir:
-                    self.warn("setup script did not provide a directory for "
-                              "'%s' -- installing right in '%s'" %
-                              (f, self.install_dir))
-                # it's a simple file, so copy it
-                (out, _) = self.copy_file(f, self.install_dir)
-                self.outfiles.append(out)
-            else:
-                # it's a tuple with path to install to and a list of files
-                dir = util.convert_path(f[0])
-                if not os.path.isabs(dir):
-                    dir = os.path.join(self.install_dir, dir)
-                elif self.root:
-                    dir = util.change_root(self.root, dir)
-                self.mkpath(dir)
-
-                if f[1] == []:
-                    # If there are no files listed, the user must be
-                    # trying to create an empty directory, so add the
-                    # directory to the list of output files.
-                    self.outfiles.append(dir)
-                else:
-                    # Copy files, adding them to the list of output files.
-                    for data in f[1]:
-                        #DIST next line changed
-                        data = util.convert_path(os.path.join(self.srcdir, data))
-                        (out, _) = self.copy_file(data, dir)
-                        self.outfiles.append(out)
-    #run()
-#class Install_data
 
 class Sdist(sdist):
     """
@@ -1302,10 +1177,7 @@ def main():
                 license  = "GNU GPL",
                 cmdclass = { "config":Config,
                              "clean":Clean,
-                             "build_py":Build_py,
-                             "build_scripts":Build_scripts,
                              "install":Install,
-                             "install_data":Install_data,
                              "install_scripts":Install_scripts,
                              "sdist":Sdist,
                              "bdist":Bdist,
@@ -1331,7 +1203,7 @@ def main():
                     "scripts/techcheck_client",
                     ],
                 data_files = [
-                    ("libexec/pyfred",
+                    (LIBEXEC_FRED_DIR,
                         [
                             "tc_scripts/authoritative.py",
                             "tc_scripts/autonomous.py",
@@ -1345,7 +1217,8 @@ def main():
                     (ETC_FRED_DIR, [
                         os.path.join("build", "pyfred.conf"),
                         os.path.join("build", "genzone.conf")]),
-                    ]
+                    ],
+                srcdir = g_srcdir
                 )
         return True
     except Exception, e:
