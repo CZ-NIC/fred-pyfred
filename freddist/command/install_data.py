@@ -8,7 +8,7 @@ class install_data(_install_data):
         _install_data.finalize_options(self)
 
     def run(self):
-        print "freddist install_data"
+        self.debug_print("running freddist install_data")
         #DIST line added
         self.mkpath(self.install_dir)
         for f in self.data_files:

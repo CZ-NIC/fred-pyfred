@@ -1,5 +1,7 @@
 include INSTALL ChangeLog
 include tc_scripts/*
+include freddist/*
+include freddist/command/*
 include setup.cfg
 include rpm-install.sh
 
