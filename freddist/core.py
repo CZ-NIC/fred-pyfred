@@ -18,8 +18,6 @@ except ImportError:
     from dist import Distribution
 
 def setup(**attrs):
-    print "nicdist setup"
-
     global _setup_stop_after, _setup_distribution
 
     # Determine the distribution class -- either caller-supplied or

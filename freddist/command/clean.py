@@ -41,15 +41,6 @@ class clean(_clean):
         self.srcdir = self.distribution.srcdir
 
     def run(self):
-        print "running freddist clean"
-        print self.all
-        print self.build_base
-        print self.build_lib
-        print self.build_scripts
-        print self.build_temp
-        print self.bdist_base
-        exit()
-
         # remove ./build directory and all under it
         if os.path.exists(self.build_dir):
             remove_tree(self.build_dir, self.verbose, self.dry_run)

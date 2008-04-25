@@ -61,10 +61,13 @@ except ImportError:
 
 class Distribution(_Distribution):
     def __init__(self, attrs=None):
-        print "freddist distribution ctor"
         self.srcdir = None
+        self.requires = None
+        
+
         self.cmdclass = {}
         _Distribution.__init__(self, attrs)
+
         if not self.cmdclass.get('config'):
             self.cmdclass['config'] = config
         if not self.cmdclass.get('build'):

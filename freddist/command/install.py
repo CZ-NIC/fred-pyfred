@@ -57,5 +57,4 @@ class install(_install):
         _install.finalize_options(self)
 
     def run(self):
-        print "nicdist install"
         _install.run(self)

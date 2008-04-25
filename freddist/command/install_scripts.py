@@ -59,5 +59,4 @@ class install_scripts(_install_scripts):
         _install_scripts.finalize_options(self)
 
     def run(self):
-        print "nicdist install_scripts"
         _install_scripts.run(self)

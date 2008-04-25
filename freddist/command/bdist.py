@@ -20,5 +20,4 @@ class bdist(_bdist):
         _bdist.finalize_options(self)
 
     def run(self):
-        print "running freddist bdist"
         _bdist.run(self)

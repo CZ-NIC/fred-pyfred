@@ -259,6 +259,5 @@ class sdist(_sdist):
     # make_release_tree ()
 
     def run(self):
-        print "running freddist sdist"
         _sdist.run(self)
 #class Sdist

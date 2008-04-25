@@ -57,6 +57,5 @@ class build_py(_build_py):
     #get_package_dir()
 
     def run(self):
-        print "nicdist build_py"
         _build_py.run(self)
 

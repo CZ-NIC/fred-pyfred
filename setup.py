@@ -5,20 +5,14 @@
 # string in comments above each change.
 
 import sys, os, string, commands, re, shutil, stat, types
-from glob import glob
 from distutils import log
 from distutils import util
 from distutils import errors
-from distutils.dir_util import remove_tree
 from distutils.command import config
 
-from freddist import core
+from freddist.core import setup
 from freddist.command import install
 from freddist.command.install_scripts import install_scripts
-from freddist.command.bdist import bdist
-from freddist.command.bdist_rpm import bdist_rpm
-from freddist.command.clean import clean
-
 
 PROJECT_NAME = 'pyfred_server'
 PACKAGE_NAME = 'pyfred_server'
@@ -34,6 +28,7 @@ DEFAULT_NSHOST = 'localhost'
 DEFAULT_NSPORT = '2809'
 DEFAULT_PYFREDPORT = '2225'
 DEFAULT_SENDMAIL = '/usr/sbin/sendmail'
+
 #$localstatedir/lib/pyfred/filemanager
 DEFAULT_FILEMANAGERFILES = 'lib/pyfred/filemanager/'
 #whole path is by default $libexecdir/pyfred
@@ -47,10 +42,12 @@ DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 #whole is $localstatedir/zonebackup
 DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 
+#default fred libexec directory
 LIBEXEC_FRED_DIR = 'libexecdir/pyfred'
+#default fred conf directory
 ETC_FRED_DIR = 'etc/fred'
 
-core.DEBUG = True#False
+#list of all default pyfred modules
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
 
 #directory containing setup.py script itself (and other sources as well)
@@ -234,8 +231,6 @@ class Install (install.install, object):
 
         self.basedir = None
         self.interactive = None
-        self.is_bdist_mode = None
-        
         self.dbuser = DEFAULT_DBUSER
         self.dbname = DEFAULT_DBNAME
         self.dbhost = DEFAULT_DBHOST
@@ -448,9 +443,6 @@ class Install (install.install, object):
         g_actualRoot = self.get_actual_root()
         g_root = self.root
 
-        # self.py_modules = self.distribution.py_modules
-        # self.data_files = self.distribution.data_files
-
         #create (if need) idl files
         self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
         if not self.idlforce and os.access("pyfred/idlstubs/ccReg", os.F_OK):
@@ -541,7 +533,7 @@ class Install_scripts(install_scripts):
 
 def main():
     try:
-        core.setup(name="fred-pyfred", version="1.8.0",
+        setup(name="fred-pyfred", version="1.8.0",
                 description="Component of FRED (Fast Registry for Enum and Domains)",
                 author   = "Jan Kryl",
                 author_email="jan.kryl@nic.cz",
@@ -557,8 +549,7 @@ def main():
                     'pyfred.idlstubs.ccReg__POA'],
                 #XXX 'requires' option does not work allthough it is described in
                 #official documentation.
-
-                #requires = ["omniORB", "pgdb>=3.6", "dns>=1.3", "neo_cgi"],
+                #requires = ["omniORB", "pgdb(>=3.6)", "dns(>=1.3)", "neo_cgi"],
                 scripts  = [
                     "scripts/pyfred_server",
                     "scripts/pyfredctl",
