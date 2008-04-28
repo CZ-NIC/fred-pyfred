@@ -13,6 +13,18 @@ class install_scripts(_install_scripts):
         'Program executables [PREFIX/libexec]'))
     user_options.append(('localstatedir=', None,
         'Modifiable single machine data [PREFIX/var]'))
+    user_options.append(('libdir=', None,
+        'object code libraries [PREFIX/lib]'))
+    user_options.append(('datarootdir=', None,
+        'read only architecture-independent data root [PREFIX/share]'))
+    user_options.append(('datadir=', None,
+        'read only architecture-independent data [DATAROOTDIR]'))
+    user_options.append(('infodir=', None,
+        'info documentation [DATAROOTDIR/info]'))
+    user_options.append(('mandir=', None,
+        'man documentation [DATAROOTDIR/man]'))
+    user_options.append(('docdir=', None,
+        'documentation root [DATAROOTDIR/doc/NAME]'))
     user_options.append(('preservepath', None, 
         'Preserve path(s) in configuration file(s).'))
 
@@ -46,6 +58,12 @@ class install_scripts(_install_scripts):
         self.libexecdir = None
         self.preservepath = None
         self.root = None
+        self.libdir = None
+        self.datarootdir = None
+        self.datadir = None
+        self.infodir = None
+        self.mandir = None
+        self.docdir = None
 
     def finalize_options(self):
         self.set_undefined_options('install',
@@ -54,7 +72,14 @@ class install_scripts(_install_scripts):
                 ('localstatedir', 'localstatedir'),
                 ('libexecdir', 'libexecdir'),
                 ('preservepath', 'preservepath'),
-                ('root', 'root'))
+                ('root', 'root'),
+                ('libdir', 'libdir'),
+                ('datarootdir', 'datarootdir'),
+                ('datadir', 'datadir'),
+                ('mandir', 'mandir'),
+                ('docdir', 'docdir'),
+                ('infodir', 'infodir'))
+
         self.srcdir = self.distribution.srcdir
         _install_scripts.finalize_options(self)
 

@@ -277,7 +277,6 @@ class Install (install.install, object):
         """
         #try to find sendmail binary
         self.find_sendmail()
-        print self.srcdir
         body = open(os.path.join(self.srcdir, 'conf', 'pyfred.conf.install')).read()
 
         #change configuration options
