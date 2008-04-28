@@ -297,11 +297,13 @@ class Install (install.install, object):
         #file location
         if self.get_actual_root():
             body = re.sub('FILEMANAGERFILES', os.path.join(self.root,
-                self.localstatedir[1:], DEFAULT_FILEMANAGERFILES), body)
+                self.localstatedir.lstrip(os.path.sep),
+                DEFAULT_FILEMANAGERFILES), body)
             body = re.sub('TECHCHECKSCRIPTDIR', os.path.join(self.root, 
-                self.libexecdir[1:], DEFAULT_TECHCHECKSCRIPTDIR), body)
+                self.libexecdir.lstrip(os.path.sep),
+                DEFAULT_TECHCHECKSCRIPTDIR), body)
             body = re.sub('PIDFILE', os.path.join(self.root, 
-                self.localstatedir[1:], DEFAULT_PIDFILE), body)
+                self.localstatedir.lstrip(os.path.sep), DEFAULT_PIDFILE), body)
         else:
             body = re.sub('FILEMANAGERFILES', os.path.join(self.localstatedir, 
                 DEFAULT_FILEMANAGERFILES), body)
@@ -466,10 +468,10 @@ class Install_scripts(install_scripts):
         #search path for pid and fred server file and replace it with correct one
         if self.get_actual_root():
             body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
-                    os.path.join(self.root, self.localstatedir[1:], 
+                    os.path.join(self.root, self.localstatedir.lstrip(os.path.sep), 
                         DEFAULT_PIDFILE) + "'", body)
             body = re.sub(r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.root, self.prefix[1:], 
+                    os.path.join(self.root, self.prefix.lstrip(os.path.sep), 
                         DEFAULT_PYFREDSERVER) + "'", body)
         else:
             body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
@@ -493,11 +495,11 @@ class Install_scripts(install_scripts):
 
         if self.get_actual_root():
             body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
-                    os.path.join(self.root, self.sysconfdir[1:], 
+                    os.path.join(self.root, self.sysconfdir.lstrip(os.path.sep), 
                         DEFAULT_PYFREDSERVERCONF) + '",', body)
             body = re.sub(r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', r'\1' + 
-                    "('" + os.path.join(self.root, self.prefix[1:], pythonLibPath) + 
-                    "')", body)
+                    "('" + os.path.join(self.root, self.prefix.lstrip(os.path.sep),
+                        pythonLibPath) + "')", body)
         else:
             body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
                     os.path.join(self.sysconfdir, DEFAULT_PYFREDSERVERCONF) + 
