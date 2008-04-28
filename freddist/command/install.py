@@ -10,6 +10,18 @@ class install(_install):
         'Program executables [PREFIX/libexec]'))
     user_options.append(('localstatedir=', None,
         'Modifiable single machine data [PREFIX/var]'))
+    user_options.append(('libdir=', None,
+        'object code libraries [PREFIX/lib]'))
+    user_options.append(('datarootdir=', None,
+        'read only architecture-independent data root [PREFIX/share]'))
+    user_options.append(('datadir=', None,
+        'read only architecture-independent data [DATAROOTDIR]'))
+    user_options.append(('infodir=', None,
+        'info documentation [DATAROOTDIR/info]'))
+    user_options.append(('mandir=', None,
+        'man documentation [DATAROOTDIR/man]'))
+    user_options.append(('docdir=', None,
+        'documentation root [DATAROOTDIR/doc/NAME]'))
     user_options.append(('preservepath', None, 
         'Preserve path(s) in configuration file(s).'))
 
@@ -40,6 +52,12 @@ class install(_install):
         self.sysconfdir = None
         self.localstatedir = None
         self.libexecdir = None
+        self.libdir = None
+        self.datarootdir = None
+        self.datadir = None
+        self.infodir = None
+        self.mandir = None
+        self.docdir = None
         self.preservepath = None
 
     def finalize_options(self):
@@ -53,6 +71,19 @@ class install(_install):
             self.localstatedir = os.path.join(self.prefix, 'var')
         if not self.libexecdir:
             self.libexecdir = os.path.join(self.prefix, 'libexec')
+        if not self.libdir:
+            self.libdir = os.path.join(self.prefix, 'lib')
+        if not self.datarootdir:
+            self.datarootdir = os.path.join(self.prefix, 'share')
+        if not self.datadir:
+            self.datadir = self.datarootdir
+        if not self.infodir:
+            self.infodir = os.path.join(self.datarootdir, 'info')
+        if not self.mandir:
+            self.mandir = os.path.join(self.datarootdir, 'man')
+        if not self.docdir:
+            self.docdir = os.path.join(self.datarootdir, 'doc', self.distribution.metadata.name)
+        print self.docdir
 
         _install.finalize_options(self)
 

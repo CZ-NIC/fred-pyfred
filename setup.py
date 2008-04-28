@@ -42,11 +42,6 @@ DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 #whole is $localstatedir/zonebackup
 DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 
-#default fred libexec directory
-LIBEXEC_FRED_DIR = 'libexecdir/pyfred'
-#default fred conf directory
-ETC_FRED_DIR = 'etc/fred'
-
 #list of all default pyfred modules
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
 
@@ -262,20 +257,8 @@ class Install (install.install, object):
             self.omniidl = "omniidl"
 
         if not self.idldir:
-            # set idl directory to prefix/share/idl/fred/
-            self.idldir=os.path.join(self.prefix, "share", "idl", "fred")
-
-        for i in self.distribution.data_files:
-            if i[0] == ETC_FRED_DIR:
-                tup = (os.path.join(self.sysconfdir, 'fred'), i[1])
-                self.distribution.data_files.remove(i)
-                self.distribution.data_files.append(tup)
-
-        for i in self.distribution.data_files:
-            if i[0] == LIBEXEC_FRED_DIR:
-                tup = (os.path.join(self.libexecdir, 'pyfred'), i[1])
-                self.distribution.data_files.remove(i)
-                self.distribution.data_files.append(tup)
+            # set idl directory to datarootdir/idl/fred/
+            self.idldir=os.path.join(self.datarootdir, "idl", "fred")
 
     def find_sendmail(self):
         self.sendmail = DEFAULT_SENDMAIL
@@ -563,7 +546,7 @@ def main():
                     "scripts/techcheck_client",
                     ],
                 data_files = [
-                    (LIBEXEC_FRED_DIR,
+                    ('LIBEXECDIR/pyfred',
                         [
                             "tc_scripts/authoritative.py",
                             "tc_scripts/autonomous.py",
@@ -574,7 +557,7 @@ def main():
                             "tc_scripts/recursive.py"
                         ]
                     ),
-                    (ETC_FRED_DIR, [
+                    ('SYSCONFDIR/fred', [
                         os.path.join("build", "pyfred.conf"),
                         os.path.join("build", "genzone.conf")]),
                     ],
