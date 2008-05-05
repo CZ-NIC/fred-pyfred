@@ -2,6 +2,17 @@ import os, re
 from distutils.command.install import install as _install
 from distutils.debug import DEBUG
 
+# Difference between freddist.install and distutils.install class isn't wide.
+# Only new options were added. Most of them are output directory related.
+# These are used so far by freddist.install_data class.
+# Others are `--preservepath' and `--dont-record'. Preservepath command is used
+# to cut root part of installation path (of course if `--root' is used) when
+# this installation path is e.g. used in config files.
+#
+# Default distutils bahaviour is not to create file with installed files list.
+# Freddist change it. Default is to create that file (due to uninstall class)
+# and `--dont-record' option prevent this.
+
 class install(_install):
     user_options = _install.user_options
     user_options.append(('sysconfdir=', None, 
@@ -24,9 +35,12 @@ class install(_install):
         'documentation root [DATAROOTDIR/doc/NAME]'))
     user_options.append(('preservepath', None, 
         'Preserve path(s) in configuration file(s).'))
+    user_options.append(('dont-record', None,
+        'do not record list of installed files'))
 
     boolean_options = _install.boolean_options
     boolean_options.append('preservepath')
+    boolean_options.append('dont_record')
 
     def __init__(self, *attrs):
         _install.__init__(self, *attrs)
@@ -59,6 +73,7 @@ class install(_install):
         self.mandir = None
         self.docdir = None
         self.preservepath = None
+        self.dont_record = None
 
     def finalize_options(self):
         self.srcdir = self.distribution.srcdir
@@ -86,6 +101,8 @@ class install(_install):
         print self.docdir
 
         _install.finalize_options(self)
+        if not self.record and not self.dont_record:
+            self.record = 'install.log'
 
     def run(self):
         _install.run(self)
