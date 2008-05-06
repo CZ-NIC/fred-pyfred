@@ -376,14 +376,18 @@ class Install (install.install, object):
             bodyNew = []
             for i in body:
                 if self.get_actual_root():
-                    iNew = os.path.join('/', i)
-                else:
                     iNew = os.path.join(self.root, i)
+                else:
+                    iNew = os.path.join('/', i)
                 bodyNew.append(iNew)
-            if self.get_actual_root():
-                prefix = self.prefix
-            else:
-                prefix = os.path.join(self.root, self.prefix[1:])
+
+            # if self.get_actual_root():
+                # print "here: ", self.root, self.prefix[1:]
+                # prefix = os.path.join(self.root, self.prefix[1:])
+            # else:
+                # print "here:", self.prefix
+                # prefix = self.prefix
+            prefix = self.prefix
                 
             #this path is prepended to each record in files variable
             libdir = 'lib/python2.5/site-packages'
@@ -395,14 +399,18 @@ class Install (install.install, object):
                 ('pyfred', 
                     ('__init__.pyc')), 
                 ('pyfred/idlstubs', ('__init__.py', '__init__.pyc',
+                    '__init__.pyo',
                     'FileManager_idl.py', 'FileManager_idl.pyc',
-                    'Mailer_idl.py', 'Mailer_idl.pyc',
-                    'TechCheck_idl.py', 'TechCheck_idl.pyc',
-                    'ZoneGenerator_idl.py', 'ZoneGenerator_idl.pyc')),
+                    'FileManager_idl.pyo',
+                    'Mailer_idl.py', 'Mailer_idl.pyc', 'Mailer_idl.pyo',
+                    'TechCheck_idl.py', 'TechCheck_idl.pyc', 
+                    'TechCheck_idl.pyo',
+                    'ZoneGenerator_idl.py', 'ZoneGenerator_idl.pyc', 
+                    'ZoneGenerator_idl.pyo')),
                 ('pyfred/idlstubs/ccReg', ('__init__.py',
-                    '__init__.pyc')),
+                    '__init__.pyc', '__init__.pyo')),
                 ('pyfred/idlstubs/ccReg__POA', ('__init__.py',
-                    '__init__.pyc'))]
+                    '__init__.pyc', '__init__.pyo'))]
 
             for record in files:
                 dir = record[0]

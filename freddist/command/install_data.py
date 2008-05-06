@@ -90,6 +90,14 @@ class install_data(_install_data):
                 # it's a simple file, so copy it
                 (out, _) = self.copy_file(f, self.install_dir)
                 self.outfiles.append(out)
+
+                if out.endswith('.py'):
+                    os.system('python -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                    self.outfiles.append(out)
+                    print "creating compiled %s" % out + 'c'
+                    os.system('python -O -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                    self.outfiles.append(out)
+                    print "creating optimized %s" % out + 'o'
             else:
                 # it's a tuple with path to install to and a list of files
                 dir = util.convert_path(self.replaceSpecialDir(f[0]))
@@ -113,3 +121,10 @@ class install_data(_install_data):
                         (out, _) = self.copy_file(data, dir)
                         self.outfiles.append(out)
 
+                        if out.endswith('.py'):
+                            os.system('python -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                            self.outfiles.append(out + 'c')
+                            print "creating compiled %s" % out + 'c'
+                            os.system('python -O -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                            self.outfiles.append(out + 'o')
+                            print "creating optimized %s" % out + 'o'
