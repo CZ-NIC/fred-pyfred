@@ -98,11 +98,58 @@ class install(_install):
             self.mandir = os.path.join(self.datarootdir, 'man')
         if not self.docdir:
             self.docdir = os.path.join(self.datarootdir, 'doc', self.distribution.metadata.name)
-        print self.docdir
 
         _install.finalize_options(self)
         if not self.record and not self.dont_record:
             self.record = 'install.log'
 
+    def normalize_record(self):
+        """
+        Method normalize content of record file, prepend slashes (/) if needed
+        and remove double slashes (//) from paths.
+        """
+        if self.record:
+            oldRecord = open(self.record).readlines()
+            newRecord = []
+            for line in oldRecord:
+                if not line.startswith(os.path.sep):
+                    line = os.path.sep + line
+                newRecord.append(os.path.normpath(line))
+            open(self.record, 'w').writelines(newRecord)
+
+    def update_record(self):
+        """
+        If needed prepend self.root to each path
+        """
+        if self.get_actual_root() and self.record:
+            record = open(self.record).readlines()
+            for i in range(len(record)):
+                if os.path.normpath(record[i]).find(os.path.normpath(self.root)) == -1:
+                    record[i] = os.path.join(self.root, record[i].strip(os.path.sep))
+            open(self.record, 'w').writelines(record)
+
+
+
+    def add_to_record(self, files):
+        """
+        This method take as parameter list of files, which are added
+        into record file (if exists)
+        """
+        #proceed only if i record
+        if self.record:
+            record = open(self.record).readlines()
+            for file in files:
+                # i must ensure, that every file from files has new line
+                # character at end
+                file = file.strip() + '\n'
+                if not file in record:
+                    # file is not in record, so add it
+                    record.append(file)
+            open(self.record, 'w').writelines(record)
+            print "record file has been updated"
+            #self.update_record()
+
     def run(self):
         _install.run(self)
+        #self.update_record()
+        self.normalize_record()

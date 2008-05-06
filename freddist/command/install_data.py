@@ -2,6 +2,36 @@ import types, os, re
 from distutils import util
 from distutils.command.install_data import install_data as _install_data
 
+# freddist install_data came with one enhancement. It regards system directories.
+# And first simple example. This is part of core.setup function:
+#
+# 01     setup(name='some_name',
+# 02             author='your name',
+# 03             #important part goes now
+# 04             data_files = [
+# 05                 ('SYSCONFDIR/some_name',
+# 06                     [
+# 07                         'file_no1.conf',
+# 08                         'file_no2.conf'
+# 09                     ]
+# 10                 ),
+# 11                 ('DOCDIR',
+# 12                     [
+# 13                         'document_no1.html'
+# 14                     ]
+# 15                 ),
+# 16                 ('LOCALSTATEDIR/whatever', ),
+# 17             ],
+# 18             another setup stuff....,
+#
+# As you can see, in data_files is used some strange `SYSCONFDIR' and `DOCDIR'
+# option. These are during install phase replaced by fully expanded directory
+# names. For example `file_no1.conf' and `file_no2.conf' will be installed into
+# `PREFIX/etc/some_name' directory. And since `PREFIX' is normally `/usr/local'
+# then full path to first file will be `/usr/local/etc/some_name/file_no1.conf'.
+# All these setting can be overriden by proper options.
+# On line 16 is example of creating empty directory.
+
 class install_data(_install_data):
     user_options = _install_data.user_options
     user_options.append(('prefix=', None,
@@ -78,7 +108,6 @@ class install_data(_install_data):
         #DIST line added
         self.mkpath(self.install_dir)
         for f in self.data_files:
-            self.replaceSpecialDir(f[0])
             if type(f) is types.StringType:
                 #NICDIST next line changed
                 if not os.path.exists(f):
@@ -107,11 +136,12 @@ class install_data(_install_data):
                     dir = util.change_root(self.root, dir)
                 self.mkpath(dir)
 
-                if f[1] == []:
+                if len(f) == 1 or f[1] == []:
                     # If there are no files listed, the user must be
                     # trying to create an empty directory, so add the
                     # directory to the list of output files.
                     self.outfiles.append(dir)
+                    print "creating directory %s" % dir
                 else:
                     # Copy files, adding them to the list of output files.
                     for data in f[1]:

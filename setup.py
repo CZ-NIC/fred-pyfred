@@ -337,97 +337,6 @@ class Install (install.install, object):
         open('build/genzone.conf', 'w').write(body)
         print "genzone configuration file has been updated"
 
-    def createDirectories(self):
-        """
-        this create required directories if need
-        """
-        if self.root:
-            fileManagerDir = os.path.join(self.root, self.localstatedir[1:], DEFAULT_FILEMANAGERFILES)
-            pidDir = os.path.join(self.root, self.localstatedir[1:], 'run')
-        else:
-            fileManagerDir = os.path.join(self.localstatedir, DEFAULT_FILEMANAGERFILES)
-            pidDir = os.path.join(self.localstatedir, 'run')
-
-        if not os.path.exists(pidDir):
-            try:
-                os.makedirs(pidDir)
-                print "Creating directory", pidDir
-            except OSError, e:
-                print e
-
-        if not os.path.exists(fileManagerDir):
-            try:
-                os.makedirs(fileManagerDir)
-                print "Creating directory", fileManagerDir
-            except OSError, e:
-                print e
-
-    def update_record_file(self):
-        """
-        This methods purpose is to add some files (listed in `files' variable -
-        see below) to record file - this list is used by rpmbuild to decide
-        which files are part of rpm archive.
-        """
-        print "update_record_file"
-        bodyNew = None
-        #proceed only if i wish to record installed files
-        if self.record:
-            body = open(self.record).readlines()
-            bodyNew = []
-            for i in body:
-                if self.get_actual_root():
-                    iNew = os.path.join(self.root, i)
-                else:
-                    iNew = os.path.join('/', i)
-                bodyNew.append(iNew)
-
-            # if self.get_actual_root():
-                # print "here: ", self.root, self.prefix[1:]
-                # prefix = os.path.join(self.root, self.prefix[1:])
-            # else:
-                # print "here:", self.prefix
-                # prefix = self.prefix
-            prefix = self.prefix
-                
-            #this path is prepended to each record in files variable
-            libdir = 'lib/python2.5/site-packages'
-
-            #list of files which i want add to record list.
-            #each directory is represended by tuple, first entry is directory,
-            #second is list of files in this directory
-            files = [
-                ('pyfred', 
-                    ('__init__.pyc')), 
-                ('pyfred/idlstubs', ('__init__.py', '__init__.pyc',
-                    '__init__.pyo',
-                    'FileManager_idl.py', 'FileManager_idl.pyc',
-                    'FileManager_idl.pyo',
-                    'Mailer_idl.py', 'Mailer_idl.pyc', 'Mailer_idl.pyo',
-                    'TechCheck_idl.py', 'TechCheck_idl.pyc', 
-                    'TechCheck_idl.pyo',
-                    'ZoneGenerator_idl.py', 'ZoneGenerator_idl.pyc', 
-                    'ZoneGenerator_idl.pyo')),
-                ('pyfred/idlstubs/ccReg', ('__init__.py',
-                    '__init__.pyc', '__init__.pyo')),
-                ('pyfred/idlstubs/ccReg__POA', ('__init__.py',
-                    '__init__.pyc', '__init__.pyo'))]
-
-            for record in files:
-                dir = record[0]
-                files = record[1]
-                if type(files) == types.TupleType:
-                    for file in files:
-                        fileline = os.path.join(prefix, libdir, dir, file) + '\n'
-                        if fileline not in bodyNew:
-                            bodyNew.append(fileline)
-                else:
-                    fileline = os.path.join(prefix, libdir, dir, files)+ '\n'
-                    if fileline in bodyNew:
-                        bodyNew.append(fileline)
-
-            open(self.record, 'w').writelines(bodyNew)
-            print "record file has been updated"
-
     def run(self):
         #set actual root for install_script class which has no opportunity
         #to reach get_actual_root method
@@ -448,13 +357,42 @@ class Install (install.install, object):
 
         self.update_server_config()
         self.update_genzone_config()
-        self.createDirectories()
 
         super(Install, self).run()
 
-        #append idl stubs to record file - due to rpm creation
-        self.update_record_file()
+        files = [
+                'pyfred/__init__.py',
+                'pyfred/__init__.pyc',
+                'pyfred/__init__.pyo',
+                'pyfred/idlstubs/__init__.py',
+                'pyfred/idlstubs/FileManager_idl.py',
+                'pyfred/idlstubs/Mailer_idl.py',
+                'pyfred/idlstubs/TechCheck_idl.py',
+                'pyfred/idlstubs/ZoneGenerator_idl.py',
+                'pyfred/idlstubs/__init__.pyc',
+                'pyfred/idlstubs/FileManager_idl.pyc',
+                'pyfred/idlstubs/Mailer_idl.pyc',
+                'pyfred/idlstubs/TechCheck_idl.pyc',
+                'pyfred/idlstubs/ZoneGenerator_idl.pyc',
+                'pyfred/idlstubs/__init__.pyo',
+                'pyfred/idlstubs/FileManager_idl.pyo',
+                'pyfred/idlstubs/Mailer_idl.pyo',
+                'pyfred/idlstubs/TechCheck_idl.pyo',
+                'pyfred/idlstubs/ZoneGenerator_idl.pyo',
+                'pyfred/idlstubs/ccReg/__init__.py',
+                'pyfred/idlstubs/ccReg/__init__.pyc',
+                'pyfred/idlstubs/ccReg/__init__.pyo',
+                'pyfred/idlstubs/ccReg__POA/__init__.py',
+                'pyfred/idlstubs/ccReg__POA/__init__.pyc',
+                'pyfred/idlstubs/ccReg__POA/__init__.pyo',
+            ]
+        libdir = 'lib/python%d.%d/site-packages' % (sys.version_info[0], sys.version_info[1])
+        for i in range(len(files)):
+            files[i] = os.path.join(self.prefix, libdir, files[i])
 
+        #append idl stubs to record file - due to rpm creation
+        self.add_to_record(files)
+    #run()
 #class Install
 
 class Install_scripts(install_scripts):
@@ -555,6 +493,9 @@ def main():
                     "scripts/techcheck_client",
                     ],
                 data_files = [
+                    # create empty directories
+                    ('LOCALSTATEDIR/run',),
+                    ('LOCALSTATEDIR/lib/pyfred/filemanager',),
                     ('LIBEXECDIR/pyfred',
                         [
                             "tc_scripts/authoritative.py",
@@ -566,10 +507,13 @@ def main():
                             "tc_scripts/recursive.py"
                         ]
                     ),
-                    ('SYSCONFDIR/fred', [
-                        os.path.join("build", "pyfred.conf"),
-                        os.path.join("build", "genzone.conf")]),
-                    ],
+                    ('SYSCONFDIR/fred',
+                        [
+                            os.path.join("build", "pyfred.conf"),
+                            os.path.join("build", "genzone.conf")
+                        ]
+                    ),
+                ],
                 srcdir = g_srcdir
                 )
         return True
