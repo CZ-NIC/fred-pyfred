@@ -277,64 +277,64 @@ class Install (install.install, object):
         """
         #try to find sendmail binary
         self.find_sendmail()
-        body = open(os.path.join(self.srcdir, 'conf', 'pyfred.conf.install')).read()
+        values = []
+        values.append(('MODULES', self.modules))
+        values.append(('DBUSER', self.dbuser))
+        values.append(('DBNAME', self.dbname))
+        values.append(('DBHOST', self.dbhost))
+        values.append(('DBPORT', self.dbport))
+        values.append(('DBPASS', self.dbpass))
+        values.append(('NSCONTEXT', self.nscontext))
+        values.append(('NSHOST', self.nshost))
+        values.append(('NSPORT', self.nsport))
+        values.append(('SENDMAIL', self.sendmail))
+        values.append(('PYFREDPORT', self.pyfredport))
 
-        #change configuration options
-        body = re.sub('MODULES', self.modules, body)
-        body = re.sub('DBUSER', self.dbuser, body)
-        body = re.sub('DBNAME', self.dbname, body)
-        body = re.sub('DBHOST', self.dbhost, body)
-        body = re.sub('DBPORT', self.dbport, body)
-        body = re.sub('DBPASS', self.dbpass, body)
-        body = re.sub('NSCONTEXT', self.nscontext, body)
-        body = re.sub('NSHOST', self.nshost, body)
-        body = re.sub('NSPORT', self.nsport, body)
-        body = re.sub('SENDMAIL', self.sendmail, body)
-        body = re.sub('PYFREDPORT', self.pyfredport, body)
-
-        #change paths to filemanager files and techcheck scripts and pid
-        #file location
         if self.get_actual_root():
-            body = re.sub('FILEMANAGERFILES', os.path.join(self.root,
-                self.localstatedir.lstrip(os.path.sep),
-                DEFAULT_FILEMANAGERFILES), body)
-            body = re.sub('TECHCHECKSCRIPTDIR', os.path.join(self.root, 
-                self.libexecdir.lstrip(os.path.sep),
-                DEFAULT_TECHCHECKSCRIPTDIR), body)
-            body = re.sub('PIDFILE', os.path.join(self.root, 
-                self.localstatedir.lstrip(os.path.sep), DEFAULT_PIDFILE), body)
+            values.append(('FILEMANAGERFILES', os.path.join(
+                self.root, self.localstatedir.lstrip(os.path.sep),
+                DEFAULT_FILEMANAGERFILES)))
+            values.append(('TECHCHECKSCRIPTDIR', os.path.join(
+                self.root, self.libexecdir.lstrip(os.path.sep),
+                DEFAULT_TECHCHECKSCRIPTDIR)))
+            values.append(('PIDFILE', os.path.join(
+                self.root, self.localstatedir.lstrip(os.path.sep),
+                DEFAULT_PIDFILE)))
         else:
-            body = re.sub('FILEMANAGERFILES', os.path.join(self.localstatedir, 
-                DEFAULT_FILEMANAGERFILES), body)
-            body = re.sub('TECHCHECKSCRIPTDIR', os.path.join(self.libexecdir, 
-                DEFAULT_TECHCHECKSCRIPTDIR), body)
-            body = re.sub('PIDFILE', os.path.join(self.localstatedir, 
-                DEFAULT_PIDFILE), body)
+            values.append(('FILEMANAGERFILES', os.path.join(
+                self.localstatedir, DEFAULT_FILEMANAGERFILES)))
+            values.append(('TECHCHECKSCRIPTDIR', os.path.join(
+                self.libexecdir, DEFAULT_TECHCHECKSCRIPTDIR)))
+            values.append(('PIDFILE', os.path.join(
+                self.localstatedir, DEFAULT_PIDFILE)))
 
-        #XXX it will be better to use some variable instead of bare `build'
-        #(but simple) string. For example Install_scripts class has install_dir
-        #variable (looks like: `build/scripts2.5') which can be used to find
-        #out that build directory. But this class (equally as Install_data class)
-        #hasn't got this variable.
-        open(os.path.join('build', 'pyfred.conf'), 'w').write(body)
+        self.replace_pattern(
+                os.path.join(self.srcdir, 'conf', 'pyfred.conf.install'),
+                os.path.join('build', 'pyfred.conf'),
+                values)
         print "Configuration file has been updated"
 
     def update_genzone_config(self):
         """
         Update paths in genzone.conf file.
         """
-        body = open(os.path.join(self.srcdir, 'conf', 'genzone.conf.install')).read()
-
-        body = re.sub('NSHOST', self.nshost, body)
-
+        patterns = ['ZONEBACKUPDIR']
+        newvals = []
         if self.get_actual_root():
-            body = re.sub('ZONEBACKUPDIR', os.path.join(self.root,
-                self.localstatedir[1:], DEFAULT_ZONEBACKUPDIR), body)
+            newvals.append(os.path.join(
+                self.root,
+                self.localstatedir.lstrip(os.path.sep), 
+                DEFAULT_ZONEBACKUPDIR))
         else:
-            body = re.sub('ZONEBACKUPDIR', os.path.join(self.localstatedir,
-                DEFAULT_ZONEBACKUPDIR), body)
+            newvals.append(os.path.join(
+                self.localstatedir,
+                DEFAULT_ZONEBACKUPDIR))
 
-        open('build/genzone.conf', 'w').write(body)
+        self.replace_pattern(
+                os.path.join(self.srcdir, 'conf', 'genzone.conf.install'),
+                os.path.join('build', 'genzone.conf'),
+                map(None, patterns, newvals))
+
         print "genzone configuration file has been updated"
 
     def run(self):
