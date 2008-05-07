@@ -408,51 +408,55 @@ class Install_scripts(install_scripts):
         """
         Update paths in pyfredctl file (location of pid file and pyfred_server file)
         """
-        body = open(os.path.join(self.build_dir, 'pyfredctl')).read()
-
-        #search path for pid and fred server file and replace it with correct one
+        values = []
         if self.get_actual_root():
-            body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
-                    os.path.join(self.root, self.localstatedir.lstrip(os.path.sep), 
-                        DEFAULT_PIDFILE) + "'", body)
-            body = re.sub(r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.root, self.prefix.lstrip(os.path.sep), 
-                        DEFAULT_PYFREDSERVER) + "'", body)
+            values.append((r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
+                    os.path.join(self.root,
+                        self.localstatedir.lstrip(os.path.sep), 
+                        DEFAULT_PIDFILE) + "'"))
+            values.append((r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
+                    os.path.join(self.root,
+                        self.prefix.lstrip(os.path.sep), 
+                        DEFAULT_PYFREDSERVER) + "'"))
         else:
-            body = re.sub(r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
-                    os.path.join(self.localstatedir, DEFAULT_PIDFILE) + "'", body)
-            body = re.sub(r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.prefix, DEFAULT_PYFREDSERVER) + "'", body)
-
-        open(os.path.join(self.build_dir, 'pyfredctl'), 'w').write(body)
+            values.append((r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
+                    os.path.join(self.localstatedir, DEFAULT_PIDFILE) + "'"))
+            values.append((r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
+                    os.path.join(self.prefix, DEFAULT_PYFREDSERVER) + "'"))
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'pyfredctl'),
+                None, values)
         print "pyfredctl file has been updated"
 
     def update_pyfred_server(self):
         """
         Update paths in pyfred_server file (path to config file and search path for modules).
         """
-        body = open(os.path.join(self.build_dir, 'pyfred_server')).read()
-
+        values = []
         #create path where python modules are located
         pythonLibPath = os.path.join('lib', 'python' +
                 str(sys.version_info[0]) + '.' + 
                 str(sys.version_info[1]), 'site-packages')
 
         if self.get_actual_root():
-            body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
-                    os.path.join(self.root, self.sysconfdir.lstrip(os.path.sep), 
-                        DEFAULT_PYFREDSERVERCONF) + '",', body)
-            body = re.sub(r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', r'\1' + 
-                    "('" + os.path.join(self.root, self.prefix.lstrip(os.path.sep),
-                        pythonLibPath) + "')", body)
+            values.append((r'(configs = )\["[\w/_\- \.]*",',
+                r'\1' + '["'  + 
+                os.path.join(self.root,
+                    self.sysconfdir.lstrip(os.path.sep), 
+                    DEFAULT_PYFREDSERVERCONF) + '",'))
+            values.append((r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', 
+                r'\1' + "('" +
+                os.path.join(self.root,
+                    self.prefix.lstrip(os.path.sep),
+                    pythonLibPath) + "')"))
         else:
-            body = re.sub(r'(configs = )\["[\w/_\- \.]*",', r'\1' + '["'  + 
-                    os.path.join(self.sysconfdir, DEFAULT_PYFREDSERVERCONF) + 
-                    '",', body)
-            body = re.sub(r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', r'\1' + 
-                    "('" + os.path.join(self.prefix, pythonLibPath) + "')", body)
-
-        open(os.path.join(self.build_dir, 'pyfred_server'), 'w').write(body)
+            values.append((r'(configs = )\["[\w/_\- \.]*",',
+                r'\1' + '["' +
+                os.path.join(self.sysconfdir, DEFAULT_PYFREDSERVERCONF) + 
+                '",'))
+            values.append((r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)',
+                r'\1' + "('" +
+                os.path.join(self.prefix, pythonLibPath) + "')"))
         print "pyfred_server file has been updated"
 
     def run(self):

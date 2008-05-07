@@ -105,11 +105,11 @@ class install_data(_install_data):
         _install_data.finalize_options(self)
 
     def run(self):
-        #DIST line added
+        #FREDDIST line added
         self.mkpath(self.install_dir)
         for f in self.data_files:
             if type(f) is types.StringType:
-                #NICDIST next line changed
+                #FREDDIST next line changed
                 if not os.path.exists(f):
                     f = util.convert_path(os.path.join(self.srcdir, f))
                 if self.warn_dir:
@@ -121,10 +121,12 @@ class install_data(_install_data):
                 self.outfiles.append(out)
 
                 if out.endswith('.py'):
-                    os.system('python -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                    os.system('python -c "import py_compile; \
+                            py_compile.compile(\'%s\')"' % out)
                     self.outfiles.append(out)
                     print "creating compiled %s" % out + 'c'
-                    os.system('python -O -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                    os.system('python -O -c "import py_compile; \
+                            py_compile.compile(\'%s\')"' % out)
                     self.outfiles.append(out)
                     print "creating optimized %s" % out + 'o'
             else:
@@ -145,16 +147,19 @@ class install_data(_install_data):
                 else:
                     # Copy files, adding them to the list of output files.
                     for data in f[1]:
-                        #NICDIST next line changed
+                        #FREDDIST next line changed
                         if not os.path.exists(data):
-                            data = util.convert_path(os.path.join(self.srcdir, data))
+                            data = util.convert_path(
+                                    os.path.join(self.srcdir, data))
                         (out, _) = self.copy_file(data, dir)
                         self.outfiles.append(out)
 
                         if out.endswith('.py'):
-                            os.system('python -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                            os.system('python -c "import py_compile; \
+                                    py_compile.compile(\'%s\')"' % out)
                             self.outfiles.append(out + 'c')
                             print "creating compiled %s" % out + 'c'
-                            os.system('python -O -c "import py_compile; py_compile.compile(\'%s\')"' % out)
+                            os.system('python -O -c "import py_compile; \
+                                    py_compile.compile(\'%s\')"' % out)
                             self.outfiles.append(out + 'o')
                             print "creating optimized %s" % out + 'o'

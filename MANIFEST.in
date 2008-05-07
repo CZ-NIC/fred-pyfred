@@ -1,8 +1,10 @@
 include INSTALL ChangeLog
-include tc_scripts/*
-include freddist/*
-include freddist/command/*
+include tc_scripts/*.py
+include freddist/*.py
+include freddist/command/*.py
 include setup.cfg
 
 include conf/pyfred.conf.install
 include conf/genzone.conf.install
+
+include unittests/*

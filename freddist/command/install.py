@@ -1,7 +1,7 @@
 import os, re
 from distutils.command.install import install as _install
-from distutils.errors import DistutilsOptionError
 from distutils.debug import DEBUG
+from common import replace_pattern as _replace_pattern
 
 # Difference between freddist.install and distutils.install class isn't wide.
 # Only new options were added. Most of them are output directory related.
@@ -57,7 +57,8 @@ class install(_install):
                 break
     def get_actual_root(self):
         '''
-        Return actual root only in case if the process is not in creation of the package
+        Return actual root only in case if the process is not in creation of
+        the package
         '''
         return ((self.is_bdist_mode or self.preservepath) and [''] or 
                 [type(self.root) is not None and self.root or ''])[0]
@@ -98,7 +99,8 @@ class install(_install):
         if not self.mandir:
             self.mandir = os.path.join(self.datarootdir, 'man')
         if not self.docdir:
-            self.docdir = os.path.join(self.datarootdir, 'doc', self.distribution.metadata.name)
+            self.docdir = os.path.join(
+                    self.datarootdir, 'doc', self.distribution.metadata.name)
 
         _install.finalize_options(self)
         if not self.record and not self.dont_record:
@@ -125,8 +127,10 @@ class install(_install):
         if self.get_actual_root() and self.record:
             record = open(self.record).readlines()
             for i in range(len(record)):
-                if os.path.normpath(record[i]).find(os.path.normpath(self.root)) == -1:
-                    record[i] = os.path.join(self.root, record[i].lstrip(os.path.sep))
+                if os.path.normpath(record[i]).find(
+                        os.path.normpath(self.root)) == -1:
+                    record[i] = os.path.join(
+                        self.root, record[i].lstrip(os.path.sep))
             open(self.record, 'w').writelines(record)
 
 
@@ -156,15 +160,7 @@ class install(_install):
         Structure of values parameter looks like:
         [(pattern_1, new_val_1), (pattern_2, new_val_2), ...]
         """
-        if not fileSave:
-            fileSave = fileOpen
-        body = open(fileOpen).read()
-
-        for value in values:
-            body = re.sub(value[0], value[1], body)
-
-        open(fileSave, 'w').write(body)
-        
+        _replace_pattern(fileOpen, fileSave, values) 
 
     def run(self):
         _install.run(self)
