@@ -4,7 +4,7 @@
 # All changes in classes against standart distutils is marked with `DIST'
 # string in comments above each change.
 
-import sys, os, string, commands, re, shutil, stat, types
+import sys, os, string, commands, stat, types
 from distutils import log
 from distutils import util
 from distutils import errors
