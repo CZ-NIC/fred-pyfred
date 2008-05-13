@@ -457,6 +457,9 @@ class Install_scripts(install_scripts):
             values.append((r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)',
                 r'\1' + "('" +
                 os.path.join(self.prefix, pythonLibPath) + "')"))
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'pyfred_server'),
+                None, values)
         print "pyfred_server file has been updated"
 
     def run(self):
