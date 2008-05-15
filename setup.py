@@ -13,6 +13,8 @@ from distutils.command import config
 from freddist.core import setup
 from freddist.command import install
 from freddist.command.install_scripts import install_scripts
+from freddist.command.install_data import install_data
+from freddist import file_util
 
 PROJECT_NAME = 'pyfred_server'
 PACKAGE_NAME = 'pyfred_server'
@@ -51,6 +53,8 @@ g_srcdir = '.'
 g_actualRoot = ''
 #variable to store content of --root install/build option
 g_root = ''
+#whether install unittests scripts
+g_install_unittests = None
 
 class Config (config.config):
     """
@@ -220,6 +224,12 @@ class Install (install.install, object):
         "directory where IDL files reside [PREFIX/share/idl/fred/]"))
     user_options.append(("idlforce", "o", 
     "force idl stubs to be always generated"))
+    user_options.append(('install-unittests', None,
+        'setup will install unittest scripts into '
+        'PREFIX/lib/fred-pyfred/unittests directory'))
+
+    boolean_options = install.install.boolean_options
+    boolean_options.append('install-unittests')
 
     def __init__(self, *attrs):
         super(Install, self).__init__(*attrs)
@@ -245,6 +255,7 @@ class Install (install.install, object):
         self.omniidl  = None
         self.omniidl_params = ["-Cbuild/lib", "-bpython", "-Wbinline"]
         self.idlfiles = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
+        self.install_unittests = None
 
     def finalize_options(self):
         cmd_obj = self.distribution.get_command_obj('bdist', False)
@@ -255,10 +266,16 @@ class Install (install.install, object):
         super(Install, self).finalize_options()
         if not self.omniidl:
             self.omniidl = "omniidl"
+        global g_install_unittests
+        g_install_unittests = self.install_unittests
 
         if not self.idldir:
             # set idl directory to datarootdir/idl/fred/
             self.idldir=os.path.join(self.datarootdir, "idl", "fred")
+        if self.install_unittests:
+            self.distribution.data_files.append(
+                    ('LIBDIR/%s/unittests' % self.distribution.get_name(), 
+                        file_util.all_files_in_2('unittests', ['.*'])))
 
     def find_sendmail(self):
         self.sendmail = DEFAULT_SENDMAIL
@@ -290,23 +307,12 @@ class Install (install.install, object):
         values.append(('SENDMAIL', self.sendmail))
         values.append(('PYFREDPORT', self.pyfredport))
 
-        if self.get_actual_root():
-            values.append(('FILEMANAGERFILES', os.path.join(
-                self.root, self.localstatedir.lstrip(os.path.sep),
-                DEFAULT_FILEMANAGERFILES)))
-            values.append(('TECHCHECKSCRIPTDIR', os.path.join(
-                self.root, self.libexecdir.lstrip(os.path.sep),
-                DEFAULT_TECHCHECKSCRIPTDIR)))
-            values.append(('PIDFILE', os.path.join(
-                self.root, self.localstatedir.lstrip(os.path.sep),
-                DEFAULT_PIDFILE)))
-        else:
-            values.append(('FILEMANAGERFILES', os.path.join(
-                self.localstatedir, DEFAULT_FILEMANAGERFILES)))
-            values.append(('TECHCHECKSCRIPTDIR', os.path.join(
-                self.libexecdir, DEFAULT_TECHCHECKSCRIPTDIR)))
-            values.append(('PIDFILE', os.path.join(
-                self.localstatedir, DEFAULT_PIDFILE)))
+        values.append(('FILEMANAGERFILES', os.path.join(
+            self.getDir('localstatedir'), DEFAULT_FILEMANAGERFILES)))
+        values.append(('TECHCHECKSCRIPTDIR', os.path.join(
+            self.getDir('libexecdir'), DEFAULT_TECHCHECKSCRIPTDIR)))
+        values.append(('PIDFILE', os.path.join(
+            self.getDir('localstatedir'), DEFAULT_PIDFILE)))
 
         self.replace_pattern(
                 os.path.join(self.srcdir, 'conf', 'pyfred.conf.install'),
@@ -318,22 +324,16 @@ class Install (install.install, object):
         """
         Update paths in genzone.conf file.
         """
-        patterns = ['ZONEBACKUPDIR']
-        newvals = []
-        if self.get_actual_root():
-            newvals.append(os.path.join(
-                self.root,
-                self.localstatedir.lstrip(os.path.sep), 
-                DEFAULT_ZONEBACKUPDIR))
-        else:
-            newvals.append(os.path.join(
-                self.localstatedir,
-                DEFAULT_ZONEBACKUPDIR))
+        values = []
+        values.append(('ZONEBACKUPDIR', self.getDir('localstatedir')))
+        values.append(('NAMESERVICE', self.nshost + ":" + self.nsport))
+        values.append(('CONTEXT', self.nscontext))
 
         self.replace_pattern(
                 os.path.join(self.srcdir, 'conf', 'genzone.conf.install'),
                 os.path.join('build', 'genzone.conf'),
-                map(None, patterns, newvals))
+                values)
+                #map(None, patterns, newvals))
 
         print "genzone configuration file has been updated"
 
@@ -386,7 +386,9 @@ class Install (install.install, object):
                 'pyfred/idlstubs/ccReg__POA/__init__.pyc',
                 'pyfred/idlstubs/ccReg__POA/__init__.pyo',
             ]
-        libdir = 'lib/python%d.%d/site-packages' % (sys.version_info[0], sys.version_info[1])
+        libdir = 'lib/python%d.%d/site-packages' % (sys.version_info[0],
+                sys.version_info[1])
+
         for i in range(len(files)):
             files[i] = os.path.join(self.prefix, libdir, files[i])
 
@@ -394,6 +396,52 @@ class Install (install.install, object):
         self.add_to_record(files)
     #run()
 #class Install
+
+class Install_data(install_data):
+    def initialize_options(self):
+        install_data.initialize_options(self)
+        self.install_unittests = None
+
+    def finalize_options(self):
+        install_data.finalize_options(self)
+        self.install_unittests = g_install_unittests
+
+    def update_test_filemanager(self):
+        values = []
+        values.append((r'(pyfred_bin_dir\ =\ )\'\/usr\/local\/bin\/\'',
+            r"\1'%s'" % os.path.join(self.getDir('prefix'), 'bin')))
+
+        self.replace_pattern(
+                os.path.join(self.getDir('libdir'), self.distribution.get_name(),
+                    'unittests', 'test_filemanager.py'),
+                None, values)
+        print "test_filemanager file has been updated"
+
+    def update_test_genzone(self):
+        values = []
+        values.append((r'(pyfred_bin_dir\ =\ )\'\/usr\/local\/bin\/\'',
+            r"\1'%s'" % os.path.join(self.getDir('prefix'), 'bin')))
+        values.append((r'(config\.read)\(\'\/etc\/fred\/pyfred.conf\'\)',
+            r"\1('%s')" %
+            os.path.join(self.getDir('sysconfdir'), 'fred', 'pyfred.conf')))
+        values.append((r'(config\.read)\(\'\/etc\/fred\/genzone.conf\'\)',
+            r"\1('%s')" %
+            os.path.join(self.getDir('sysconfdir'), 'fred', 'genzone.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.getDir('libdir'), self.distribution.get_name(),
+                    'unittests', 'test_genzone.py'),
+                None, values)
+        print "test_genzone file has been updated"
+
+    def run(self):
+        install_data.run(self)
+        # TODO so far is impossible to create rpm package with unittests \ 
+        # scripts in it, because of update_* methods have wrong paths \
+        # to files which should be changed.
+        if self.install_unittests or self.is_bdist_mode:
+            self.update_test_filemanager()
+            self.update_test_genzone()
 
 class Install_scripts(install_scripts):
     """
@@ -403,26 +451,24 @@ class Install_scripts(install_scripts):
 
     # def get_actual_root(self):
         # return self.actualRoot
+    def __init__(self, *attrs):
+        install_scripts.__init__(self, *attrs)
+        self.pythonLibPath = os.path.join('lib', 'python' +
+                str(sys.version_info[0]) + '.' + 
+                str(sys.version_info[1]), 'site-packages')
 
     def update_pyfredctl(self):
         """
-        Update paths in pyfredctl file (location of pid file and pyfred_server file)
+        Update paths in pyfredctl file (location of pid file and
+        pyfred_server file)
         """
         values = []
-        if self.get_actual_root():
-            values.append((r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.root,
-                        self.localstatedir.lstrip(os.path.sep), 
-                        DEFAULT_PIDFILE) + "'"))
-            values.append((r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.root,
-                        self.prefix.lstrip(os.path.sep), 
-                        DEFAULT_PYFREDSERVER) + "'"))
-        else:
-            values.append((r'(pidfile = )\'[\w/_ \-\.]*\'', r'\1' + "'"  + 
-                    os.path.join(self.localstatedir, DEFAULT_PIDFILE) + "'"))
-            values.append((r'(pyfred_server = )\'[\w/_ \-\.]*\'', r'\1' + "'" + 
-                    os.path.join(self.prefix, DEFAULT_PYFREDSERVER) + "'"))
+        values.append((r'(pidfile = )\'[\w/_ \-\.]*\'',
+            r"\1'%s'" % os.path.join(self.getDir('localstatedir'),
+                DEFAULT_PIDFILE)))
+        values.append((r'(pyfred_server = )\'[\w/_ \-\.]*\'',
+            r"\1'%s'" % os.path.join(self.getDir('prefix'),
+                DEFAULT_PYFREDSERVER)))
         self.replace_pattern(
                 os.path.join(self.build_dir, 'pyfredctl'),
                 None, values)
@@ -430,41 +476,144 @@ class Install_scripts(install_scripts):
 
     def update_pyfred_server(self):
         """
-        Update paths in pyfred_server file (path to config file and search path for modules).
+        Update paths in pyfred_server file (path to config file and search
+        path for modules).
         """
         values = []
-        #create path where python modules are located
-        pythonLibPath = os.path.join('lib', 'python' +
-                str(sys.version_info[0]) + '.' + 
-                str(sys.version_info[1]), 'site-packages')
-
-        if self.get_actual_root():
-            values.append((r'(configs = )\["[\w/_\- \.]*",',
-                r'\1' + '["'  + 
-                os.path.join(self.root,
-                    self.sysconfdir.lstrip(os.path.sep), 
-                    DEFAULT_PYFREDSERVERCONF) + '",'))
-            values.append((r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)', 
-                r'\1' + "('" +
-                os.path.join(self.root,
-                    self.prefix.lstrip(os.path.sep),
-                    pythonLibPath) + "')"))
-        else:
-            values.append((r'(configs = )\["[\w/_\- \.]*",',
-                r'\1' + '["' +
-                os.path.join(self.sysconfdir, DEFAULT_PYFREDSERVERCONF) + 
-                '",'))
-            values.append((r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)',
-                r'\1' + "('" +
-                os.path.join(self.prefix, pythonLibPath) + "')"))
+        values.append((r'(configs = )\["[\w/_\- \.]*",',
+            r"\1['%s'," % os.path.join(self.getDir('sysconfdir'),
+                DEFAULT_PYFREDSERVERCONF)))
+        values.append((r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)',
+            r"\1('%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
         self.replace_pattern(
                 os.path.join(self.build_dir, 'pyfred_server'),
                 None, values)
         print "pyfred_server file has been updated"
 
+    def update_filemanager_admin_client(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+                'pyfred.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'filemanager_admin_client'),
+                None, values)
+        print "filemanager_admin_client file has been updated"
+
+    def update_filemanager_client(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
+                'pyfred.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'filemanager_client'),
+                None, values)
+        print "filemanager_client file has been updated"
+
+    def update_genzone_client(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
+        values.append((r"(configfile=\ )'\/etc\/fred\/genzone.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+                'genzone.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'genzone_client'),
+                None, values)
+        print "genzone_client file has been updated"
+
+    def update_genzone_test(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
+        values.append((r"(configfile=\ )'\/etc\/fred\/genzone.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+                'genzone.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'genzone_test'),
+                None, values)
+        print "genzone_test file has been updated"
+
+    def update_mailer_admin_client(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
+                'pyfred.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'mailer_admin_client'),
+                None, values)
+        print "mailer_admin_client file has been updated"
+
+    def update_mailer_client(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
+                'pyfred.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'mailer_client'),
+                None, values)
+        print "mailer_client file has been updated"
+
+    def update_techcheck_admin_client(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
+                self.pythonLibPath)))
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
+                'pyfred.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'techcheck_admin_client'),
+                None, values)
+        print "techcheck_admin_client file has been updated"
+
+    def update_techcheck_client(self):
+        values = []
+        values.append((r"(sys\.path\.insert\(0,\ )''\)",
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'), 
+                self.pythonLibPath)))
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+                'pyfred.conf')))
+
+        self.replace_pattern(
+                os.path.join(self.build_dir, 'techcheck_client'),
+                None, values)
+        print "techcheck_client file has been updated"
+
     def run(self):
         self.update_pyfredctl()
         self.update_pyfred_server()
+        self.update_filemanager_admin_client()
+        self.update_filemanager_client()
+        self.update_genzone_client()
+        self.update_genzone_test()
+        self.update_mailer_admin_client()
+        self.update_mailer_client()
+        self.update_techcheck_admin_client()
+        self.update_techcheck_client()
         return install_scripts.run(self)
 #class Install_scripts
 
@@ -479,6 +628,7 @@ def main():
                 cmdclass = { "config":Config,
                              "install":Install,
                              "install_scripts":Install_scripts,
+                             "install_data":Install_data,
                              },
                 packages = ["pyfred", "pyfred.modules"],
                 py_modules = ['pyfred.idlstubs',

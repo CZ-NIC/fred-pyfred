@@ -1,6 +1,7 @@
 import types, os, re
 from distutils import util
 from distutils.command.install_data import install_data as _install_data
+from install_parent import install_parent
 
 # freddist install_data came with one enhancement. It regards system directories.
 # And first simple example. This is part of core.setup function:
@@ -32,7 +33,7 @@ from distutils.command.install_data import install_data as _install_data
 # All these setting can be overriden by proper options.
 # On line 16 is example of creating empty directory.
 
-class install_data(_install_data):
+class install_data(_install_data, install_parent):
     user_options = _install_data.user_options
     user_options.append(('prefix=', None,
         'installation prefix'))
@@ -57,6 +58,31 @@ class install_data(_install_data):
     dir_patts = ['PREFIX', 'SYSCONFDIR', 'LOCALSTATEDIR', 'LIBEXECDIR',
             'LIBDIR', 'DATAROOTDIR', 'DATADIR', 'MANDIR', 'DOCDIR',
             'INFODIR']
+    user_options.append(('preservepath', None, 
+        'Preserve path(s) in configuration file(s).'))
+
+    boolean_options = _install_data.boolean_options
+    boolean_options.append('preservepath')
+
+    def __init__(self, *attrs):
+        _install_data.__init__(self, *attrs)
+
+        self.is_bdist_mode = None
+
+        for dist in attrs:
+            for name in dist.commands:
+                if re.match('bdist', name): #'bdist' or 'bdist_rpm'
+                    self.is_bdist_mode = 1 #it is bdist mode - creating a package
+                    break
+            if self.is_bdist_mode:
+                break
+    def get_actual_root(self):
+        '''
+        Return actual root only in case if the process is not in creation of
+        the package
+        '''
+        return ((self.is_bdist_mode or self.preservepath) and [''] or 
+                [type(self.root) is not None and self.root or ''])[0]
 
     def replaceSpecialDir(self, dir):
         """
@@ -88,6 +114,7 @@ class install_data(_install_data):
         self.infodir = None
         self.mandir = None
         self.docdir = None
+        self.preservepath = None
 
     def finalize_options(self):
         self.set_undefined_options('install',
@@ -95,6 +122,8 @@ class install_data(_install_data):
                 ('sysconfdir', 'sysconfdir'),
                 ('localstatedir', 'localstatedir'),
                 ('libexecdir', 'libexecdir'),
+                ('preservepath', 'preservepath'),
+                ('root', 'root'),
                 ('libdir', 'libdir'),
                 ('datarootdir', 'datarootdir'),
                 ('datadir', 'datadir'),

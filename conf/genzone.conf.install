@@ -3,7 +3,9 @@
 #
 
 [general]
-nameservice = NSHOST 
+# host[:port]
+nameservice= NAMESERVICE
+context   = CONTEXT
 reload    = 1
 verbose   = 0
 zones     = 

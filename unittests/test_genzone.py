@@ -40,6 +40,8 @@ import commands, ConfigParser, sys, getopt, os, re, random
 import pgdb
 import unittest
 
+pyfred_bin_dir = '/usr/local/bin/'
+
 def usage():
 	print '%s [-v LEVEL | --verbose=LEVEL]' % sys.argv[0]
 	print
@@ -52,7 +54,8 @@ def epp_cmd_exec(cmd):
 	The EPP response must have return code 1000, otherwise exception is
 	raised.
 	'''
-	(status, output) = commands.getstatusoutput('fred_client -xd \'%s\'' % cmd)
+	(status, output) = commands.getstatusoutput(
+            os.path.join(pyfred_bin_dir, 'fred_client -xd \'%s\'' % cmd))
 	status = os.WEXITSTATUS(status) # translate status
 	if status != 0:
 		raise Exception('fred_client error (status=%d): %s' % (status, output))

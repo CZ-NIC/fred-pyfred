@@ -1,7 +1,8 @@
 import os, re
+from install_parent import install_parent
 from distutils.command.install import install as _install
 from distutils.debug import DEBUG
-from common import replace_pattern as _replace_pattern
+from distutils.util import convert_path, subst_vars, change_root
 
 # Difference between freddist.install and distutils.install class isn't wide.
 # Only new options were added. Most of them are output directory related.
@@ -14,7 +15,7 @@ from common import replace_pattern as _replace_pattern
 # Freddist change it. Default is to create that file (due to uninstall class)
 # and `--dont-record' option prevent this.
 
-class install(_install):
+class install(_install, install_parent):
     user_options = _install.user_options
     user_options.append(('sysconfdir=', None, 
         'System configuration directory [PREFIX/etc]'))
@@ -55,6 +56,7 @@ class install(_install):
                     break
             if self.is_bdist_mode:
                 break
+
     def get_actual_root(self):
         '''
         Return actual root only in case if the process is not in creation of
@@ -133,8 +135,6 @@ class install(_install):
                         self.root, record[i].lstrip(os.path.sep))
             open(self.record, 'w').writelines(record)
 
-
-
     def add_to_record(self, files):
         """
         This method take as parameter list of files, which are added
@@ -152,15 +152,6 @@ class install(_install):
                     record.append(file)
             open(self.record, 'w').writelines(record)
             print "record file has been updated"
-
-    def replace_pattern(self, fileOpen, fileSave=None, values=[]):
-        """
-        Replace given patterns with new values, for example in config files.
-        Patterns and new values can contain regular expressions.
-        Structure of values parameter looks like:
-        [(pattern_1, new_val_1), (pattern_2, new_val_2), ...]
-        """
-        _replace_pattern(fileOpen, fileSave, values) 
 
     def run(self):
         _install.run(self)
