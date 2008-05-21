@@ -1,10 +1,18 @@
-include INSTALL ChangeLog
+include INSTALL
+include ChangeLog
+include setup.cfg
+include setup.py
+include README
+include MANIFEST.in
+
+include misc/*
+include misc/mailer_examples/*
 include tc_scripts/*.py
 include freddist/*.py
+include freddist/README
 include freddist/command/*.py
-include setup.cfg
 
-include conf/pyfred.conf.install
-include conf/genzone.conf.install
+
+include conf/*.install
 
 include unittests/*
