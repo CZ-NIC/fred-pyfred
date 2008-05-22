@@ -48,7 +48,7 @@ DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
 
 #directory containing setup.py script itself (and other sources as well)
-g_srcdir = '.'
+# g_srcdir = '.'
 #store what return Install::get_actual_root method
 g_actualRoot = ''
 #variable to store content of --root install/build option
@@ -223,7 +223,7 @@ class Install (install.install, object):
     user_options.append(("idldir=",  "d", 
         "directory where IDL files reside [PREFIX/share/idl/fred/]"))
     user_options.append(("idlforce", "o", 
-    "force idl stubs to be always generated"))
+        "force idl stubs to be always generated"))
     user_options.append(('install-unittests', None,
         'setup will install unittest scripts into '
         'PREFIX/lib/fred-pyfred/unittests directory'))
@@ -671,7 +671,6 @@ def main():
                         ]
                     ),
                 ],
-                srcdir = g_srcdir
                 )
         return True
     except Exception, e:
@@ -679,8 +678,8 @@ def main():
         return False
 
 if __name__ == '__main__':
-    g_srcdir = os.path.dirname(sys.argv[0])
-    if not g_srcdir:
-        g_srcdir = os.curdir
+    # g_srcdir = os.path.dirname(sys.argv[0])
+    # if not g_srcdir:
+        # g_srcdir = os.curdir
     if main():
         print "All done!"
