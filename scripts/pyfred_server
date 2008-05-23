@@ -457,9 +457,9 @@ def main(argv):
     #orb.run()
 
 if __name__ == "__main__":
-    # setup.py will change this path to reflect changes in prefix
+    # setup.py will add path to reflect changes in prefix
     # and/or root option during install
-    sys.path.append('/usr/lib/python2.5/site-packages')
+    sys.path.insert(0, '')
     try:
         main(sys.argv)
     except SystemExit, e:

@@ -483,9 +483,10 @@ class Install_scripts(install_scripts):
         values.append((r'(configs = )\["[\w/_\- \.]*",',
             r"\1['%s'," % os.path.join(self.getDir('sysconfdir'),
                 DEFAULT_PYFREDSERVERCONF)))
-        values.append((r'(sys\.path\.append)\(\'[\w/_\- \.]*\'\)',
-            r"\1('%s')" % os.path.join(self.getDir('prefix'),
-                self.pythonLibPath)))
+        values.append((r'(sys\.path\.insert\(0, )\'\'\)',
+            r"\1'%s')" % self.getDir('purelibdir')))
+            # r"\1('%s')" % os.path.join(self.getDir('prefix'),
+                # self.pythonLibPath)))
         self.replace_pattern(
                 os.path.join(self.build_dir, 'pyfred_server'),
                 None, values)
