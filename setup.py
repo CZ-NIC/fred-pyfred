@@ -258,11 +258,11 @@ class Install (install.install, object):
         self.install_unittests = None
 
     def finalize_options(self):
-        cmd_obj = self.distribution.get_command_obj('bdist', False)
-        if cmd_obj:
+        # cmd_obj = self.distribution.get_command_obj('bdist', False)
+        # if cmd_obj:
             #this will be proceeded only if install command will be
             #invoked from bdist command
-            self.idldir = cmd_obj.idldir
+            # self.idldir = cmd_obj.idldir
         super(Install, self).finalize_options()
         if not self.omniidl:
             self.omniidl = "omniidl"
@@ -679,8 +679,5 @@ def main():
         return False
 
 if __name__ == '__main__':
-    # g_srcdir = os.path.dirname(sys.argv[0])
-    # if not g_srcdir:
-        # g_srcdir = os.curdir
     if main():
         print "All done!"
