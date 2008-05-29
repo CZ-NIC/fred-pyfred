@@ -1,0 +1,2 @@
+[bdist_rpm]
+requires=libomniORBpy3-devel, omniORB-servers, omniORB-bootscripts, python-clearsilver, postgresql-python, python-dns
