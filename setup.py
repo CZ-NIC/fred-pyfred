@@ -15,6 +15,10 @@ from freddist.command import install
 from freddist.command.install_scripts import install_scripts
 from freddist.command.install_data import install_data
 from freddist import file_util
+from freddist.command.sdist import sdist
+if not '..' in sys.path:
+    sys.path.append('..')
+from freddist.filelist import FileList
 
 PROJECT_NAME = 'pyfred_server'
 PACKAGE_NAME = 'pyfred_server'
@@ -45,14 +49,10 @@ DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 
 #list of all default pyfred modules
-modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
+g_modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
+#list of parameters for omniidl executable
+g_omniidl_params = ["-Cbuild/stubs", "-bpython", "-Wbinline"]
 
-#directory containing setup.py script itself (and other sources as well)
-# g_srcdir = '.'
-#store what return Install::get_actual_root method
-g_actualRoot = ''
-#variable to store content of --root install/build option
-g_root = ''
 #whether install unittests scripts
 g_install_unittests = None
 
@@ -253,8 +253,8 @@ class Install (install.install, object):
         self.idldir   = None
         self.idlforce = False
         self.omniidl  = None
-        self.omniidl_params = ["-Cbuild/lib", "-bpython", "-Wbinline"]
-        self.idlfiles = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
+        self.omniidl_params = g_omniidl_params #["-Cbuild/lib", "-bpython", "-Wbinline"]
+        self.idlfiles = g_modules#["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
         self.install_unittests = None
 
     def finalize_options(self):
@@ -338,73 +338,39 @@ class Install (install.install, object):
         print "genzone configuration file has been updated"
 
     def run(self):
-        #set actual root for install_script class which has no opportunity
-        #to reach get_actual_root method
-        global g_actualRoot, g_root
-        g_actualRoot = self.get_actual_root()
-        g_root = self.root
-
-        #create (if need) idl files
-        self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
-        if not self.idlforce and os.access("pyfred/idlstubs/ccReg", os.F_OK):
-            log.info("IDL stubs found, skipping build_idl target. Use idlforce "
-                    "option to compile idl stubs anyway or run clean target.")
-        else:
-            util.execute(compile_idl,
-                (self.omniidl, self.omniidl_params,
-                    [ gen_idl_name(self.idldir, module) for module in modules ]),
-                    "Generating python stubs from IDL files")
-
         self.update_server_config()
         self.update_genzone_config()
 
         super(Install, self).run()
-
-        files = [
-                'pyfred/__init__.py',
-                'pyfred/__init__.pyc',
-                'pyfred/__init__.pyo',
-                'pyfred/idlstubs/__init__.py',
-                'pyfred/idlstubs/FileManager_idl.py',
-                'pyfred/idlstubs/Mailer_idl.py',
-                'pyfred/idlstubs/TechCheck_idl.py',
-                'pyfred/idlstubs/ZoneGenerator_idl.py',
-                'pyfred/idlstubs/__init__.pyc',
-                'pyfred/idlstubs/FileManager_idl.pyc',
-                'pyfred/idlstubs/Mailer_idl.pyc',
-                'pyfred/idlstubs/TechCheck_idl.pyc',
-                'pyfred/idlstubs/ZoneGenerator_idl.pyc',
-                'pyfred/idlstubs/__init__.pyo',
-                'pyfred/idlstubs/FileManager_idl.pyo',
-                'pyfred/idlstubs/Mailer_idl.pyo',
-                'pyfred/idlstubs/TechCheck_idl.pyo',
-                'pyfred/idlstubs/ZoneGenerator_idl.pyo',
-                'pyfred/idlstubs/ccReg/__init__.py',
-                'pyfred/idlstubs/ccReg/__init__.pyc',
-                'pyfred/idlstubs/ccReg/__init__.pyo',
-                'pyfred/idlstubs/ccReg__POA/__init__.py',
-                'pyfred/idlstubs/ccReg__POA/__init__.pyc',
-                'pyfred/idlstubs/ccReg__POA/__init__.pyo',
-            ]
-        libdir = 'lib/python%d.%d/site-packages' % (sys.version_info[0],
-                sys.version_info[1])
-
-        for i in range(len(files)):
-            files[i] = os.path.join(self.prefix, libdir, files[i])
-
-        #append idl stubs to record file - due to rpm creation
-        self.add_to_record(files)
-    #run()
 #class Install
 
+
 class Install_data(install_data):
+    user_options = install_data.user_options
+    user_options.append(("omniidl=", "i", 
+        "omniidl program used to build stubs [omniidl]"))
+    user_options.append(("idldir=",  "d", 
+        "directory where IDL files reside [PREFIX/share/idl/fred/]"))
+    user_options.append(("idlforce", "o", 
+        "force idl stubs to be always generated"))
+    
+    boolean_options = install_data.boolean_options
+    boolean_options.append('idlforce')
+
     def initialize_options(self):
         install_data.initialize_options(self)
         self.install_unittests = None
+        self.omniidl = None
+        self.idldir = None
+        self.idlforce = None
 
     def finalize_options(self):
         install_data.finalize_options(self)
         self.install_unittests = g_install_unittests
+        self.set_undefined_options('install',
+                ('omniidl', 'omniidl'),
+                ('idldir', 'idldir'),
+                ('idlforce', 'idlforce'))
 
     def update_test_filemanager(self):
         values = []
@@ -435,7 +401,24 @@ class Install_data(install_data):
         print "test_genzone file has been updated"
 
     def run(self):
+        self.omniidl_params = g_omniidl_params
+        self.modules = g_modules
+        if not os.path.isdir(os.path.join('build', 'stubs')):
+            os.makedirs(os.path.join('build', 'stubs'))
+        #create (if need) idl files
+        self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
+        if not self.idlforce and os.access("pyfred/idlstubs/ccReg", os.F_OK):
+            log.info("IDL stubs found, skipping build_idl target. Use idlforce "
+                    "option to compile idl stubs anyway or run clean target.")
+        else:
+            util.execute(compile_idl,
+                (self.omniidl, self.omniidl_params,
+                    [ gen_idl_name(self.idldir, module) for module in self.modules ]),
+                    "Generating python stubs from IDL files")
+
+        self.data_files = self.data_files + file_util.all_files_in('PURELIBDIR', 'build/stubs/pyfred/idlstubs', recursive=True, cutSlashes_dst=1)
         install_data.run(self)
+
         # TODO so far is impossible to create rpm package with unittests \ 
         # scripts in it, because of update_* methods have wrong paths \
         # to files which should be changed.
@@ -620,6 +603,8 @@ class Install_scripts(install_scripts):
 
 def main():
     try:
+        if not os.path.isdir('build/stubs/pyfred/idlstubs'):
+            os.makedirs('build/stubs/pyfred/idlstubs')
         setup(name="fred-pyfred", version="1.8.0",
                 description="Component of FRED (Fast Registry for Enum and Domains)",
                 author   = "Jan Kryl",
