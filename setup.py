@@ -9,7 +9,7 @@ from distutils import log
 from distutils import util
 from distutils import errors
 from distutils.command import config
-
+from distutils import version
 from freddist.core import setup
 from freddist.command import install
 from freddist.command.install_scripts import install_scripts
