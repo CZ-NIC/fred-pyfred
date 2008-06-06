@@ -403,12 +403,14 @@ class Install_data(install_data):
     def run(self):
         self.omniidl_params = g_omniidl_params
         self.modules = g_modules
-        if not os.path.isdir(os.path.join('build', 'stubs')):
-            os.makedirs(os.path.join('build', 'stubs'))
+        if not os.path.isdir(os.path.join(self.rundir, 'build', 'stubs', 'pyfred', 'idlstubs')):
+            os.makedirs(os.path.join(self.rundir, 'build', 'stubs', 'pyfred', 'idlstubs'))
         #create (if need) idl files
         self.omniidl_params.append("-Wbpackage=pyfred.idlstubs")
-        if not self.idlforce and os.access("pyfred/idlstubs/ccReg", os.F_OK):
-            log.info("IDL stubs found, skipping build_idl target. Use idlforce "
+        if not self.idlforce and os.access(
+                os.path.join(self.rundir, "build/stubs/pyfred/idlstubs/ccReg"),
+                    os.F_OK):
+            log.info("IDL stubs found, skipping building IDL stubs. Use idlforce "
                     "option to compile idl stubs anyway or run clean target.")
         else:
             util.execute(compile_idl,
@@ -416,7 +418,10 @@ class Install_data(install_data):
                     [ gen_idl_name(self.idldir, module) for module in self.modules ]),
                     "Generating python stubs from IDL files")
 
-        self.data_files = self.data_files + file_util.all_files_in('PURELIBDIR', 'build/stubs/pyfred/idlstubs', recursive=True, cutSlashes_dst=1)
+        self.data_files = self.data_files +\
+                file_util.all_files_in('PURELIBDIR',
+                        os.path.join('build', 'stubs', 'pyfred', 'idlstubs'),
+                        recursive=True, cutSlashes_dst=1)
         install_data.run(self)
 
         # TODO so far is impossible to create rpm package with unittests \ 

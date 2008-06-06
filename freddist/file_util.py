@@ -40,13 +40,15 @@ def all_files_in(dst_directory, directory, excludePattern=None,
             includePattern = ['*']
     paths = [] # list of couples (directory, directory/file) for all files
 
-    for filename in os.listdir(curdir(directory)):
+    #for filename in os.listdir(curdir(directory)):
+    for filename in os.listdir(directory):
         if fit_pattern(filename, excludePattern):
             continue
         if not fit_pattern(filename, includePattern):
             continue
         full_path = os.path.join(directory, filename)
-        if os.path.isfile(curdir(full_path)):
+        #if os.path.isfile(curdir(full_path)):
+        if os.path.isfile(full_path):
             # exclude first directory in path from dst path (this include
             # really only what is IN directory, not (directory AND files))
             splitted_directory = directory.split(os.path.sep, 1)
@@ -61,7 +63,8 @@ def all_files_in(dst_directory, directory, excludePattern=None,
                     [full_path.split(os.path.sep, cutSlashes_dir)[-1]]))
             else:
                 paths.append((os.path.join(dst_directory, dst_subdirectory), [full_path]))
-        elif os.path.isdir(curdir(full_path)) and recursive:
+        #elif os.path.isdir(curdir(full_path)) and recursive:
+        elif os.path.isdir(full_path) and recursive:
             paths.extend(all_files_in(dst_directory, full_path, excludePattern,
                 includePattern, recursive, cutSlashes_dst, cutSlashes_dir))   
            
@@ -94,13 +97,15 @@ def all_files_in_2(directory, excludePattern=None, includePattern=None,
             includePattern = ['*']
 
     paths = []
-    for filename in os.listdir(curdir(directory)):
+    #for filename in os.listdir(curdir(directory)):
+    for filename in os.listdir(directory):
         if fit_pattern(filename, excludePattern):
             continue
         if not fit_pattern(filename, includePattern):
             continue
         full_path = os.path.join(directory, filename)
-        if os.path.isfile(curdir(full_path)):
+        #if os.path.isfile(curdir(full_path)):
+        if os.path.isfile(full_path):
             if onlyFilenames:
                 paths.append(filename)
             else:
@@ -109,7 +114,8 @@ def all_files_in_2(directory, excludePattern=None, includePattern=None,
                 else:
                     paths.append(full_path)
 
-        if os.path.isdir(curdir(full_path)) and recursive:
+        #if os.path.isdir(curdir(full_path)) and recursive:
+        if os.path.isdir(full_path) and recursive:
             paths.extend(all_files_in_2(full_path, excludePattern,
                 includePattern, recursive, onlyFilenames, cutSlashes))
     return paths
