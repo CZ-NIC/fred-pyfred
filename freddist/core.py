@@ -80,7 +80,14 @@ def setup(**attrs):
     no_update_setupcfg = False
     no_gen_setupcfg = False
     no_setupcfg = False
+    bdist_rpm = False
+    no_join_opts = False
+    install_extra_opts = None
 
+    # print sys.argv
+    # exit()
+    #TODO this setup configuration file and template (maybe) not save
+    #into setup.cfg file
     for arg in sys.argv:
         if arg.split('=', 1)[0] == '--setupcfg-template':
             setupcfg_template = arg.split('=', 1)[1]
@@ -94,6 +101,10 @@ def setup(**attrs):
         no_gen_setupcfg = True
     if '--no-setupcfg' in sys.argv:
         no_setupcfg = True
+    if 'bdist_rpm' in sys.argv:
+        bdist_rpm = True
+    if '--no-join-opts' in sys.argv:
+        no_join_opts = True
 
     if (not os.path.isfile(setupcfg_output) or fgen_setupcfg) and not no_gen_setupcfg:
         copy_setup_cfg(attrs['srcdir'], setupcfg_output, setupcfg_template)
@@ -113,6 +124,13 @@ def setup(**attrs):
     if _setup_stop_after == "config":
         return dist
 
+    #lets store install-extra-opts from config file (if exists)
+    if bdist_rpm and not no_join_opts:
+        if dist.command_options.has_key('bdist_rpm'):
+            bdist_rpm_val = dist.command_options['bdist_rpm']
+            if bdist_rpm_val.has_key('install_extra_opts'):
+                install_extra_opts = bdist_rpm_val['install_extra_opts'][1]
+
     # Parse the command line; any command-line errors are the end user's
     # fault, so turn them into SystemExit to suppress tracebacks.
     try:
@@ -126,6 +144,23 @@ def setup(**attrs):
 
     if _setup_stop_after == "commandline":
         return dist
+
+    if bdist_rpm and not no_join_opts:
+        if dist.command_options.has_key('bdist_rpm'):
+            bdist_rpm_val = dist.command_options['bdist_rpm']
+            if bdist_rpm_val.has_key('install_extra_opts'):
+                if bdist_rpm_val['install_extra_opts'][0] == 'command line' and install_extra_opts:
+                    # print "budu pridavat"
+                    # print dist.command_options['bdist_rpm']['install_extra_opts']
+                    # print install_extra_opts
+                    #XXX do not check if some option is there twice (one from file, one from command line)
+                    #TODO check for duplicates options
+                    dist.command_options['bdist_rpm']['install_extra_opts'] = ('command line', '%s %s' %\
+                            (dist.command_options['bdist_rpm']['install_extra_opts'][1], install_extra_opts))
+
+
+    print dist.command_options
+    #exit()
 
     if not no_update_setupcfg:
         update_setup_cfg(setupcfg_output, dist.command_options)
