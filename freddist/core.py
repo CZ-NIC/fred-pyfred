@@ -84,8 +84,6 @@ def setup(**attrs):
     no_join_opts = False
     install_extra_opts = None
 
-    # print sys.argv
-    # exit()
     #TODO this setup configuration file and template (maybe) not save
     #into setup.cfg file
     for arg in sys.argv:
@@ -157,10 +155,6 @@ def setup(**attrs):
                     #TODO check for duplicates options
                     dist.command_options['bdist_rpm']['install_extra_opts'] = ('command line', '%s %s' %\
                             (dist.command_options['bdist_rpm']['install_extra_opts'][1], install_extra_opts))
-
-
-    print dist.command_options
-    #exit()
 
     if not no_update_setupcfg:
         update_setup_cfg(setupcfg_output, dist.command_options)

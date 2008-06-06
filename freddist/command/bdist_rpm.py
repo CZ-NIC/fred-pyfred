@@ -139,6 +139,11 @@ class bdist_rpm(_bdist_rpm):
         self.pre_uninstall = self.joinsrcdir(self.pre_uninstall) 
         self.post_uninstall = self.joinsrcdir(self.post_uninstall) 
 
+        if not self.setupcfg_template:
+            self.setupcfg_template = 'setup.cfg.template'
+        if not self.setupcfg_output:
+            self.setupcfg_output = 'setup.cfg'
+
         self.finalize_package_data()
 
     def run(self):
