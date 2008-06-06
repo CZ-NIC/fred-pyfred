@@ -74,15 +74,37 @@ def setup(**attrs):
 
     config_file = './setup.cfg'
 
-    if not os.path.isfile(config_file):
-        copy_setup_cfg(attrs['srcdir'], config_file)
-    else:
-        print "%s already exists in current directory - no need to create it."\
-                % config_file
+    setupcfg_template = 'setup.cfg.template'
+    setupcfg_output = 'setup.cfg'
+    fgen_setupcfg = False
+    no_update_setupcfg = False
+    no_gen_setupcfg = False
+    no_setupcfg = False
+
+    for arg in sys.argv:
+        if arg.split('=', 1)[0] == '--setupcfg-template':
+            setupcfg_template = arg.split('=', 1)[1]
+        if arg.split('=', 1)[0] == '--setupcfg-output':
+            setupcfg_output = arg.split('=', 1)[1]
+    if '--fgen-setupcfg' in sys.argv:
+        fgen_setupcfg = True
+    if '--no-update-setupcfg' in sys.argv:
+        no_update_setupcfg = True
+    if '--no-gen-setupcfg' in sys.argv:
+        no_gen_setupcfg = True
+    if '--no-setupcfg' in sys.argv:
+        no_setupcfg = True
+
+    if (not os.path.isfile(setupcfg_output) or fgen_setupcfg) and not no_gen_setupcfg:
+        copy_setup_cfg(attrs['srcdir'], setupcfg_output, setupcfg_template)
 
     # Find and parse the config file(s): they will override options from
     # the setup script, but be overridden by the command line.
-    dist.parse_config_files()
+    if not no_setupcfg:
+        if setupcfg_output == 'setup.cfg':
+            dist.parse_config_files()
+        else:
+            dist.parse_config_files(setupcfg_output)
 
     if DEBUG:
         print "options (after parsing config files):"
@@ -90,7 +112,6 @@ def setup(**attrs):
 
     if _setup_stop_after == "config":
         return dist
-
 
     # Parse the command line; any command-line errors are the end user's
     # fault, so turn them into SystemExit to suppress tracebacks.
@@ -106,14 +127,14 @@ def setup(**attrs):
     if _setup_stop_after == "commandline":
         return dist
 
-    update_setup_cfg(config_file, dist.command_options)
+    if not no_update_setupcfg:
+        update_setup_cfg(setupcfg_output, dist.command_options)
     # print "<'))>< thank you for all the fish"
     # exit()
 
     # store rundir and srcdir into dist
     dist.srcdir = attrs['srcdir']
     dist.rundir = attrs['rundir']
-
 
     # And finally, run all the commands found on the command line.
     if ok:
@@ -141,12 +162,12 @@ def setup(**attrs):
 # setup ()
 
 
-def copy_setup_cfg(source_dir, config_file):
-    if os.path.isfile(os.path.join(source_dir, config_file+'.template')):
-        shutil.copyfile(os.path.join(source_dir, config_file+'.template'),
+def copy_setup_cfg(source_dir, config_file, config_template):
+    if os.path.isfile(os.path.join(source_dir, config_template)):
+        shutil.copyfile(os.path.join(source_dir, config_template),
                 config_file)
         print "%s has been copied to %s." %\
-                (os.path.join(source_dir, config_file+'.template'), config_file)
+                (os.path.join(source_dir, config_template), config_file)
 
 def update_setup_cfg(conf_file, options):
     conf = ConfigParser.ConfigParser()
