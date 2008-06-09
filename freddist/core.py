@@ -143,18 +143,20 @@ def setup(**attrs):
     if _setup_stop_after == "commandline":
         return dist
 
+    #goon only if I create rpm and I want join options (see no_join_opts option)
     if bdist_rpm and not no_join_opts:
+        #goon only if in setup.cfg is now bdist_rpm part
         if dist.command_options.has_key('bdist_rpm'):
             bdist_rpm_val = dist.command_options['bdist_rpm']
+            #goon only if in setup.cfg is install_extra_opts line (under
+            #bdist_rpm paragraph)
             if bdist_rpm_val.has_key('install_extra_opts'):
-                if bdist_rpm_val['install_extra_opts'][0] == 'command line' and install_extra_opts:
-                    # print "budu pridavat"
-                    # print dist.command_options['bdist_rpm']['install_extra_opts']
-                    # print install_extra_opts
-                    #XXX do not check if some option is there twice (one from file, one from command line)
-                    #TODO check for duplicates options
-                    dist.command_options['bdist_rpm']['install_extra_opts'] = ('command line', '%s %s' %\
-                            (dist.command_options['bdist_rpm']['install_extra_opts'][1], install_extra_opts))
+                if bdist_rpm_val['install_extra_opts'][0] == 'command line' and\
+                        install_extra_opts:
+                    dist.command_options['bdist_rpm']['install_extra_opts'] =\
+                            ('command line', append_option(install_extra_opts,
+                                dist.command_options\
+                                        ['bdist_rpm']['install_extra_opts'][1]))
 
     if not no_update_setupcfg:
         update_setup_cfg(setupcfg_output, dist.command_options)
@@ -189,6 +191,29 @@ def setup(**attrs):
 
     return dist
 # setup ()
+
+def match_option(dest, src):
+    """return src position in dest list, or -1 if not present"""
+    for d in dest:
+        if src.split('=')[0] == d.split('=')[0]:
+            return dest.index(d)
+    return -1
+
+def append_option(dest, src):
+    """append option(s) from src to dest, check duplicities"""
+    dest_split = dest.split(' ')
+    src_split = src.split(' ')
+
+    for src in src_split:
+        pos = match_option(dest_split, src)
+        if pos == -1:
+            dest_split.append(src)
+        else:
+            dest_split[pos] = src
+    ret = ''
+    for d in dest_split:
+        ret = ret + d + ' '
+    return ret.strip()
 
 
 def copy_setup_cfg(source_dir, config_file, config_template):
