@@ -610,7 +610,7 @@ def main():
     try:
         if not os.path.isdir('build/stubs/pyfred/idlstubs'):
             os.makedirs('build/stubs/pyfred/idlstubs')
-        setup(name="fred-pyfred", version="1.8.0",
+        setup(name="fred-pyfred", version=PACKAGE_VERSION,
                 description="Component of FRED (Fast Registry for Enum and Domains)",
                 author   = "Jan Kryl",
                 author_email="jan.kryl@nic.cz",
