@@ -1,6 +1,16 @@
+2008-07-09 Jaromir Talir (1.9.3)
+
+    * Bugfix in long option handling of filemanager_client
+
+2008-07-09 Jaromir Talir (1.9.2)
+          
+    * Bugfix in technical checks
+      - existence script badly handled names of nonresolvable nameservers
+      - mail template for existence had bug in test for techcheck name 
+
 2008-06-20 Jaromir Talir, Ales Dolezal (1.9.0)
 	      
-       * Refactoring installation process into separate directory freddist
+    * Refactoring installation process into separate directory freddist
 
 2008-04-18 Ales Dolezal
 

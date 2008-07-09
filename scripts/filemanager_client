@@ -136,8 +136,8 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                 "f:hi:l:n:c:m:o:st:x:",
-                ["file=", "help", "input=", "label=", "nameservice=", "context="
-                 "mimetype=", "output=", "silent", "type=", "id="])
+                ["file=", "help", "input=", "label=", "nameservice=", 
+                 "context=", "mimetype=", "output=", "silent", "type=", "id="])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
