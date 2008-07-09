@@ -55,7 +55,7 @@ def main():
 		try:
 			(ns, addrs) = get_ns_addrs(nsarg)
 		except dns.resolver.NXDOMAIN, e:
-			renegades.append(nsarg[0])
+			renegades.append(nsarg)
 			continue
 		# First try domain query if there is one
 		if domain:
