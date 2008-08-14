@@ -167,7 +167,19 @@ This class implements interface used for generation of a zone file.
 			"WHERE (NOT (15 = ANY (osn.states)) OR osn.states IS NULL) "
 				"AND d.id = oreg.id AND d.nsset = host.nssetid AND d.zone = %d "
 			"ORDER BY oreg.name, host.fqdn" % zoneid)
-		return cur
+		
+		# get ds records for generated domains, they will be fetched parallel
+		# to the main list
+		cur2 = conn.cursor()
+		cur2.execute("SELECT oreg.name, ds.keyTag, ds.alg, ds.digestType,"
+					 "ds.digest, ds.maxSigLife FROM object_registry oreg "
+					 "LEFT JOIN object_state os ON (os.object_id=oreg.id AND "
+					 "os.valid_to ISNULL AND os.state_id=15) "
+					 "JOIN domain d ON (oreg.id=d.id) "
+					 "JOIN dsrecord ds ON (ds.keysetid=d.keyset) "
+					 "WHERE os.state_id IS NULL AND d.zone=%s "  
+					 "ORDER BY oreg.name " % zoneid)
+		return cur, cur2
 
 	def getSOA(self, zonename):
 		"""
@@ -229,14 +241,14 @@ This class implements interface used for generation of a zone file.
 			conn = self.db.getConn()
 
 			# now comes the hard part, getting dynamic data (lot of data ;)
-			cursor = self.__dbGetDynamicData(conn, zonename)
+			(cursor, cursor2) = self.__dbGetDynamicData(conn, zonename)
 			conn.commit()
 			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d." %
 					(id, cursor.rowcount))
 			self.db.releaseConn(conn)
 
 			# Create an instance of ZoneData_i and an ZoneData object ref
-			zone_obj = ZoneData_i(id, cursor, self.l)
+			zone_obj = ZoneData_i(id, cursor, cursor2, self.l)
 			self.zone_objects.put(zone_obj)
 			zone_ref = self.corba_refs.rootpoa.servant_to_reference(zone_obj)
 
@@ -256,7 +268,18 @@ This class implements interface used for generation of a zone file.
 			self.l.log(self.l.ERR, "<%d> Unexpected exception caught: %s:%s" %
 					(id, sys.exc_info()[0], e))
 			raise ccReg.ZoneGenerator.InternalError("Unexpected error")
-
+	
+	def getZoneNameList(self):
+		"""
+	Method sends back list of all domains managed by registry
+		"""
+		conn = self.db.getConn()
+		cur = conn.cursor()
+		cur.execute("SELECT fqdn FROM zone")
+		zonelist = [row[0] for row in cur.fetchall()]
+		cur.close()
+		self.db.releaseConn(conn)
+		return zonelist
 
 class ZoneData_i (ccReg__POA.ZoneData):
 	"""
@@ -268,17 +291,19 @@ Class encapsulating zone data.
 	CLOSED = 2
 	IDLE = 3
 
-	def __init__(self, id, cursor, log):
+	def __init__(self, id, cursor, cursor2, log):
 		"""
 	Initializes zonedata object.
 		"""
 		self.l = log
 		self.id = id
 		self.cursor = cursor
+		self.cursor2 = cursor2
 		self.status = self.ACTIVE
 		self.crdate = time.time()
 		self.lastuse = self.crdate
 		self.lastrow = cursor.fetchone()
+		self.lastds = cursor2.fetchone()
 
 	def __get_one_domain(self):
 		"""
@@ -288,7 +313,7 @@ Class encapsulating zone data.
 	the domain.
 		"""
 		if not self.lastrow:
-			return None, None, None
+			return None, None, None, None
 		prev = self.lastrow
 		curr = self.cursor.fetchone()
 		domain = prev[0]
@@ -312,9 +337,18 @@ Class encapsulating zone data.
 					ipaddrs[ curr[1] ].append(curr[2])
 			curr = self.cursor.fetchone() # move to next row
 
+		# first while cycle solves problem when cursor2 has some new domains
+		# not catched by cursor. it will iterate through them without stop
+		while self.lastds and self.lastds[0] < domain:
+			self.lastds = self.cursor2.fetchone() 
+		dslist = []
+		while self.lastds and self.lastds[0] == domain:
+			dslist.append(self.lastds)
+			self.lastds = self.cursor2.fetchone()
+            
 		# save leftover
 		self.lastrow = curr
-		return domain, nameservers, ipaddrs
+		return domain, nameservers, ipaddrs, dslist
 
 	def getNext(self, count):
 		"""
@@ -347,7 +381,7 @@ Class encapsulating zone data.
 			# changing
 			dyndata = []
 			for i in range(count):
-				domain, nameservers, ipaddrs = self.__get_one_domain()
+				domain, nameservers, ipaddrs, dslist = self.__get_one_domain()
 				if not domain: # test end of data
 					break
 
@@ -358,7 +392,14 @@ Class encapsulating zone data.
 					if wmsg:
 						self.l.log(self.l.WARNING, "<%d> %s" % (self.id, wmsg))
 					corba_nameservers.append(corba_ns)
-				dyndata.append( ccReg.ZoneItem(domain, corba_nameservers) )
+				corba_dslist = []
+				for ds in dslist:
+					corba_dslist.append(ccReg.DSRecord_str(
+						ds[1], ds[2], ds[3], ds[4], ds[5]
+					))
+				dyndata.append( ccReg.ZoneItem(
+					domain, corba_nameservers, corba_dslist
+				) )
 
 			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %
 					(self.id, len(dyndata)) )

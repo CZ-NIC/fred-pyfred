@@ -57,6 +57,7 @@ options:
                                   to the number, then it means a procentual
                                   change.
     -n, --nameservice=HOST[:port] Set host where corba nameservice runs.
+    -x, --context=STRING          Set context in corba nameservice.
     -o, --nobackups               Disable creation of zone backups.
     -p, --post-hook=CMDLINE       Execute specified command line after every
                                   zone is generated (see README).
@@ -66,6 +67,8 @@ options:
                                   file.
     -z, --zonedir=PATH            Directory where the zone file(s) should be
                                   generated (default is current directory).
+    -g, --bind-conf=PATH          Path to file where bind configuration
+                                  will be generated
 
 Option maxchanges is taken into account only if the previous zone file is found.
 """ % sys.argv[0])
@@ -134,19 +137,22 @@ def hook_subst(hookcmd, subst_dict):
 def main():
     try:
         # parse command line parameters
-        opts, zonenames = getopt.getopt(sys.argv[1:], "b:c:e:f:hm:n:op:vt:z:",
+        opts, zonenames = getopt.getopt(sys.argv[1:], 
+                "b:c:e:f:hm:n:op:vt:z:x:g:",
                 ["backupdir=", "chunk=", "header=", "file=", "help",
                  "maxchanges=", "nameservice=", "nobackups", "post-hook=",
-                 "verbose", "footer=", "zonedir="])
+                 "verbose", "footer=", "zonedir=", "context=", "bind-conf="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
 
     # set default values which are not zone specific
-    configfile= '/etc/fred/genzone.conf'
-    nameservice= "localhost"
+    configfile = '/etc/fred/genzone.conf'
+    nameservice = "localhost"
+    corba_context = "fred"
     pcb_param = None # progress callback
     verbose   = False
+    bind_conf = None
 
     # get only location of config file, the other options will be parsed later
     for o,a in opts:
@@ -159,19 +165,34 @@ def main():
     # set not zone specific configuration values
     if config.has_option("general", "nameservice"):
         nameservice = config.get("general", "nameservice")
+    if config.has_option("general", "context"):
+        corba_context = config.get("general", "context")
     if config.has_option("general", "verbose"):
         verbose = config.getboolean("general", "verbose")
         if verbose: pcb_param = pcb
+        
+    # get only nameservice the other options will be parsed later
+    # because server must be contacted to gain list of all zones
+    for o,a in opts:
+        if o in ("-n", "--nameservice"):
+            nameservice = a
+        elif o in ("-x", "--context"):
+            corba_context = a
+        
     # process zones to be generated from config file only if there aren't any
     # on command line
     if len(zonenames) == 0:
         if config.has_option("general", "zones"):
             zonenames = config.get("general", "zones").split()
-
-    # if no zones were specified in config file or on cmd line, then exit
+        
+    # if no zones were specified in config file or on cmd line, then
+    # load all zones from register
     if len(zonenames) == 0:
-        usage()
-        sys.exit(2)
+        zonenames = pyfred.zone.ZoneGeneratorObject().getObject(
+            ns = nameservice, context=corba_context).getZoneNameList()
+        if len(zonenames) == 0:
+            usage()
+            sys.exit(2)
     
     # create config and set default values which are zone specific
     zoneconf = ZoneConfig(zonenames)
@@ -219,8 +240,6 @@ def main():
                 zoneconf.set("mchproc", True)
             else:
                 zoneconf.set("maxchanges", int(a))
-        elif o in ("-n", "--nameservice"):
-            nameservice = a
         elif o in ("-o", "--nobackups"):
             zoneconf.set("nobackups", True)
         elif o in ("-p", "--post-hook"):
@@ -232,6 +251,8 @@ def main():
             zoneconf.set("footer", a)
         elif o in ("-z", "--zonedir"):
             zoneconf.set("zonedir", a)
+        elif o in ("-g", "--bind-conf"):
+            bind_conf = a
 
     # if backupdir is not set, it will be the same as zonedir
     for zone in zonenames:
@@ -261,6 +282,7 @@ def main():
         try:
             # initialize zone generator
             zone_obj = pyfred.zone.Zone(bind_filter, zone, ns = nameservice,
+                    context = corba_context,
                     chunk = zoneconf.get("chunk", zone),
                     progress_callback = pcb_param)
             zone_obj.dump() # this will do the rest of the work
@@ -361,6 +383,16 @@ def main():
 
     if error_zones:
         sys.exit(-1)
+        
+    # generate bind configuration file
+    if bind_conf:
+        bconf = open(bind_conf,"w")
+        for zone in zonenames:
+            bconf.write("zone \"%s\" IN {\n" % zone)
+            bconf.write("        type master;\n")
+            bconf.write("        file \"%s/db.%s\";\n" % (zonedir, zone))
+            bconf.write("};\n\n")
+        
     sys.exit()
 
 if __name__ == "__main__":

@@ -134,8 +134,47 @@ class BindFilter (ZoneFilter):
 				for addr in ns.inet:
 					self.output_fd.write("%s.\tIN\t%s\t%s\n" %
 							(ns.fqdn, self.get_iptype(addr), addr))
+			for ds in domain.dsrecords:
+				if ds.maxSigLife > 0:
+					ttl = ds.maxSigLife
+				else:
+					ttl = ""
+				self.output_fd.write("%s. %s\tIN\tDS\t%s %s %s %s\n" % 
+						(domain.name, ttl, ds.keyTag, ds.alg, 
+						 ds.digestType, ds.digest))
 
-
+class ZoneGeneratorObject():
+	"""
+	Object ZoneGenerator encapsulates corba communication
+	"""
+	
+	def getObject(self,  ns = "localhost", context = "fred",
+			object = "ZoneGenerator"):
+		try:
+			# Initialise the ORB
+			orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
+					"-ORBInitRef", "NameService=corbaname::" + ns],
+					CORBA.ORB_ID)
+			# Obtain a reference to the root naming context
+			obj = orb.resolve_initial_references("NameService")
+			rootContext = obj._narrow(CosNaming.NamingContext)
+			if rootContext is None:
+				raise ZoneException("Failed to narrow the root naming context")
+			# Resolve the name "fred.context/ZoneGenerator.Object"
+			name = [CosNaming.NameComponent(context, "context"),
+					CosNaming.NameComponent(object, "Object")]
+			obj = rootContext.resolve(name)
+			# Narrow the object to an fred::ZoneGenerator
+			zone_orb_object = obj._narrow(ccReg.ZoneGenerator)
+			if (zone_orb_object is None):
+				raise ZoneException("Obtained object reference is not "
+						"ccReg::ZoneGenerator")
+			return zone_orb_object
+		except CORBA.TRANSIENT, e:
+			raise ZoneException("Is nameservice running? (%s)" % e)
+		except CORBA.Exception, e:
+			raise ZoneException("CORBA failure, original exception is: %s" % e)
+	
 class Zone (object):
 	"""
 	Object Zone is responsible for downloading zone data from server and
@@ -153,28 +192,12 @@ class Zone (object):
 		self.chunk = chunk
 		self.progress_cb = progress_callback
 		self.soa = {}
-		self.zone_orb_object = None
+		self.zone_orb_object = ZoneGeneratorObject().getObject(
+			ns,context,object
+		)
 		self.zonedata = None
 
 		try:
-			# Initialise the ORB
-			orb = CORBA.ORB_init(["-ORBnativeCharCodeSet", "UTF-8",
-					"-ORBInitRef", "NameService=corbaname::" + ns],
-					CORBA.ORB_ID)
-			# Obtain a reference to the root naming context
-			obj = orb.resolve_initial_references("NameService")
-			rootContext = obj._narrow(CosNaming.NamingContext)
-			if rootContext is None:
-				raise ZoneException("Failed to narrow the root naming context")
-			# Resolve the name "fred.context/ZoneGenerator.Object"
-			name = [CosNaming.NameComponent(context, "context"),
-					CosNaming.NameComponent(object, "Object")]
-			obj = rootContext.resolve(name)
-			# Narrow the object to an fred::ZoneGenerator
-			self.zone_orb_object = obj._narrow(ccReg.ZoneGenerator)
-			if (self.zone_orb_object is None):
-				raise ZoneException("Obtained object reference is not "
-						"ccReg::ZoneGenerator")
 			# Download SOA data
 			(zonename, self.soa["ttl"], self.soa["hostmaster"],
 					self.soa["serial"], self.soa["refresh"],

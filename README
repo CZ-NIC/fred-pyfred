@@ -152,6 +152,9 @@ hook command line:
 The hook is trigered only if the zone file is successfully generated. By this
 hook you can conveniently restart a bind server for example.
 
+Zone generation support generation of DS records from server keyset objects
+attached to domains.
+
   2.2.1 Configuration of genzone client
 
 Genzone client is configurable by configuration file. The default location
@@ -167,10 +170,13 @@ directives follow.
 
     *) nameservice [localhost] - Host where is running corba nameservice.
 
+    *) context [fred] - Corba nameservice context (directory)
+
     *) verbose [Off] - If the client should be verbose when generating zones.
 
     *) zones [] - Space separated list of zone names to be generated. This
-       list is only used, if no zones were specified on command line.
+       list is only used, if no zones were specified on command line. If no
+       zones are specified at all, list of zones is downloaded from server
 
   Zone specific configuration directives:
 

@@ -1,3 +1,17 @@
+2008-08-14 Jaromir Talir (2.0.0)
+
+    * DNSSEC implementation. Keysets attached to domains are transformed 
+      into DS records.
+      
+    * Zone generation enahncement. Now It's possible to generate zonefile for
+      all zones managed by registry. This is now default when no zone is 
+      specified either on command line or in config file. New option for 
+      genzone_client 'bind_conf' allow generate sample configuration file 
+      for bind.
+      
+    * Default sample configuration file updated to allow mentioned multi 
+      zone generation 
+
 2008-07-09 Jaromir Talir (1.9.3)
 
     * Bugfix in long option handling of filemanager_client
