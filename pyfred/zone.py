@@ -143,7 +143,7 @@ class BindFilter (ZoneFilter):
 						(domain.name, ttl, ds.keyTag, ds.alg, 
 						 ds.digestType, ds.digest))
 
-class ZoneGeneratorObject():
+class ZoneGeneratorObject (object):
 	"""
 	Object ZoneGenerator encapsulates corba communication
 	"""

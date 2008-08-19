@@ -160,25 +160,24 @@ This class implements interface used for generation of a zone file.
 		zoneid, isenum = cur.fetchone()
 
 		# put together domains and their nameservers
-		cur.execute("SELECT oreg.name, host.fqdn, a.ipaddr "
+		cur.execute("SELECT oreg.name, host.fqdn, a.ipaddr, oreg.id "
 			"FROM object_registry oreg, "
 				"(host LEFT JOIN host_ipaddr_map a ON (host.id = a.hostid)), "
 				"(domain d LEFT JOIN object_state_now osn ON (d.id = osn.object_id)) "
 			"WHERE (NOT (15 = ANY (osn.states)) OR osn.states IS NULL) "
 				"AND d.id = oreg.id AND d.nsset = host.nssetid AND d.zone = %d "
-			"ORDER BY oreg.name, host.fqdn" % zoneid)
+			"ORDER BY oreg.id, host.fqdn" % zoneid)
 		
 		# get ds records for generated domains, they will be fetched parallel
 		# to the main list
 		cur2 = conn.cursor()
-		cur2.execute("SELECT oreg.name, ds.keyTag, ds.alg, ds.digestType,"
-					 "ds.digest, ds.maxSigLife FROM object_registry oreg "
-					 "LEFT JOIN object_state os ON (os.object_id=oreg.id AND "
-					 "os.valid_to ISNULL AND os.state_id=15) "
-					 "JOIN domain d ON (oreg.id=d.id) "
-					 "JOIN dsrecord ds ON (ds.keysetid=d.keyset) "
-					 "WHERE os.state_id IS NULL AND d.zone=%s "  
-					 "ORDER BY oreg.name " % zoneid)
+		cur2.execute("SELECT d.id, ds.keyTag, ds.alg, ds.digestType,"
+					 "ds.digest, ds.maxSigLife FROM domain d "
+					 "LEFT JOIN object_state os ON (os.object_id=d.id AND "
+					 "os.valid_to ISNULL AND os.state_id = 15) "
+					 "JOIN dsrecord ds ON (ds.keysetid = d.keyset) "
+					 "WHERE os.state_id IS NULL AND d.zone = %d "  
+					 "ORDER BY d.id " % zoneid)
 		return cur, cur2
 
 	def getSOA(self, zonename):
@@ -316,7 +315,8 @@ Class encapsulating zone data.
 			return None, None, None, None
 		prev = self.lastrow
 		curr = self.cursor.fetchone()
-		domain = prev[0]
+		domainname = prev[0]
+		domain = prev[3]
 		nameservers = [ prev[1] ]
 		ipaddrs = {}
 		if prev[2]:
@@ -325,7 +325,7 @@ Class encapsulating zone data.
 			ipaddrs[prev[1]] = []
 
 		# process all rows with the same domain name
-		while curr and domain == curr[0]: # while the domain names are same
+		while curr and domain == curr[3]: # while the domain names are same
 			if curr[1] not in nameservers:
 				nameservers.append(curr[1])
 				if curr[2]:
@@ -348,7 +348,7 @@ Class encapsulating zone data.
             
 		# save leftover
 		self.lastrow = curr
-		return domain, nameservers, ipaddrs, dslist
+		return domainname, nameservers, ipaddrs, dslist
 
 	def getNext(self, count):
 		"""

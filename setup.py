@@ -513,7 +513,7 @@ class Install_scripts(install_scripts):
         values.append((r"(sys\.path\.insert\(0,\ )''\)",
             r"\1 '%s')" % os.path.join(self.getDir('prefix'),
                 self.pythonLibPath)))
-        values.append((r"(configfile=\ )'\/etc\/fred\/genzone.conf'",
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/genzone.conf'",
             r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
                 'genzone.conf')))
 
