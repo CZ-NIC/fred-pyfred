@@ -1,3 +1,9 @@
+2008-08-14 Jaromir Talir (2.0.1)
+
+    * Fixing zone generator
+	- syntax error
+	- DS record generation didn't work
+
 2008-08-14 Jaromir Talir (2.0.0)
 
     * DNSSEC implementation. Keysets attached to domains are transformed 
