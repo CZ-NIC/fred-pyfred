@@ -178,7 +178,20 @@ This class implements interface used for generation of a zone file.
 					 "JOIN dsrecord ds ON (ds.keysetid = d.keyset) "
 					 "WHERE os.state_id IS NULL AND d.zone = %d "  
 					 "ORDER BY d.id " % zoneid)
-		return cur, cur2
+
+		# get dnskeys for generated domains, they will be fetched parallel
+		# to the main list
+		cur3 = conn.cursor()
+		cur3.execute("SELECT d.id, k.flags, k.protocol, k.alg, k.key "
+					 "FROM domain d "
+					 "LEFT JOIN object_state os ON (os.object_id=d.id AND "
+					 "os.valid_to ISNULL AND os.state_id = 15) "
+					 "JOIN dnskey k ON (k.keysetid = d.keyset) "
+					 "WHERE os.state_id IS NULL AND d.zone = %d "  
+					 "ORDER BY d.id " % zoneid)
+
+		
+		return cur, cur2, cur3
 
 	def getSOA(self, zonename):
 		"""
@@ -240,14 +253,18 @@ This class implements interface used for generation of a zone file.
 			conn = self.db.getConn()
 
 			# now comes the hard part, getting dynamic data (lot of data ;)
-			(cursor, cursor2) = self.__dbGetDynamicData(conn, zonename)
+			(cursor, cursor2, cursor3) = self.__dbGetDynamicData(conn, zonename)
 			conn.commit()
 			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d." %
 					(id, cursor.rowcount))
+			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor2: %d." %
+					(id, cursor2.rowcount))
+			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor3: %d." %
+					(id, cursor3.rowcount))
 			self.db.releaseConn(conn)
 
 			# Create an instance of ZoneData_i and an ZoneData object ref
-			zone_obj = ZoneData_i(id, cursor, cursor2, self.l)
+			zone_obj = ZoneData_i(id, cursor, cursor2, cursor3, self.l)
 			self.zone_objects.put(zone_obj)
 			zone_ref = self.corba_refs.rootpoa.servant_to_reference(zone_obj)
 
@@ -290,7 +307,7 @@ Class encapsulating zone data.
 	CLOSED = 2
 	IDLE = 3
 
-	def __init__(self, id, cursor, cursor2, log):
+	def __init__(self, id, cursor, cursor2, cursor3, log):
 		"""
 	Initializes zonedata object.
 		"""
@@ -298,11 +315,13 @@ Class encapsulating zone data.
 		self.id = id
 		self.cursor = cursor
 		self.cursor2 = cursor2
+		self.cursor3 = cursor3
 		self.status = self.ACTIVE
 		self.crdate = time.time()
 		self.lastuse = self.crdate
 		self.lastrow = cursor.fetchone()
 		self.lastds = cursor2.fetchone()
+		self.lastkey = cursor3.fetchone()
 
 	def __get_one_domain(self):
 		"""
@@ -312,7 +331,7 @@ Class encapsulating zone data.
 	the domain.
 		"""
 		if not self.lastrow:
-			return None, None, None, None
+			return None, None, None, None, None
 		prev = self.lastrow
 		curr = self.cursor.fetchone()
 		domainname = prev[0]
@@ -345,10 +364,17 @@ Class encapsulating zone data.
 		while self.lastds and self.lastds[0] == domain:
 			dslist.append(self.lastds)
 			self.lastds = self.cursor2.fetchone()
+		# the same for dnskeys
+		while self.lastkey and self.lastkey[0] < domain:
+			self.lastkey = self.cursor3.fetchone() 
+		keylist = []
+		while self.lastkey and self.lastkey[0] == domain:
+			keylist.append(self.lastkey)
+			self.lastkey = self.cursor3.fetchone()
             
 		# save leftover
 		self.lastrow = curr
-		return domainname, nameservers, ipaddrs, dslist
+		return domainname, nameservers, ipaddrs, dslist, keylist
 
 	def getNext(self, count):
 		"""
@@ -381,7 +407,7 @@ Class encapsulating zone data.
 			# changing
 			dyndata = []
 			for i in range(count):
-				domain, nameservers, ipaddrs, dslist = self.__get_one_domain()
+				domain, nameservers, ipaddrs, dslist, keylist = self.__get_one_domain()
 				if not domain: # test end of data
 					break
 
@@ -397,8 +423,13 @@ Class encapsulating zone data.
 					corba_dslist.append(ccReg.DSRecord_str(
 						ds[1], ds[2], ds[3], ds[4], ds[5]
 					))
+				corba_keylist = []
+				for key in keylist:
+					corba_keylist.append(ccReg.DNSKey_str(
+						key[1], key[2], key[3], key[4]
+					))
 				dyndata.append( ccReg.ZoneItem(
-					domain, corba_nameservers, corba_dslist
+					domain, corba_nameservers, corba_dslist, corba_keylist
 				) )
 
 			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %
