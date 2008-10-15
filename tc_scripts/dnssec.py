@@ -21,5 +21,5 @@ def countKeyTag(k):
     
 def getAllKeys(domain, ip):
     msg_q = dns.message.make_query(domain, "DNSKEY")
-    msg_r = dns.query.tcp(m,ip,3)
+    msg_r = dns.query.tcp(msg_q,ip,3)
     return msg_r.answer[0]
