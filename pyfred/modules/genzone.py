@@ -6,6 +6,8 @@ Code of server-side of zone generator.
 
 import sys, time, random, ConfigParser, Queue
 import pgdb
+import base64
+from pyfred import dnssec
 from pyfred.idlstubs import ccReg, ccReg__POA
 from pyfred.utils import ipaddrs2list
 
@@ -423,13 +425,17 @@ Class encapsulating zone data.
 					corba_dslist.append(ccReg.DSRecord_str(
 						ds[1], ds[2], ds[3], ds[4], ds[5]
 					))
-				corba_keylist = []
 				for key in keylist:
-					corba_keylist.append(ccReg.DNSKey_str(
-						key[1], key[2], key[3], key[4]
+					keydata = base64.decodestring(key[4])
+					corba_dslist.append(ccReg.DSRecord_str(
+						dnssec.countKeyTag(key[1], key[2], key[3], keydata),
+						key[3], 1,						
+						dnssec.countDSRecordDigest(
+							domain, key[1], key[2], key[3], keydata
+						), 0
 					))
 				dyndata.append( ccReg.ZoneItem(
-					domain, corba_nameservers, corba_dslist, corba_keylist
+					domain, corba_nameservers, corba_dslist
 				) )
 
 			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %
