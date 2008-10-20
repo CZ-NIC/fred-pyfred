@@ -1,4 +1,8 @@
-2008-08-14 Jaromir Talir (2.0.1)
+2008-10-19 Jaromir Talir (2.1.0)
+
+    * Adding DS generation from DNSKEY records
+	
+2008-09-18 Jaromir Talir (2.0.1)
 
     * Fixing zone generator
 	- syntax error

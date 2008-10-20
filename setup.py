@@ -22,7 +22,7 @@ from freddist.filelist import FileList
 
 PROJECT_NAME = 'pyfred_server'
 PACKAGE_NAME = 'pyfred_server'
-PACKAGE_VERSION = '2.0.1'
+PACKAGE_VERSION = '2.1'
 DEFAULT_DBUSER = 'fred'
 DEFAULT_DBNAME = 'fred'
 DEFAULT_DBHOST = 'localhost'
