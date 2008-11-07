@@ -1,3 +1,9 @@
+2008-11-08 Jaromir Talir (2.1.1)
+
+    * Renaming 
+	- pyfred_server -> fred-pyfred
+	- genzone_test -> check_pyfred_genzone
+
 2008-10-19 Jaromir Talir (2.1.0)
 
     * Adding DS generation from DNSKEY records

@@ -42,7 +42,7 @@ DEFAULT_TECHCHECKSCRIPTDIR = 'pyfred'
 #whole is $localstatedir/run/pyfred.pid
 DEFAULT_PIDFILE = 'run/pyfred.pid'
 #$prefix/bin/pyfred_server
-DEFAULT_PYFREDSERVER = 'bin/pyfred_server'
+DEFAULT_PYFREDSERVER = 'bin/fred-pyfred'
 #$prefix/etc/fred/pyfred.conf
 DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 #whole is $localstatedir/zonebackup
@@ -448,7 +448,7 @@ class Install_scripts(install_scripts):
     def update_pyfredctl(self):
         """
         Update paths in pyfredctl file (location of pid file and
-        pyfred_server file)
+        fred-pyfred file)
         """
         values = []
         values.append((r'(pidfile = )\'[\w/_ \-\.]*\'',
@@ -464,7 +464,7 @@ class Install_scripts(install_scripts):
 
     def update_pyfred_server(self):
         """
-        Update paths in pyfred_server file (path to config file and search
+        Update paths in fred-pyfred file (path to config file and search
         path for modules).
         """
         values = []
@@ -476,9 +476,9 @@ class Install_scripts(install_scripts):
             # r"\1('%s')" % os.path.join(self.getDir('prefix'),
                 # self.pythonLibPath)))
         self.replace_pattern(
-                os.path.join(self.build_dir, 'pyfred_server'),
+                os.path.join(self.build_dir, 'fred-pyfred'),
                 None, values)
-        print "pyfred_server file has been updated"
+        print "fred-pyfred file has been updated"
 
     def update_filemanager_admin_client(self):
         values = []
@@ -527,14 +527,14 @@ class Install_scripts(install_scripts):
         values.append((r"(sys\.path\.insert\(0,\ )''\)",
             r"\1 '%s')" % os.path.join(self.getDir('prefix'),
                 self.pythonLibPath)))
-        values.append((r"(configfile=\ )'\/etc\/fred\/genzone.conf'",
+        values.append((r"(configfile\ =\ )'\/etc\/fred\/genzone.conf'",
             r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
                 'genzone.conf')))
 
         self.replace_pattern(
-                os.path.join(self.build_dir, 'genzone_test'),
+                os.path.join(self.build_dir, 'check_pyfred_genzone'),
                 None, values)
-        print "genzone_test file has been updated"
+        print "check_pyfred_genzone file has been updated"
 
     def update_mailer_admin_client(self):
         values = []
@@ -629,12 +629,12 @@ def main():
                 #official documentation.
                 #requires = ["omniORB", "pgdb(>=3.6)", "dns(>=1.3)", "neo_cgi"],
                 scripts  = [
-                    "scripts/pyfred_server",
+                    "scripts/fred-pyfred",
                     "scripts/pyfredctl",
                     "scripts/filemanager_admin_client",
                     "scripts/filemanager_client",
                     "scripts/genzone_client",
-                    "scripts/genzone_test",
+                    "scripts/check_pyfred_genzone",
                     "scripts/mailer_admin_client",
                     "scripts/mailer_client",
                     "scripts/techcheck_admin_client",

@@ -5,8 +5,8 @@ import os, sys, commands, time, signal, ConfigParser
 
 # value of variables pidfile and pyfred_server are replaced by setup.py
 # during install phase
-pidfile = '/usr/var/run/pyfred.pid'
-pyfred_server = '/usr/bin/pyfred_server'
+pidfile = '/var/run/pyfred.pid'
+pyfred_server = '/usr/bin/fred-pyfred'
 
 def usage():
 	sys.stderr.write("Usage: pyfredctl [ start | stop | status ]\n")
@@ -57,32 +57,32 @@ def main(argv):
 	if command == "start":
 		if pid:
 			if isrunning(pid):
-				sys.stdout.write("pyfred_server is already running. Exiting.\n")
+				sys.stdout.write(pyfred_server+" is already running. Exiting.\n")
 				sys.exit(1)
 			sys.stdout.write("Found pidfile - perhaps unclean previous "
 					"shutdown?\n")
 			os.unlink(pidfile)
 
 		pid = os.spawnl(os.P_WAIT, pyfred_server)
-		sys.stdout.write("pyfred_server was started\n")
+		sys.stdout.write(pyfred_server+" was started\n")
 
 	elif command == "stop":
 		if not pid:
-			sys.stdout.write("pyfred_server is not running. Exiting.\n")
+			sys.stdout.write(pyfred_server+" is not running. Exiting.\n")
 			sys.exit(1)
 		sys.stdout.write("Killing pid %d.\n" % pid)
 		os.kill(pid, signal.SIGTERM)
 		sys.stdout.write("Waiting 3 seconds for proces to terminate\n")
 		time.sleep(3)
 		if isrunning(pid):
-			sys.stdout.write("pyfred_server doesn't want to exit\n")
+			sys.stdout.write(pyfred_server+" doesn't want to exit\n")
 			os.kill(pid, signal.SIGKILL)
 
 	elif command == "status":
 		if pid:
-			sys.stdout.write("pyfred_server is running with pid %d.\n" % pid)
+			sys.stdout.write(pyfred_server+" is running with pid %d.\n" % pid)
 		else:
-			sys.stdout.write("pyfred_server is not running.\n")
+			sys.stdout.write(pyfred_server+" is not running.\n")
 
 	else:
 		sys.stderr.write("Invalid command specified\n")
