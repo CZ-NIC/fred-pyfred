@@ -40,7 +40,7 @@ class FileManager_i (ccReg__POA.FileManager):
 				if rootdir:
 					if not os.path.isabs(rootdir):
 						self.l.log(self.l.ERR, "rootdir must be absolute path")
-						raise Exception()
+						raise Exception("rootdir must be absolute path")
 					self.rootdir = rootdir
 			except ConfigParser.NoOptionError, e:
 				pass
@@ -104,7 +104,12 @@ class FileManager_i (ccReg__POA.FileManager):
 					remove.append(item)
 				# if object is active - reinsert the object in queue
 				else:
+					self.l.log(self.l.DEBUG, "search/download/upload-object with id %d and type %s "
+							"left in queue." % (item.id, item.__class__.__name__))
 					queue.put(item)
+					
+			self.l.log(self.l.DEBUG, '%d objects are scheduled to deletion and %d left in queue' % (len(remove), queue.qsize()))
+					
 		# delete objects scheduled for deletion
 		rootpoa = self.corba_refs.rootpoa
 		for item in remove:

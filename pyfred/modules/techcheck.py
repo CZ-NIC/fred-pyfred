@@ -405,7 +405,13 @@ This class implements TechCheck interface.
 				remove.append(item)
 			# if object is active - reinsert the object in queue
 			else:
+				self.l.log(self.l.DEBUG, "search-object with id %d and type %s "
+							"left in queue." % (item.id, item.__class__.__name__))
 				self.search_objects.put(item)
+		
+		queue = self.search_objects 
+		self.l.log(self.l.DEBUG, '%d objects are scheduled to deletion and %d left in queue' % (len(remove), queue.qsize()))
+		
 		# delete objects scheduled for deletion
 		rootpoa = self.corba_refs.rootpoa
 		for item in remove:
