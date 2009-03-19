@@ -5,6 +5,7 @@ Code of mailer daemon.
 """
 
 import os, sys, time, random, ConfigParser, popen2, Queue, tempfile, re
+import base64
 import pgdb
 from pyfred.utils import isInfinite
 # corba stuff
@@ -609,7 +610,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur = conn.cursor()
 		cur.execute("UPDATE mail_archive "
 				"SET status = 4, moddate = now(), response = %s "
-				"WHERE id = %d" % (pgdb._quote(mail), mailid))
+				"WHERE id = %d", (base64.b64encode(mail), mailid))
 		if cur.rowcount != 1:
 			raise ccReg.Mailer.UnknownMailid(mailid)
 		cur.close()
