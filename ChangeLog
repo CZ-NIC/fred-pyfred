@@ -1,5 +1,13 @@
-2009-02-10 Tomas Divis (2.1.3)
+2009-03-26 Tomas Divis (2.1.4)
 
+    * When marking emails as undelivered, response is saved using base64 
+      encoding (due to SQL errors when non-utf8 response was delivered).
+      Old data must be migrated:
+      UPDATE mail_archive SET response = encode(convert_to(response, 'UTF8'),
+      'base64')
+
+2009-02-10 Tomas Divis (2.1.3)
+	
     * Adding few log messages to debug memory consumtion
 
 2008-11-10 Ales Dolezal (2.1.2)
