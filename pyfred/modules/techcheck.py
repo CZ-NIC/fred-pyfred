@@ -460,7 +460,7 @@ This class implements TechCheck interface.
 		for row in cur.fetchall():
 			if row[0]:
 				emails.append((row[0], row[2]))
-			else:
+			elif row[1]:
 				emails.append((row[1], row[2]))
 		cur.close()
 		return emails
