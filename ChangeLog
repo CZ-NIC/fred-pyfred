@@ -1,3 +1,8 @@
+2009-03-14 Tomas Divis (2.1.5)
+
+    * Bugfix in sending emails from tech check module - it generated invalid 
+      corba request because of empty list of email addresses. 
+
 2009-03-26 Tomas Divis (2.1.4)
 
     * When marking emails as undelivered, response is saved using base64 
