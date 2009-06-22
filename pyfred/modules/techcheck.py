@@ -4,11 +4,12 @@
 Code of techcheck daemon.
 """
 
-import sys, select, time, random, ConfigParser, commands, os, popen2, signal
-import Queue, pgdb, fcntl
+import sys, time, random, ConfigParser, commands, os
+import Queue, pgdb
 from exceptions import SystemExit
 from pyfred.idlstubs import ccReg, ccReg__POA
 from pyfred.utils import isInfinite
+from pyfred.utils import runCommand
 import CosNaming
 
 def safeNull(str):
@@ -90,16 +91,6 @@ Assemble data about domain from db rows to logical units.
 			nslist[ currow[4] ] = []
 		currow = cursor.fetchone()
 	return currow, objid, histid, domain, nslist, level
-
-def makeNonBlocking(fd):
-	"""
-	Set non-blocking attribute on file.
-	"""
-	fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-	try:
-		fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NDELAY)
-	except AttributeError:
-		fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
 
 class RegularCheck:
 	"""
@@ -586,69 +577,6 @@ This class implements TechCheck interface.
 				"VALUES (%d, %d)" % (msgid, chkid))
 		cur.close()
 
-	def __runCommand(self, id, cmd, stdin):
-		"""
-		Run command in non-blocking manner.
-		"""
-		# run the command
-		child = popen2.Popen3(cmd, True)
-		self.l.log(self.l.DEBUG, "<%d> Running command '%s', pid %d." %
-				(id, cmd, child.pid))
-		if (stdin):
-			child.tochild.write(stdin)
-		child.tochild.close()
-		outfile = child.fromchild 
-		outfd = outfile.fileno()
-		errfile = child.childerr
-		errfd = errfile.fileno()
-		makeNonBlocking(outfd)
-		makeNonBlocking(errfd)
-		outdata = errdata = ''
-		outeof = erreof = 0
-		for round in range(8):
-			# wait for input at most 1 second
-			ready = select.select([outfd,errfd], [], [], 1.0)
-			if outfd in ready[0]:
-				outchunk = outfile.read()
-				if outchunk == '':
-					outeof = 1
-				else:
-					outdata += outchunk
-			if errfd in ready[0]:
-				errchunk = errfile.read()
-				if errchunk == '':
-					erreof = 1
-				else:
-					errdata += errchunk
-			if outeof and erreof: break
-			self.l.log(self.l.WARNING, "<%d> Output of test not ready, "
-					"waiting (round %d)" % (id, round))
-			time.sleep(0.3) # give a little time for buffers to fill
-
-		child.fromchild.close()
-		child.childerr.close()
-
-		status = os.waitpid(child.pid, os.WNOHANG)
-
-		if status[0] == 0:
-			time.sleep(1)
-			self.l.log(self.l.WARNING, "<%d> Child doesn't want to exit, TERM signal sent." % (id))
-			os.kill(child.pid, signal.SIGTERM)
-			time.sleep(1.2) # time to exit
-			status = os.waitpid(child.pid, os.WNOHANG)
-
-			if status[0] == 0:
-				self.l.log(self.l.WARNING, "<%d> Child doesn't want to die, KILL signal sent." % (id))
-				os.kill(child.pid, signal.SIGKILL)
-				time.sleep(1.2) # time to exit
-				status = os.waitpid(child.pid, os.WNOHANG)
-
-		stat = 2 # by default assume error
-		if outeof and erreof and (status[0] == child.pid) and os.WIFEXITED(status[1]):
-			stat = os.WEXITSTATUS(status[1])
-
-		return stat, outdata, errdata
-
 	def __runTests(self, id, fqdns, nslist, level):
 		"""
 		Run all enabled tests bellow given level.
@@ -742,7 +670,7 @@ This class implements TechCheck interface.
 					# send space separated list of domain fqdns to stdin
 					for fqdn in fqdns:
 						stdin += fqdn + ' '
-				stat, data, note = self.__runCommand(id, cmd, stdin)
+				stat, data, note = runCommand(id, cmd, stdin, self.l)
 
 			# Status values:
 			#     0 ... test OK

@@ -5,6 +5,7 @@ This module gathers various utility functions used in other pyfred's modules.
 """
 
 import time, re
+import sys, os, fcntl, select, time, popen2, signal
 
 def strtime(timestamp = 0):
 	"""
@@ -85,4 +86,78 @@ Decide if the date is invalid. If it is invalid, it is counted as infinite.
 	if datetime.date.day < 1:
 		return True
 	return False
+
+def makeNonBlocking(fd):
+    """
+    Set non-blocking attribute on file.
+    """
+    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+    try:
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NDELAY)
+    except AttributeError:
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
+
+
+def runCommand(id, cmd, stdin, logger):
+    """
+    Run command in non-blocking manner.
+    """
+    # run the command
+    child = popen2.Popen3(cmd, True)
+    logger.log(logger.DEBUG, "<%d> Running command '%s', pid %d." %
+            (id, cmd, child.pid))
+    if (stdin):
+        child.tochild.write(stdin)
+    child.tochild.close()
+    outfile = child.fromchild 
+    outfd = outfile.fileno()
+    errfile = child.childerr
+    errfd = errfile.fileno()
+    makeNonBlocking(outfd)
+    makeNonBlocking(errfd)
+    outdata = errdata = ''
+    outeof = erreof = 0
+    for round in range(8):
+        # wait for input at most 1 second
+        ready = select.select([outfd,errfd], [], [], 1.0)
+        if outfd in ready[0]:
+            outchunk = outfile.read()
+            if outchunk == '':
+                outeof = 1
+            else:
+                outdata += outchunk
+        if errfd in ready[0]:
+            errchunk = errfile.read()
+            if errchunk == '':
+                erreof = 1
+            else:
+                errdata += errchunk
+        if outeof and erreof: break
+        logger.log(logger.WARNING, "<%d> Output of test not ready, "
+                "waiting (round %d)" % (id, round))
+        time.sleep(0.3) # give a little time for buffers to fill
+
+    child.fromchild.close()
+    child.childerr.close()
+
+    status = os.waitpid(child.pid, os.WNOHANG)
+
+    if status[0] == 0:
+        time.sleep(1)
+        logger.log(logger.WARNING, "<%d> Child doesn't want to exit, TERM signal sent." % (id))
+        os.kill(child.pid, signal.SIGTERM)
+        time.sleep(1.2) # time to exit
+        status = os.waitpid(child.pid, os.WNOHANG)
+
+        if status[0] == 0:
+            logger.log(logger.WARNING, "<%d> Child doesn't want to die, KILL signal sent." % (id))
+            os.kill(child.pid, signal.SIGKILL)
+            time.sleep(1.2) # time to exit
+            status = os.waitpid(child.pid, os.WNOHANG)
+
+    stat = 2 # by default assume error
+    if outeof and erreof and (status[0] == child.pid) and os.WIFEXITED(status[1]):
+        stat = os.WEXITSTATUS(status[1])
+
+    return stat, outdata, errdata
 
