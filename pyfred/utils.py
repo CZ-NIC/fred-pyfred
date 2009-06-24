@@ -133,7 +133,7 @@ def runCommand(id, cmd, stdin, logger):
             else:
                 errdata += errchunk
         if outeof and erreof: break
-        logger.log(logger.WARNING, "<%d> Output of test not ready, "
+        logger.log(logger.WARNING, "<%d> Output of command not ready, "
                 "waiting (round %d)" % (id, round))
         time.sleep(0.3) # give a little time for buffers to fill
 
