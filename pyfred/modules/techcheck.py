@@ -461,10 +461,13 @@ This class implements TechCheck interface.
 	Dig all associated domains with nsset from database.
 		"""
 		cur = conn.cursor()
-		cur.execute("SELECT oreg.name FROM domain d, object_registry oreg "
+		cur.execute("SELECT oreg.name, (d.keyset IS NOT NULL) as signed "
+				"FROM domain d, object_registry oreg "
 				"WHERE oreg.type = 3 AND d.id = oreg.id AND d.nsset = %d" %
 				objid)
-		fqdns = [ item[0] for item in cur.fetchall() ]
+		# fqdns = [ item[0] for item in cur.fetchall() ]
+		# dictionary of domains (key=fqdn, value=is signed flag)
+		fqdns = dict( (item[0], item[1]) for item in cur.fetchall() )
 		cur.close()
 		return fqdns
 
@@ -616,7 +619,7 @@ This class implements TechCheck interface.
 			if not req_ok:
 				# prerequisities were not satisfied
 				continue
-			if test["need_domain"] == 1 and not fqdns:
+			if (test["need_domain"] == 1 or test["need_domain"] == 3) and not fqdns:
 				# list of domains is required for the test but is not given
 				self.l.log(self.l.DEBUG, "<%d> Omitting test '%s' because "
 						"no domains are provided." % (id, test["name"]))
@@ -667,9 +670,15 @@ This class implements TechCheck interface.
 				# decide if list of domains is needed
 				stdin = ''
 				if test["need_domain"] != 0:
+					# decide if test need only signed domains
+					if test["need_domain"] == 3:
+						list = [ item for item in fqdns if fqdns[item] ]
+					else:
+						list = fqdns
 					# send space separated list of domain fqdns to stdin
-					for fqdn in fqdns:
+					for fqdn in list:
 						stdin += fqdn + ' '
+
 				stat, data, note = runCommand(id, cmd, stdin, self.l)
 
 			# Status values:
@@ -808,14 +817,14 @@ This class implements TechCheck interface.
 			if level <= 0:
 				level = dblevel
 			# dig associated domain fqdns if told to do so
+			all_fqdns = dict( (item, True) for item in fqdns )
 			if dig:
 				# get all fqdns of domains associated with nsset and join
 				# them with provided fqdns
-				all_fqdns = fqdns + self.__dbGetAssocDomains(conn, objid)
-			else:
-				all_fqdns = fqdns
+				all_fqdns.update(self.__dbGetAssocDomains(conn, objid))
+
 			self.l.log(self.l.DEBUG, "<%d> List of first 5 domain fqdns "
-					"from total %d: %s" % (id, len(all_fqdns), all_fqdns[0:5]))
+					"from total %d: %s" % (id, len(all_fqdns), all_fqdns.keys()[0:5]))
 			# perform tests on the nsset
 			if asynch:
 				registrarid = self.__dbGetRegistrar(conn, registrarid)

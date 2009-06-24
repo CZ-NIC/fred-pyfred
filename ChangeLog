@@ -1,3 +1,14 @@
+2009-06-24 Jiri Sadek
+    * Test for dnssec key chain of trust added. Test uses drill utility (this
+    add new dependency to project)
+    Test copy current approach, but changes was needed:
+        - __dbGetAssocDomains(...) now return dictionary where key is fqdn of
+        domain, value is True/False flag defining if there is a keyset
+        associated with domain (we need test only this domains)
+        - in database table `check_test' new value (3) is used in need_domain
+        column determining that test needs only signed domains on standard
+        input
+
 2009-03-14 Tomas Divis (2.1.5)
 
     * Bugfix in sending emails from tech check module - it generated invalid 
