@@ -1,39 +1,58 @@
 #!/usr/bin/env python
+"""
+DNSSEC key chain of trust technical test
+"""
 
-import sys
+import sys, os
 import subprocess
 
 DEBUG = True
-DFILE = open('dnssec_test_debug.log', 'a')
 
 def debug(msg, newline=None):
+    """
+    debug messages, turn off on production usage
+    """
     if newline == None:
         newline = True
 
-    global DEBUG, DFILE
     if DEBUG:
         if newline:
             msg += '\n'
-        #sys.stderr.write(msg)
-        DFILE.write(msg)
+        sys.stderr.write(msg)
 
 
 def main():
-    if len(sys.argv) < 2:
+    """
+    dnssec key chain of trust test procedure
+    return values:
+        0 if all domain names pass the test
+        1 if any domain name fails
+        2 if any other error occurs
+    """
+    if len(sys.argv) < 3:
         sys.stderr.write('Usage error')
         return 2
 
-    domains = sys.stdin.read().strip().split(' ')
-    debug('domains: ' + str(domains))
-    debug('args: ' + str(sys.argv[1:0]))
+    drill = sys.argv[-2]
+    trusted_key = sys.argv[-1]
+    debug("drill: " + str(drill))
+    debug("trusted key: " + str(trusted_key))
+    # test at least existance and executability
+    if not (os.path.exists(drill) or os.access(drill, os.X_OK)):
+        debug("Usage error (wrong argument: drill)")
+        return 2
+    if not os.path.exists(trusted_key):
+        debug("Usage error (wrong argument: trusted key)")
+        return 2
 
+    domains = sys.stdin.read().strip().split(' ')
     failed = []
 
     for domain in domains:
         debug('Checking domain name %s ... ' % domain, False)
-        # will check only SOA record signature - because some domains are in zone
-        # and do not have any A record
-        command = '/usr/local/bin/drill -S %s SOA -k /etc/trusted-key.key' % domain
+        # will check only SOA record signature - because some domains 
+        # are in zone and do not have any A record
+        command = '%s -k %s -S %s SOA' % (drill, trusted_key, domain)
         child = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
         child.wait()
 
@@ -61,7 +80,6 @@ def main():
 if __name__ == '__main__':
     try:
         ret = main()
-
     except Exception, e:
         sys.stderr.write(str(e))
         sys.exit(2)

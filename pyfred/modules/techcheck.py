@@ -143,6 +143,8 @@ This class implements TechCheck interface.
 		self.queueperiod    = 5
 		self.oldperiod      = 30
 		self.missrounds     = 10
+		self.drill          = "/usr/local/bin/drill"
+		self.trusted_key    = "/etc/fred/trusted-anchor.key"
 		# Parse TechCheck-specific configuration
 		if conf.has_section("TechCheck"):
 			try:
@@ -227,10 +229,37 @@ This class implements TechCheck interface.
 							self.missrounds)
 			except ConfigParser.NoOptionError, e:
 				pass
+			# drill
+			try:
+				drill = conf.get("TechCheck", "drill")
+				if drill:
+					self.l.log(self.l.DEBUG, "drill is set to %s" %
+								drill)
+					self.drill = drill
+			except ConfigParser.NoOptionError, e:
+				pass
+			# trusted_key
+			try:
+				trusted_key = conf.get("TechCheck", "trusted_key")
+				if trusted_key:
+					self.l.log(self.l.DEBUG, "trusted_key is set to %s" %
+								trusted_key)
+					self.trusted_key = trusted_key
+			except ConfigParser.NoOptionError, e:
+				pass
+
 		if not os.path.isdir(self.scriptdir):
 			raise Exception("Scriptdir '%s' does not exist." % self.scriptdir)
 		if not os.access(self.scriptdir, os.R_OK):
-			raise Exception("Scriptdir '%s' is not readable" % self.scriptdir)
+			raise Exception("Scriptdir '%s' is not readable." % self.scriptdir)
+		if not os.path.exists(self.drill):
+			raise Exception("Drill utility '%s' does not exist." % self.drill)
+		if not os.access(self.drill, os.X_OK):
+			raise Exception("Drill utility '%s' is not executable." % self.drill)
+		if not os.path.exists(self.trusted_key):
+			raise Exception("File with trusted key '%s' does not exist." % 
+					self.trusted_key)
+
 		# add trailing '/' to scriptdir if not given
 		if self.scriptdir[-1] != '/':
 			self.scriptdir += '/'
@@ -672,6 +701,9 @@ This class implements TechCheck interface.
 				if test["need_domain"] != 0:
 					# decide if test need only signed domains
 					if test["need_domain"] == 3:
+						# append configuration parameters to command string
+						cmd += " %s %s" % (self.drill, self.trusted_key)
+						# select only signed domains
 						list = [ item for item in fqdns if fqdns[item] ]
 					else:
 						list = fqdns
