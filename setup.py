@@ -34,6 +34,9 @@ DEFAULT_NSHOST = 'localhost'
 DEFAULT_NSPORT = '2809'
 DEFAULT_PYFREDPORT = '2225'
 DEFAULT_SENDMAIL = '/usr/sbin/sendmail'
+DEFAULT_DRILL = '/usr/local/bin/drill'
+DEFAULT_TRUSTEDKEY = 'fred/trusted-anchor.key'
+
 
 #$localstatedir/lib/pyfred/filemanager
 DEFAULT_FILEMANAGERFILES = 'lib/pyfred/filemanager/'
@@ -247,6 +250,7 @@ class Install (install.install, object):
         self.sendmail = DEFAULT_SENDMAIL
         self.modules = DEFAULT_MODULES
         self.pyfredport = DEFAULT_PYFREDPORT
+        self.drill = DEFAULT_DRILL
 
     def initialize_options(self):
         super(Install, self).initialize_options()
@@ -288,12 +292,24 @@ class Install (install.install, object):
                 return
         log.warn("Warning: sendmail not found.")
 
+    def find_drill(self):
+        self.drill = DEFAULT_SENDMAIL
+        paths = ['/usr/local/bin/', '/usr/bin', '/usr/sbin']
+        filename = 'drill'
+        for i in paths:
+            if os.path.exists(os.path.join(i, filename)):
+                self.drill = os.path.join(i, filename)
+                log.info("drill found in %s" % i)
+                return
+        log.warn("Warning: drill not found.")
+
     def update_server_config(self):
         """
         Update config items and paths in pyfred.conf file.
         """
         #try to find sendmail binary
         self.find_sendmail()
+        self.find_drill()
         values = []
         values.append(('MODULES', self.modules))
         values.append(('DBUSER', self.dbuser))
@@ -306,6 +322,7 @@ class Install (install.install, object):
         values.append(('NSPORT', self.nsport))
         values.append(('SENDMAIL', self.sendmail))
         values.append(('PYFREDPORT', self.pyfredport))
+        values.append(('DRILL', self.drill))
 
         values.append(('FILEMANAGERFILES', os.path.join(
             self.getDir('localstatedir'), DEFAULT_FILEMANAGERFILES)))
@@ -313,6 +330,8 @@ class Install (install.install, object):
             self.getDir('libexecdir'), DEFAULT_TECHCHECKSCRIPTDIR)))
         values.append(('PIDFILE', os.path.join(
             self.getDir('localstatedir'), DEFAULT_PIDFILE)))
+        values.append(('TRUSTEDKEY', os.path.join(self.getDir('sysconfdir'), 
+            DEFAULT_TRUSTEDKEY)))
 
         self.replace_pattern(
                 os.path.join(self.srcdir, 'conf', 'pyfred.conf.install'),
