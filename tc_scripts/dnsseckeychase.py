@@ -6,7 +6,7 @@ DNSSEC key chain of trust technical test
 import sys, os
 import subprocess
 
-DEBUG = True
+DEBUG = False
 
 def debug(msg, newline=None):
     """
@@ -79,10 +79,10 @@ def main():
 
 if __name__ == '__main__':
     try:
-        ret = main()
+        RET_VAL = main()
     except Exception, e:
         sys.stderr.write(str(e))
         sys.exit(2)
 
-    sys.exit(ret)
+    sys.exit(RET_VAL)
 
