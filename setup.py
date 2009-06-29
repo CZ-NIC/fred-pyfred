@@ -34,7 +34,7 @@ DEFAULT_NSHOST = 'localhost'
 DEFAULT_NSPORT = '2809'
 DEFAULT_PYFREDPORT = '2225'
 DEFAULT_SENDMAIL = '/usr/sbin/sendmail'
-DEFAULT_DRILL = '/usr/local/bin/drill'
+DEFAULT_DRILL = '/usr/bin/drill'
 DEFAULT_TRUSTEDKEY = 'fred/trusted-anchor.key'
 
 
