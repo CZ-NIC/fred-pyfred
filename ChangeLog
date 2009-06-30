@@ -9,6 +9,10 @@
         column determining that test needs only signed domains on standard
         input
 
+    * New configuration options:
+        - drill binary executable
+        - trust anchor key file
+
 2009-03-14 Tomas Divis (2.1.5)
 
     * Bugfix in sending emails from tech check module - it generated invalid 
