@@ -39,10 +39,10 @@ def main():
     debug("trusted key: " + str(trusted_key))
     # test at least existance and executability
     if not (os.path.exists(drill) or os.access(drill, os.X_OK)):
-        debug("Usage error (wrong argument: drill)")
+        sys.stderr.write("Usage error (wrong argument: drill); test aborted\n")
         return 2
     if not os.path.exists(trusted_key):
-        debug("Usage error (wrong argument: trusted key)")
+        sys.stderr.write("Usage error (wrong argument: trusted key); test aborted\n")
         return 2
 
     domains = sys.stdin.read().strip().split(' ')

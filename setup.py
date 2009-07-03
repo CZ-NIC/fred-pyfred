@@ -33,9 +33,8 @@ DEFAULT_NSCONTEXT = 'fred'
 DEFAULT_NSHOST = 'localhost'
 DEFAULT_NSPORT = '2809'
 DEFAULT_PYFREDPORT = '2225'
-DEFAULT_SENDMAIL = '/usr/sbin/sendmail'
-DEFAULT_DRILL = '/usr/bin/drill'
-DEFAULT_TRUSTEDKEY = 'fred/trusted-anchor.key'
+DEFAULT_SENDMAIL = '' #'/usr/sbin/sendmail'
+DEFAULT_DRILL = ''
 
 
 #$localstatedir/lib/pyfred/filemanager
@@ -230,6 +229,8 @@ class Install (install.install, object):
     user_options.append(('install-unittests', None,
         'setup will install unittest scripts into '
         'PREFIX/lib/fred-pyfred/unittests directory'))
+    user_options.append(("sendmail=", None, "sendmail path"))
+    user_options.append(("drill=", None, "drill utility path"))
 
     boolean_options = install.install.boolean_options
     boolean_options.append('install-unittests')
@@ -247,10 +248,8 @@ class Install (install.install, object):
         self.nscontext = DEFAULT_NSCONTEXT
         self.nshost = DEFAULT_NSHOST
         self.nsport = DEFAULT_NSPORT
-        self.sendmail = DEFAULT_SENDMAIL
         self.modules = DEFAULT_MODULES
         self.pyfredport = DEFAULT_PYFREDPORT
-        self.drill = DEFAULT_DRILL
 
     def initialize_options(self):
         super(Install, self).initialize_options()
@@ -260,6 +259,8 @@ class Install (install.install, object):
         self.omniidl_params = g_omniidl_params #["-Cbuild/lib", "-bpython", "-Wbinline"]
         self.idlfiles = g_modules#["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
         self.install_unittests = None
+        self.sendmail = None
+        self.drill = None
 
     def finalize_options(self):
         # cmd_obj = self.distribution.get_command_obj('bdist', False)
@@ -276,10 +277,30 @@ class Install (install.install, object):
         if not self.idldir:
             # set idl directory to datarootdir/idl/fred/
             self.idldir=os.path.join(self.datarootdir, "idl", "fred")
+
         if self.install_unittests:
             self.distribution.data_files.append(
                     ('LIBDIR/%s/unittests' % self.distribution.get_name(), 
                         file_util.all_files_in_2('unittests', ['.*'])))
+
+        error = False
+        if self.sendmail:
+            if not (os.path.exists(self.sendmail) or os.access(self.sendmail, os.X_OK)):
+                log.error("Error: not valid path to sendmail given through parameters.")
+                error = True
+        else:
+            if not self.find_sendmail():
+                error = True
+        if self.drill:
+            if not (os.path.exists(self.drill) or os.access(self.drill, os.X_OK)):
+                log.error("Error: not valid path to drill given through parameters.")
+                error = True
+        else:
+            if not self.find_drill():
+                error = True
+
+        if error:
+            raise SystemExit(1)
 
     def find_sendmail(self):
         self.sendmail = DEFAULT_SENDMAIL
@@ -289,27 +310,26 @@ class Install (install.install, object):
             if os.path.exists(os.path.join(i, filename)):
                 self.sendmail = os.path.join(i, filename)
                 log.info("sendmail found in %s" % i)
-                return
-        log.warn("Warning: sendmail not found.")
+                return True
+        log.error("Error: sendmail not found.")
+        return False
 
     def find_drill(self):
-        self.drill = DEFAULT_SENDMAIL
-        paths = ['/usr/local/bin/', '/usr/bin', '/usr/sbin']
+        self.drill = DEFAULT_DRILL
+        paths = ['/usr/bin', '/usr/sbin']
         filename = 'drill'
         for i in paths:
             if os.path.exists(os.path.join(i, filename)):
                 self.drill = os.path.join(i, filename)
                 log.info("drill found in %s" % i)
-                return
-        log.warn("Warning: drill not found.")
+                return True
+        log.error("Error: drill not found.")
+        return False
 
     def update_server_config(self):
         """
         Update config items and paths in pyfred.conf file.
         """
-        #try to find sendmail binary
-        self.find_sendmail()
-        self.find_drill()
         values = []
         values.append(('MODULES', self.modules))
         values.append(('DBUSER', self.dbuser))
@@ -330,8 +350,6 @@ class Install (install.install, object):
             self.getDir('libexecdir'), DEFAULT_TECHCHECKSCRIPTDIR)))
         values.append(('PIDFILE', os.path.join(
             self.getDir('localstatedir'), DEFAULT_PIDFILE)))
-        values.append(('TRUSTEDKEY', os.path.join(self.getDir('sysconfdir'), 
-            DEFAULT_TRUSTEDKEY)))
 
         self.replace_pattern(
                 os.path.join(self.srcdir, 'conf', 'pyfred.conf.install'),
@@ -671,7 +689,8 @@ def main():
                             "tc_scripts/heterogenous.py",
                             "tc_scripts/presence.py",
                             "tc_scripts/recursive4all.py",
-                            "tc_scripts/recursive.py"
+                            "tc_scripts/recursive.py",
+                            "tc_scripts/dnsseckeychase.py"
                         ]
                     ),
                     ('SYSCONFDIR/fred',

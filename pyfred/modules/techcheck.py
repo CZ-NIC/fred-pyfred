@@ -143,8 +143,8 @@ This class implements TechCheck interface.
 		self.queueperiod    = 5
 		self.oldperiod      = 30
 		self.missrounds     = 10
-		self.drill          = "/usr/local/bin/drill"
-		self.trusted_key    = "/etc/fred/trusted-anchor.key"
+		self.drill          = "/usr/bin/drill"
+		self.trusted_key    = ""
 		# Parse TechCheck-specific configuration
 		if conf.has_section("TechCheck"):
 			try:
@@ -257,8 +257,8 @@ This class implements TechCheck interface.
 		if not os.access(self.drill, os.X_OK):
 			raise Exception("Drill utility '%s' is not executable." % self.drill)
 		if not os.path.exists(self.trusted_key):
-			raise Exception("File with trusted key '%s' does not exist." % 
-					self.trusted_key)
+			self.l.log(self.l.WARNING, "File with trusted key was not found/set, "
+					"dnssec key trust chain test will not work properly.")
 
 		# add trailing '/' to scriptdir if not given
 		if self.scriptdir[-1] != '/':
