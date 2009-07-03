@@ -21,6 +21,22 @@ def debug(msg, newline=None):
         sys.stderr.write(msg)
 
 
+def get_trustedkey_zone(filename):
+    """
+    get zone name for key in filename
+    """
+    try:
+        file = open(filename, "r")
+        lines = file.readlines()
+        for line in lines:
+            if line:
+                zone = "." + line.split()[0].rstrip(".")
+                return zone
+    except:
+        pass
+    return
+
+
 def main():
     """
     dnssec key chain of trust test procedure
@@ -44,11 +60,21 @@ def main():
     if not os.path.exists(trusted_key):
         sys.stderr.write("Usage error (wrong argument: trusted key); test aborted\n")
         return 2
+    
+    # get zone for trusted key for filtering stding
+    zone = get_trustedkey_zone(trusted_key)
+    if not zone:
+        sys.stderr.write("Usage error (wrong trusted key file content '%s'); "
+                "test aborted\n" % trusted_key)
+        return 2
 
     domains = sys.stdin.read().strip().split(' ')
     failed = []
 
     for domain in domains:
+        if not domain.endswith(zone):
+            continue
+
         debug('Checking domain name %s ... ' % domain, False)
         # will check only SOA record signature - because some domains 
         # are in zone and do not have any A record
