@@ -1,4 +1,10 @@
-2009-06-24 Jiri Sadek
+2009-07-03 Jiri Sadek (2.1.7)
+    * Bugfixes for previous release (last was quite broken)
+        - install procedure
+		- dnssec test - more error handling
+
+2009-06-24 Jiri Sadek (2.1.6)
+
     * Test for dnssec key chain of trust added. Test uses drill utility (this
     add new dependency to project)
     Test copy current approach, but changes was needed:
