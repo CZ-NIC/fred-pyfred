@@ -61,5 +61,5 @@ msgLifetime=7
 queueperiod=5
 oldperiod=30
 missrounds=10
-drill_path=DRILL
+drill=DRILL
 trusted_key=
