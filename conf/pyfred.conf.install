@@ -16,13 +16,20 @@ dbname=DBNAME
 dbhost=DBHOST
 dbport=DBPORT
 dbpassword=DBPASS
-loglevel=LOG_DEBUG
-logfacility=log_local1
 port=PYFREDPORT
 nscontext=NSCONTEXT
 nshost=NSHOST
 nsport=NSPORT
 pidfile=PIDFILE
+# Log handler selection
+# syslog  (see logfacility option also)
+# file    (see logfilename option also)
+# console (can be used only if server is not demonized after start)
+loghandler=syslog
+loglevel=error
+logfacility=local1
+logfilename=LOGFILENAME
+
 #
 # configuration of zone generator
 #

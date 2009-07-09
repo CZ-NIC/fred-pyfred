@@ -49,6 +49,8 @@ DEFAULT_PYFREDSERVER = 'bin/fred-pyfred'
 DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 #whole is $localstatedir/zonebackup
 DEFAULT_ZONEBACKUPDIR = 'zonebackup'
+#whole is $localstatedir/log/fred-pyfred.log
+DEFAULT_LOGFILENAME = 'log/fred-pyfred.log'
 
 #list of all default pyfred modules
 g_modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
@@ -350,6 +352,8 @@ class Install (install.install, object):
             self.getDir('libexecdir'), DEFAULT_TECHCHECKSCRIPTDIR)))
         values.append(('PIDFILE', os.path.join(
             self.getDir('localstatedir'), DEFAULT_PIDFILE)))
+        values.append(('LOGFILENAME', os.path.join(
+            self.getDir('localstatedir'), DEFAULT_LOGFILENAME)))
 
         self.replace_pattern(
                 os.path.join(self.srcdir, 'conf', 'pyfred.conf.install'),

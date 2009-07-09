@@ -7,15 +7,19 @@ Those objects are registered in corba name service and the rest is up to
 a caller (corba client).
 """
 
-import os, sys, time, syslog, ConfigParser, os.path, signal
+import os, sys, time, ConfigParser, os.path, signal
 from omniORB import CORBA, PortableServer
 import CosNaming
 import pgdb
+import logging
+import logging.handlers
 
 # These are global because they are needed in signal handler
 pidfile = None
 fredContext = None # Nameservice reference
 nsnames = [] # Registered names by nameservice
+log = None # Logger
+
 
 def job_noop():
     """
@@ -58,8 +62,9 @@ def sighandler(signum, arg):
     global pidfile
     global nsnames
     global fredContext
+    global log
 
-    syslog.syslog(syslog.LOG_NOTICE, "Terminating pyfred server ...")
+    log.log(log.NOTICE, "Terminating pyfred server ...")
 
     # unregister corba objects
     if fredContext:
@@ -67,58 +72,67 @@ def sighandler(signum, arg):
             try:
                 fredContext.unbind(nsname)
             except Exception, e:
-                syslog.syslog(syslog.LOG_ERR, "Error when unbinding name "
+                log.log(log.ERR, "Error when unbinding name "
                         "from nameservice: %s" % e)
 
     if not pidfile:
-        syslog.syslog(syslog.LOG_INFO, "The pidfile is not set - signal was "
+        log.log(log.INFO, "The pidfile is not set - signal was "
                 "probably delivered too early after the start.")
         sys.exit(0)
 
     # delete the pidfile
     try:
         os.unlink(pidfile)
-        syslog.syslog(syslog.LOG_DEBUG, "Pidfile %s deleted." % pidfile)
+        log.log(log.DEBUG, "Pidfile %s deleted." % pidfile)
     except OSError, e:
         # ignore error if the file does not exist
-        syslog.syslog(syslog.LOG_WARNING, "Pidfile %s is set but was not "
+        log.log(log.WARNING, "Pidfile %s is set but was not "
                 "created." % pidfile)
     except Exception, e:
-        syslog.syslog(syslog.LOG_ERROR, "Error when removing pidfile %s: %s" %
+        log.log(log.ERROR, "Error when removing pidfile %s: %s" %
                 (pidfile, e))
         sys.exit(1)
     # exit the program
     sys.exit(0)
 
-
 class Logger(object):
     """
-    This class encapsulates standard syslog function. The only difference is
-    that each message when called through Logger is prepended by name of module,
-    which is set during Logger's initialization.
+    This class encapsulates logging module functionality. Logger name is set
+    in object initialization. Logging module and root logger should be 
+    configured before use.
+    NOTE: refactored to use standard python logging module (previously 
+    only syslog function) with minimum code changes.
     """
-    EMERG = syslog.LOG_EMERG
-    ALERT = syslog.LOG_ALERT
-    CRIT = syslog.LOG_CRIT
-    ERR = syslog.LOG_ERR
-    WARNING = syslog.LOG_WARNING
-    NOTICE = syslog.LOG_NOTICE
-    INFO = syslog.LOG_INFO
-    DEBUG = syslog.LOG_DEBUG
+    LEVELS = {"emerg":    logging.CRITICAL,
+              "alert":    logging.CRITICAL,
+              "critical": logging.CRITICAL,
+              "error":    logging.ERROR,
+              "warning":  logging.WARNING,
+              "notice":   logging.INFO,
+              "info":     logging.INFO,
+              "debug":    logging.DEBUG}
+
+    EMERG   = LEVELS["emerg"]
+    ALERT   = LEVELS["alert"]
+    CRIT    = LEVELS["critical"]
+    ERR     = LEVELS["error"]
+    WARNING = LEVELS["warning"]
+    NOTICE  = LEVELS["notice"]
+    INFO    = LEVELS["info"]
+    DEBUG   = LEVELS["debug"]
 
     def __init__(self, prefix):
         """
         Initialize the prefix which will be used for every message logged
-        trhough this Logger.
+        through this Logger.
         """
-        self.prefix = prefix
+        self._log = logging.getLogger(prefix)
 
     def log(self, level, msg):
         """
-        Wrapper around syslog.syslog() function which adds prefix to every
-        logged message.
+        Wrapper around logging.Logger.log method.
         """
-        syslog.syslog(level, "%s module - %s" % (self.prefix, msg))
+        self._log.log(level, msg)
 
 class DB(object):
     """
@@ -177,8 +191,10 @@ def getConfiguration(configs):
             "nscontext":"fred",
             "nshost":"localhost",
             "nsport":"2809",
-            "loglevel":"LOG_INFO",
-            "logfacility":"LOG_LOCAL1",
+            "loghandler:":"SysLog",
+            "loglevel":"INFO",
+            "logfacility":"local1",
+            "logfilename":"var/log/pyfred.log",
             "pidfile":"var/run/pyfred.pid",
             "host":"",
             "port":"2225"})
@@ -210,6 +226,7 @@ def main(argv):
     global pidfile
     global fredContext
     global nsnames
+    global log
 
     # if server should detach from terminal after startup
     detach = True
@@ -252,20 +269,56 @@ def main(argv):
             conf.get("General", "dbuser"),
             conf.get("General", "dbpassword"))
 
-    # Check validity of log facility
+    # get logger configuration
+    loghandler  = conf.get("General", "loghandler").lower()
+    loglevel    = conf.get("General", "loglevel").lower()
+    logfacility = conf.get("General", "logfacility").lower()
+    logfilename = conf.get("General", "logfilename")
+
     try:
-        logfacility = syslog.__dict__[ conf.get("General", "logfacility").upper() ]
-    except KeyError, e:
-        sys.stderr.write("syslog facility is invalid: %s\n" %
-                conf.get("General", "logfacility"))
+        # disable console log when we are going to daemonize server
+        if loghandler == "console" and detach:
+            sys.stderr.write("Warning: unable to have console logger when"
+                    " server is going to daemonize, switching to syslog."
+                    " (you can adjust this settings in configuration)\n")
+            loghandler = "syslog"
+
+        # test if syslog facility is valid
+        if loghandler == "syslog":
+            logfacility = logging.handlers.SysLogHandler.facility_names[logfacility]
+        
+        # try to set proper handler and formatting style
+        handlers = {"console": 
+                        {"handler": [logging.StreamHandler, {}],
+                         "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
+                    "file":
+                        {"handler": [logging.FileHandler, {"filename": logfilename }],
+                         "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
+                    "syslog":
+                        {"handler": [logging.handlers.SysLogHandler, 
+                                     {"address": "/dev/log", "facility": logfacility}],
+                         "formatter": logging.Formatter("%(name)s - %(message)s")}}
+
+        log_conf = handlers[loghandler]
+        handler = log_conf["handler"][0](**log_conf["handler"][1])
+        handler.setFormatter(log_conf["formatter"])
+
+        # if file log get its file descriptor
+        if loghandler == "file":
+            logfd = handler.stream.fileno()
+        else:
+            logfd = None
+
+        logging.getLogger('').addHandler(handler)
+        logging.getLogger('').setLevel(Logger.LEVELS[loglevel])
+
+    except Exception, e:
+        sys.stderr.write("Logger configuration error: handler=%s level=%s"
+                         " [facility=%s filename=%s] (%s)\n" % (loghandler, 
+                         loglevel, logfacility, logfilename, str(e)))
         sys.exit(1)
-    # Check validity of log level
-    try:
-        loglevel = syslog.__dict__[ conf.get("General", "loglevel").upper() ]
-    except KeyError, e:
-        sys.stderr.write("log level is invalid: %s\n" %
-                conf.get("General", "loglevel"))
-        sys.exit(1)
+
+    log = Logger('pyfred')
 
     # create structure for passing of CORBA references
     corba_refs = CorbaRefs()
@@ -298,8 +351,8 @@ def main(argv):
     servants = []
     for module in modules:
         try:
-            servants.append(module.init(Logger(module.__name__), db, conf,
-                joblist, corba_refs))
+            servants.append(module.init(Logger(module.__name__), 
+                            db, conf, joblist, corba_refs))
         except Exception, e:
             sys.stderr.write("Error when initializing module '%s': %s:%s\n" %
                     (module.__name__, sys.exc_info()[0], e))
@@ -309,15 +362,18 @@ def main(argv):
     if detach:
         createDaemon()
 
-        sys.stdout.write("Logging to syslog since now\n")
+        sys.stdout.write("Logging to %s since now\n" % str(loghandler))
 
         # Since now we will use only syslog
         if (os.sysconf_names.has_key("SC_OPEN_MAX")):
             maxfd = os.sysconf("SC_OPEN_MAX")
         else:
             maxfd = 1024
-        # Iterate through and close all file descriptors.
-        for fd in range(0, maxfd):
+        # Iterate through and close all file descriptors. omit file log fd
+        listfd = range(0, maxfd)
+        if logfd:
+            listfd.remove(logfd)
+        for fd in listfd:
             try:
                 os.close(fd)
             except OSError: # fd wasn't open (ignored)
@@ -328,11 +384,6 @@ def main(argv):
         # Duplicate standard input to standard output and standard error.
         os.dup2(0, 1)           # standard output (1)
         os.dup2(0, 2)           # standard error (2)
-
-    # open syslog (syslog function will be later passed to modules)
-    syslog.openlog("pyfred", (syslog.LOG_PID | syslog.LOG_CONS), logfacility)
-    syslog.setlogmask(syslog.LOG_UPTO(loglevel))
-    syslog.syslog(syslog.LOG_NOTICE, "Starting Python fred Server ...")
 
     # Initialise the ORB and get the root POA
     try:
@@ -354,17 +405,17 @@ def main(argv):
         if nsref is None:
             msg = "Failed to narrow the root naming context"
             sys.stderr.write(msg + '\n')
-            syslog.syslog(syslog.LOG_ERR, msg)
+            log.log(log.ERR, msg)
             sys.exit(1)
     except CORBA.TRANSIENT, e:
         msg = "Is nameservice running? (%s)" % e
         sys.stderr.write(msg + '\n')
-        syslog.syslog(syslog.LOG_ERR, msg)
+        log.log(log.ERR, msg)
         sys.exit(1)
     except CORBA.Exception, e:
         msg = "CORBA failure: %s" % e
         sys.stderr.write(msg + '\n')
-        syslog.syslog(syslog.LOG_ERR, msg)
+        log.log(log.ERR, msg)
         sys.exit(1)
 
     # Bind a context named by default "fred.context" to the root context
@@ -372,17 +423,17 @@ def main(argv):
     name = [CosNaming.NameComponent(conf.get("General", "nscontext"), "context")]
     try:
         fredContext = nsref.bind_new_context(name)
-        syslog.syslog(syslog.LOG_INFO, "New %s context bound" % 
+        log.log(log.INFO, "New %s context bound" % 
                 conf.get("General", "nscontext"))
     except CosNaming.NamingContext.AlreadyBound, ex:
-        syslog.syslog(syslog.LOG_NOTICE, "%s context already exists" % 
+        log.log(log.NOTICE, "%s context already exists" % 
                 conf.get("General", "nscontext"))
         obj = nsref.resolve(name)
         fredContext = obj._narrow(CosNaming.NamingContext)
         if fredContext is None:
             msg = "%s.context exists but is not a NamingContext" % conf.get("General", "nscontext")
             sys.stderr.write(msg + '\n')
-            syslog.syslog(syslog.LOG_ERR, msg)
+            log.log(log.ERR, msg)
             sys.exit(1)
 
     corba_refs.rootpoa = rootpoa
@@ -396,10 +447,10 @@ def main(argv):
         cosname = [CosNaming.NameComponent(name, "Object")]
         try:
             fredContext.bind(cosname, ref)
-            syslog.syslog(syslog.LOG_INFO, "New '%s' object bound" % name)
+            log.log(log.INFO, "New '%s' object bound" % name)
         except CosNaming.NamingContext.AlreadyBound:
             fredContext.rebind(cosname, ref)
-            syslog.syslog(syslog.LOG_NOTICE, "Existing '%s' object rebound" %
+            log.log(log.NOTICE, "Existing '%s' object rebound" %
                     name)
         # archive reference name for future removal
         nsnames.append(cosname)
@@ -412,7 +463,7 @@ def main(argv):
     try:
         pidfd = open(pidfile, "w")
     except Exception, e:
-        syslog.syslog(syslog.LOG_ERR, "Could not create pid file %s. Check "
+        log.log(log.ERR, "Could not create pid file %s. Check "
                 "permissions." % pidfile)
         sys.exit(1)
     pidfd.write("%d\n" % os.getpid())
@@ -434,7 +485,7 @@ def main(argv):
         try:
             job["callback"](job["context"])
         except Exception, e:
-            syslog.syslog(syslog.LOG_ERR, "Unexpected error when "
+            log.log(log.ERR, "Unexpected error when "
                     "executing job. %s:%s" % (sys.exc_info()[0], e))
         # schedule job for next execution
         job["ticks"] = job["period"]
@@ -469,7 +520,7 @@ if __name__ == "__main__":
         msg = "Unexpected error, this should not happen. Please " \
                 "submit a bug report. %s:%s" % (sys.exc_info()[0], e)
         sys.stderr.write(msg + '\n')
-        syslog.syslog(syslog.LOG_CRIT, msg)
+        log.log(log.CRIT, msg)
         # do cleanup
         sighandler(0, None)
 
