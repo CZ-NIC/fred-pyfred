@@ -458,8 +458,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		"""
 		cur = conn.cursor()
 		# get mail type data
-		cur.execute("SELECT id, subject FROM mail_type WHERE name = %s" %
-				(pgdb._quote(mailtype)))
+		cur.execute("SELECT id, subject FROM mail_type WHERE name = %s", [mailtype])
 		if cur.rowcount == 0:
 			cur.close()
 			self.l.log(self.l.ERR, "Mail type '%s' was not found in db." %
@@ -472,7 +471,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur.execute("SELECT mte.contenttype, mte.template, mf.footer "
 				"FROM mail_type_template_map mt, mail_templates mte "
 				"LEFT JOIN mail_footer mf ON (mte.footer = mf.id) "
-				"WHERE mt.typeid = %d AND mt.templateid = mte.id" % id)
+				"WHERE mt.typeid = %d AND mt.templateid = mte.id", [id])
 		templates = []
 		if cur.rowcount == 0:
 			self.l.log(self.l.WARNING, "Request for mail type ('%s') with no "
@@ -543,14 +542,14 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur = conn.cursor()
 		# save the generated email
 		cur.execute("INSERT INTO mail_archive (id, mailtype, message, status) "
-				"VALUES (%d, %d, %s, %d)" %
-				(mailid, mailtype_id, pgdb._quote(mail), self.archstatus) )
+				"VALUES (%d, %d, %s, %d)",
+				[mailid, mailtype_id, mail, self.archstatus] )
 		for handle in handles:
 			cur.execute("INSERT INTO mail_handles (mailid, associd) VALUES "
-					"(%d, %s)" % (mailid, pgdb._quote(handle)))
+					"(%d, %s)", [mailid, handle])
 		for attachid in attachs:
 			cur.execute("INSERT INTO mail_attachments (mailid, attachid) VALUES"
-					" (%d, %s)" % (mailid, attachid))
+					" (%d, %s)", [mailid, attachid])
 		cur.close()
 
 	def __dbGetReadyEmails(self, conn):
@@ -561,7 +560,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur.execute("SELECT mar.id, mar.message, mat.attachid "
 				"FROM mail_archive mar LEFT JOIN mail_attachments mat "
 				"ON (mar.id = mat.mailid) "
-				"WHERE mar.status = 1 AND mar.attempt < %d" % self.maxattempts)
+				"WHERE mar.status = 1 AND mar.attempt < %d", [self.maxattempts])
 		rows = cur.fetchall()
 		cur.close()
 		# transform result attachids in list
@@ -594,11 +593,11 @@ class Mailer_i (ccReg__POA.Mailer):
 		if reset_counter:
 			cur.execute("UPDATE mail_archive "
 					"SET status = %d, moddate = now(), attempt = 0 "
-					"WHERE id = %d" % (status, mailid))
+					"WHERE id = %d", [status, mailid])
 		else:
 			cur.execute("UPDATE mail_archive "
 					"SET status = %d, moddate = now() "
-					"WHERE id = %d" % (status, mailid))
+					"WHERE id = %d", [status, mailid])
 		if cur.rowcount != 1:
 			raise ccReg.Mailer.UnknownMailid(mailid)
 		cur.close()
@@ -610,7 +609,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur = conn.cursor()
 		cur.execute("UPDATE mail_archive "
 				"SET status = 4, moddate = now(), response = %s "
-				"WHERE id = %d", (base64.b64encode(mail), mailid))
+				"WHERE id = %d", [base64.b64encode(mail), mailid])
 		if cur.rowcount != 1:
 			raise ccReg.Mailer.UnknownMailid(mailid)
 		cur.close()
@@ -622,7 +621,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur = conn.cursor()
 		cur.execute("UPDATE mail_archive "
 				"SET attempt = attempt + 1, moddate = now() "
-				"WHERE id = %d" % mailid)
+				"WHERE id = %d", [mailid])
 		cur.close()
 
 	def __dbGetDefaults(self, conn):
@@ -959,16 +958,22 @@ class Mailer_i (ccReg__POA.Mailer):
 
 			# construct SQL query coresponding to filter constraints
 			conditions = []
+			condvalues = []
 			if filter.mailid != -1:
-				conditions.append("ma.id = %d" % filter.mailid)
+				conditions.append("ma.id = %d")
+				condvalues.append(filter.mailid)
 			if filter.mailtype != -1:
-				conditions.append("ma.mailtype = %d" % filter.mailtype)
+				conditions.append("ma.mailtype = %d")
+				condvalues.append(filter.mailtype)
 			if filter.status != -1:
-				conditions.append("ma.status = %d" % filter.status)
+				conditions.append("ma.status = %d")
+				condvalues.append(filter.status)
 			if filter.handle:
-				conditions.append("mh.associd = %s" % pgdb._quote(filter.handle))
+				conditions.append("mh.associd = %s")
+				condvalues.append(filter.handle)
 			if filter.attachid != -1:
-				conditions.append("mt.attachid = %d" % filter.attachid)
+				conditions.append("mt.attachid = %d")
+				condvalues.append(filter.attachid)
 			fromdate = filter.crdate._from
 			if not isInfinite(fromdate):
 				conditions.append("ma.crdate > '%d-%d-%d %d:%d:%d'" %
@@ -988,8 +993,8 @@ class Mailer_i (ccReg__POA.Mailer):
 						todate.minute,
 						todate.second))
 			if filter.fulltext:
-				conditions.append("ma.message LIKE '%%%s%%'" %
-						pgdb._quote(filter.fulltext)[1:-1])
+				conditions.append("ma.message LIKE '%%\%s%%'")
+				condvalues.append(filter.fulltext[1:-1])
 			if len(conditions) == 0:
 				cond = ""
 			else:
@@ -1009,7 +1014,7 @@ class Mailer_i (ccReg__POA.Mailer):
 					"FROM mail_archive ma "
 					"LEFT JOIN mail_handles mh ON (ma.id = mh.mailid) "
 					"LEFT JOIN mail_attachments mt ON (ma.id = mt.mailid) "
-					"%s ORDER BY ma.id" % cond)
+					"%s ORDER BY ma.id" % cond, condvalues)
 			self.db.releaseConn(conn)
 			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
 					(id, cur.rowcount))

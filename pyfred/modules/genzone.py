@@ -122,8 +122,8 @@ This class implements interface used for generation of a zone file.
 		# be sent back together with dynamic data
 		cur.execute("SELECT z.id, zs.ttl, zs.hostmaster, zs.serial, zs.refresh,"
 				"zs.update_retr, zs.expiry, zs.minimum, zs.ns_fqdn "
-				"FROM zone z, zone_soa zs WHERE zs.zone = z.id AND z.fqdn = %s"
-				% pgdb._quote(zonename))
+				"FROM zone z, zone_soa zs WHERE zs.zone = z.id AND z.fqdn = %s",
+				[zonename])
 		if cur.rowcount == 0:
 			cur.close()
 			self.l.log(self.l.ERR, "<%d> Zone '%s' does not exist or does not "
@@ -132,7 +132,7 @@ This class implements interface used for generation of a zone file.
 		(zoneid, ttl, hostmaster, serial, refresh, update_retr, expiry, minimum,
 				ns_fqdn) = cur.fetchone()
 		# create a list of nameservers for the zone
-		cur.execute("SELECT fqdn, addrs FROM zone_ns WHERE zone = %d" % zoneid)
+		cur.execute("SELECT fqdn, addrs FROM zone_ns WHERE zone = %d", [zoneid])
 		nameservers = []
 		for i in range(cur.rowcount):
 			row = cur.fetchone()
@@ -160,8 +160,8 @@ This class implements interface used for generation of a zone file.
 		"""
 		cur = conn.cursor()
 		# get id of zone and its type
-		cur.execute("SELECT id, enum_zone FROM zone WHERE fqdn = %s" %
-				pgdb._quote(zonename))
+		cur.execute("SELECT id, enum_zone FROM zone WHERE fqdn = %s",
+				[zonename])
 		if cur.rowcount == 0:
 			cur.close()
 			raise ccReg.ZoneGenerator.UnknownZone()
@@ -174,7 +174,7 @@ This class implements interface used for generation of a zone file.
 				"(domain d LEFT JOIN object_state_now osn ON (d.id = osn.object_id)) "
 			"WHERE (NOT (15 = ANY (osn.states)) OR osn.states IS NULL) "
 				"AND d.id = oreg.id AND d.nsset = host.nssetid AND d.zone = %d "
-			"ORDER BY oreg.id, host.fqdn" % zoneid)
+			"ORDER BY oreg.id, host.fqdn", [zoneid])
 		
 		# get ds records for generated domains, they will be fetched parallel
 		# to the main list
@@ -185,7 +185,7 @@ This class implements interface used for generation of a zone file.
 					 "os.valid_to ISNULL AND os.state_id = 15) "
 					 "JOIN dsrecord ds ON (ds.keysetid = d.keyset) "
 					 "WHERE os.state_id IS NULL AND d.zone = %d "  
-					 "ORDER BY d.id " % zoneid)
+					 "ORDER BY d.id ", [zoneid])
 
 		# get dnskeys for generated domains, they will be fetched parallel
 		# to the main list
@@ -196,7 +196,7 @@ This class implements interface used for generation of a zone file.
 					 "os.valid_to ISNULL AND os.state_id = 15) "
 					 "JOIN dnskey k ON (k.keysetid = d.keyset) "
 					 "WHERE os.state_id IS NULL AND d.zone = %d "  
-					 "ORDER BY d.id " % zoneid)
+					 "ORDER BY d.id ", [zoneid])
 
 		
 		return cur, cur2, cur3

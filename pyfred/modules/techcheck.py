@@ -50,12 +50,12 @@ Converts python list to pg array.
 	"""
 	array = '{'
 	for item in list:
-		array += pgdb._quote(item) + ','
+		array += '\'' + pgdb.escape_string(item) + '\'' + ','
 	# trim ending ','
 	if len(array) > 1:
 		array = array[0:-1]
 	array += '}'
-	return pgdb._quote(array)
+	return array
 
 def convArray2List(array):
 	"""
@@ -452,8 +452,8 @@ This class implements TechCheck interface.
 		tests = cur.fetchall()
 		# Get dependencies of tests
 		for test in tests:
-			cur.execute("SELECT testid FROM check_dependance WHERE addictid = %d"
-					% test[0])
+			cur.execute("SELECT testid FROM check_dependance WHERE addictid = %d",
+					[test[0]])
 			testsuite[ test[0] ] = {
 				"id" : test[0],
 				"name" : test[1],
@@ -475,7 +475,7 @@ This class implements TechCheck interface.
 		cur.execute("SELECT c.notifyemail, c.email, oreg.name "
 				"FROM object_registry oreg, contact c, nsset_contact_map ncm "
 				"WHERE oreg.id = c.id AND c.id = ncm.contactid AND "
-					"ncm.nssetid = %d" % objid)
+					"ncm.nssetid = %d", [objid])
 		emails = []
 		for row in cur.fetchall():
 			if row[0]:
@@ -492,8 +492,8 @@ This class implements TechCheck interface.
 		cur = conn.cursor()
 		cur.execute("SELECT oreg.name, (d.keyset IS NOT NULL) as signed "
 				"FROM domain d, object_registry oreg "
-				"WHERE oreg.type = 3 AND d.id = oreg.id AND d.nsset = %d" %
-				objid)
+				"WHERE oreg.type = 3 AND d.id = oreg.id AND d.nsset = %d",
+				[objid])
 		# fqdns = [ item[0] for item in cur.fetchall() ]
 		# dictionary of domains (key=fqdn, value=is signed flag)
 		fqdns = dict( (item[0], item[1]) for item in cur.fetchall() )
@@ -511,7 +511,7 @@ This class implements TechCheck interface.
 						"ns.checklevel "
 					"FROM object_registry oreg, nsset ns "
 					"WHERE oreg.id = ns.id AND oreg.type = 2 AND "
-						"upper(oreg.name) = upper(%s)" % pgdb._quote(nsset))
+						"upper(oreg.name) = upper(%s)", [nsset])
 		else:
 			cur.execute("SELECT oreg.name, oreg.id, oreg.historyid, oreg.name, "
 						"ns.checklevel "
@@ -521,7 +521,7 @@ This class implements TechCheck interface.
 						"(cn.nsset_hid NOT IN "
 							"(SELECT nsset_hid FROM check_nsset "
 							 "WHERE (age(now(),checkdate)) <interval '%d days')"
-						"OR cn.id IS NULL) LIMIT 1" % self.oldperiod)
+						"OR cn.id IS NULL) LIMIT 1", [self.oldperiod])
 
 		if cur.rowcount == 0:
 			cur.close()
@@ -530,7 +530,7 @@ This class implements TechCheck interface.
 		# get nameservers (fqdns and ip addresses) of hosts belonging to nsset
 		cur.execute("SELECT h.fqdn, ip.ipaddr FROM host h "
 				"LEFT JOIN host_ipaddr_map ip ON (h.id = ip.hostid) "
-				"WHERE h.nssetid = %d ORDER BY h.fqdn" % objid)
+				"WHERE h.nssetid = %d ORDER BY h.fqdn", [objid])
 		row = cur.fetchone()
 		nameservers = {}
 		while row:
@@ -560,25 +560,25 @@ This class implements TechCheck interface.
 		# insert main archive record
 		cur.execute("INSERT INTO check_nsset (id, nsset_hid, reason, "
 					"overallstatus, extra_fqdns, dig, attempt) "
-				"VALUES (%d, %d, %d, %d, %s, %s, %d)" %
-				(archid, histid, reason_enum, status, convList2Array(fqdns),
-					dig, attempt))
+				"VALUES (%d, %d, %d, %d, %s, %s, %d)",
+				[archid, histid, reason_enum, status, convList2Array(fqdns),
+					dig, attempt])
 		# archive results of individual tests
 		for resid in results:
 			result = results[resid]
 			# escape note and data strings if there are any
 			if result["note"]:
-				raw_note = pgdb._quote(result["note"])
+				raw_note = result["note"]
 			else:
-				raw_note = "NULL"
+				raw_note = None
 			if result["data"]:
-				raw_data = pgdb._quote(result["data"])
+				raw_data = result["data"]
 			else:
-				raw_data = "NULL"
+				raw_data = None
 			cur.execute("INSERT INTO check_result (checkid, testid, status, "
 						"note, data) "
-					"VALUES (%d, %d, %d, %s, %s)" %
-					(archid, resid, result["result"], raw_note, raw_data))
+					"VALUES (%d, %d, %d, %s, %s)", 
+					[archid, resid, result["result"], raw_note, raw_data])
 		cur.close()
 		return archid
 
@@ -587,8 +587,7 @@ This class implements TechCheck interface.
 		Get numeric ID of registrar.
 		"""
 		cur = conn.cursor()
-		cur.execute("SELECT id FROM registrar WHERE handle = %s" %
-				pgdb._quote(reghandle))
+		cur.execute("SELECT id FROM registrar WHERE handle = %s", [reghandle])
 		if cur.rowcount == 0:
 			raise ccReg.TechCheck.RegistrarNotFound()
 		regid = cur.fetchone()[0]
@@ -603,10 +602,10 @@ This class implements TechCheck interface.
 		cur.execute("SELECT nextval('message_id_seq')")
 		msgid = cur.fetchone()[0]
 		cur.execute("INSERT INTO message (id, clid, exdate, msgtype) "
-				"VALUES (%d, %d, now() + interval '%d days', 2)" %
-				(msgid, regid, self.exMsg))
+				"VALUES (%d, %d, now() + interval '%d days', 2)", 
+				[msgid, regid, self.exMsg])
 		cur.execute("INSERT INTO poll_techcheck (msgid, cnid) "
-				"VALUES (%d, %d)" % (msgid, chkid))
+				"VALUES (%d, %d)", [msgid, chkid])
 		cur.close()
 
 	def __runTests(self, id, fqdns, nslist, level):
@@ -948,16 +947,19 @@ This class implements TechCheck interface.
 
 			# construct SQL query coresponding to filter constraints
 			conditions = []
+			condvalues = []
 			if filter.checkid != -1:
-				conditions.append("chn.id = %d" % filter.checkid)
+				conditions.append("chn.id = %d")
+				condvalues.append(filter.checkid)
 			if filter.nsset_hid != -1:
-				conditions.append("chn.nsset_hid = %d"% filter.nsset_hid)
+				conditions.append("chn.nsset_hid = %d")
+				condvalues.append(filter.nsset_hid)
 			if filter.reason != ccReg.CHKR_ANY:
-				conditions.append("chn.reason = %d" %
-						convFromReason(filter.reason))
+				conditions.append("chn.reason = %d")
+				condvalues.append(convFromReason(filter.reason))
 			if filter.status != -1:
-				conditions.append("chn.overallstatus = %d" %
-						filter.status)
+				conditions.append("chn.overallstatus = %d")
+				condvalues.append(filter.status)
 			fromdate = filter.checkdate._from
 			if not isInfinite(fromdate):
 				conditions.append("chn.checkdate > '%d-%d-%d %d:%d:%d'" %
@@ -995,7 +997,7 @@ This class implements TechCheck interface.
 						"chn.dig, chr.testid, chr.status, chr.note, chr.data "
 					"FROM check_nsset chn "
 					"LEFT JOIN check_result chr ON (chn.id = chr.checkid) "
-					"%s ORDER BY chn.id" % cond)
+					"%s ORDER BY chn.id" % cond, condvalues)
 			self.db.releaseConn(conn)
 			self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
 					(id, cur.rowcount))
@@ -1074,10 +1076,12 @@ Class encapsulating results of search.
 					if not currow: break
 				# create CheckItem structure
 				checklist.append( ccReg.CheckItem(self.lastrow[0],
-					self.lastrow[1], self.lastrow[2],
-					convToReason(self.lastrow[3]),
+					self.lastrow[1], self.lastrow[6],
 					convArray2List(self.lastrow[5]),
-					self.lastrow[6], self.lastrow[4], resultlist) )
+					self.lastrow[4],
+					self.lastrow[2],
+					convToReason(self.lastrow[3]),
+					resultlist) )
 				self.lastrow = currow
 
 			self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %

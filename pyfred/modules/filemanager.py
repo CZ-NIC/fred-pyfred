@@ -132,16 +132,15 @@ class FileManager_i (ccReg__POA.FileManager):
 		Inserts record about saved file in database.
 		"""
 		if not mimetype:
-			mimetype = "NULL"# use default value from database if type is not set
+			mimetype = None# use default value from database if type is not set
 		if filetype == 0:
-			filetype = "NULL"
+			filetype = None
 		cur = conn.cursor()
 		# insert new record
 		cur.execute("INSERT INTO files (id, name, path, mimetype, filetype, "
 					"filesize) "
-				"VALUES (%d, %s, %s, %s, %s, %d) " %
-				(id, pgdb._quote(name), pgdb._quote(path), pgdb._quote(mimetype),
-					filetype, size))
+				"VALUES (%d, %s, %s, %s, %s, %d) ",
+				[id, name, path, mimetype, filetype, size])
 		cur.close()
 
 	def __dbGetMetadata(self, conn, id):
@@ -151,7 +150,7 @@ class FileManager_i (ccReg__POA.FileManager):
 		cur = conn.cursor()
 		# check that there is not such a name in database already
 		cur.execute("SELECT name, path, mimetype, filetype, crdate, filesize "
-				"FROM files WHERE id = %d" % id)
+				"FROM files WHERE id = %d", [id])
 		if cur.rowcount == 0:
 			raise ccReg.FileManager.IdNotFound()
 		name, path, mimetype, filetype, crdate, filesize = cur.fetchone()
@@ -347,20 +346,25 @@ class FileManager_i (ccReg__POA.FileManager):
 
 			# construct SQL query coresponding to filter constraints
 			conditions = []
+			condvalues = []
 			if filter.id != -1:
-				conditions.append("files.id = %d" % filter.id)
+				conditions.append("files.id = %d")
+				condvalues.append(filter.id)
 			if filter.name:
-				conditions.append("files.name = %s" % pgdb._quote(filter.name))
+				conditions.append("files.name = %s")
+				condvalues.append(filter.name)
 			if filter.path:
-				conditions.append("files.path = %s" % pgdb._quote(filter.path))
+				conditions.append("files.path = %s")
+				condvalues.append(filter.path)
 			if filter.mimetype:
-				conditions.append("files.mimetype = %s" %
-						pgdb._quote(filter.mimetype))
+				conditions.append("files.mimetype = %s")
+				condvalues.append(filter.mimetype)
 			if filter.filetype != -1:
 				if filter.filetype == 0:
 					conditions.append("files.filetype IS NULL")
 				else:
-					conditions.append("files.filetype = %d" % filter.filetype)
+					conditions.append("files.filetype = %d")
+					condvalues.append(filter.filetype)
 			fromdate = filter.crdate._from
 			if not isInfinite(fromdate):
 				conditions.append("files.crdate > '%d-%d-%d %d:%d:%d'" %
@@ -393,8 +397,7 @@ class FileManager_i (ccReg__POA.FileManager):
 			cur = conn.cursor()
 
 			cur.execute("SELECT id, name, path, mimetype, filetype, crdate, "
-						"filesize "
-					"FROM files %s" % cond)
+						"filesize FROM files %s" % cond, condvalues)
 			# get meta-info from database
 			self.db.releaseConn(conn)
 
@@ -537,7 +540,7 @@ class FileUpload_i (ccReg__POA.FileUpload):
 		Update file size field in file table.
 		"""
 		cur = conn.cursor()
-		cur.execute("UPDATE files SET filesize = %d WHERE id = %d" % (size, id))
+		cur.execute("UPDATE files SET filesize = %d WHERE id = %d", [size, id])
 		cur.close()
 
 	def upload(self, data):
