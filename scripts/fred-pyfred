@@ -358,11 +358,11 @@ def main(argv):
                     (module.__name__, sys.exc_info()[0], e))
             sys.exit(1)
 
+    sys.stdout.write("Logging to %s since now\n" % str(loghandler))
+
     # daemonize pyfred
     if detach:
         createDaemon()
-
-        sys.stdout.write("Logging to %s since now\n" % str(loghandler))
 
         # Since now we will use only syslog
         if (os.sysconf_names.has_key("SC_OPEN_MAX")):
