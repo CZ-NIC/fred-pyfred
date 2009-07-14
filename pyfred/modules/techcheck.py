@@ -50,7 +50,7 @@ Converts python list to pg array.
 	"""
 	array = '{'
 	for item in list:
-		array += '\'' + pgdb.escape_string(item) + '\'' + ','
+		array += "'%s'," % pgdb.escape_string(item)
 	# trim ending ','
 	if len(array) > 1:
 		array = array[0:-1]
