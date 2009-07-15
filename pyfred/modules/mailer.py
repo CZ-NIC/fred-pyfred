@@ -4,12 +4,12 @@
 Code of mailer daemon.
 """
 
-import os, sys, time, random, ConfigParser, popen2, Queue, tempfile, re
+import os, sys, time, random, ConfigParser, Queue, tempfile, re
 import base64
 import pgdb
 from pyfred.utils import isInfinite
+from pyfred.utils import runCommand
 # corba stuff
-from omniORB import CORBA, PortableServer
 import CosNaming
 from pyfred.idlstubs import ccReg, ccReg__POA
 # template stuff
@@ -359,23 +359,23 @@ class Mailer_i (ccReg__POA.Mailer):
 				(mail, efrom) = self.__completeEmail(mailid, mail_text, attachs)
 				# sign email if signing is enabled
 				if self.signing:
-					mail = self.__sign_email(mail)
+					mail = self.__sign_email(mailid, mail)
 				# send email
-				status = self.__sendEmail(mail, efrom)
+				status = self.__sendEmail(mailid, mail, efrom)
 				# check sendmail status
 				if status == 0:
-					self.l.log(self.l.DEBUG, "Email with id %d was successfully"
-							" sent." % mailid)
+					self.l.log(self.l.DEBUG, "<%d> Email with id %d was successfully"
+							" sent." % (mailid, mailid))
 					# archive email and status
 					self.__dbUpdateStatus(conn, mailid, 0)
 					conn.commit()
 				else:
-					self.l.log(self.l.ERR, "Sendmail exited with failure for "
-						"email with id %d (rc = %d)" % (mailid, status))
+					self.l.log(self.l.ERR, "<%d> Sendmail exited with failure for "
+						"email with id %d (rc = %d)" % (mailid, mailid, status))
 					self.__dbSendFailed(conn, mailid)
 			except Mailer_i.MailerException, me:
-				self.l.log(self.l.ERR, "Error when sending email with "
-						"mailid %d: %s" % (mailid, me))
+				self.l.log(self.l.ERR, "<%d> Error when sending email with "
+						"mailid %d: %s" % (mailid, mailid, me))
 				self.__dbSendFailed(conn, mailid)
 		self.db.releaseConn(conn)
 
@@ -665,8 +665,8 @@ class Mailer_i (ccReg__POA.Mailer):
 					raise Mailer_i.MailerException("FileManager reference is "
 							"not filemanager.")
 			# get attachment from file manager
-			self.l.log(self.l.DEBUG, "Sending request for attachment with "
-					"id %d" % attachid)
+			self.l.log(self.l.DEBUG, "<%d> Sending request for attachment with "
+					"id %d" % (mailid, attachid))
 			try:
 				# get MIME type of attachment
 				attachinfo = filemanager.info(attachid)
@@ -716,7 +716,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		# parseaddr returns sender's name and sender's address
 		return contentfilter(msg.as_string(), msg.is_multipart()), envelope_from
 
-	def __sign_email(self, mail):
+	def __sign_email(self, mailid, mail):
 		"""
 		Routine for signing of email.
 		"""
@@ -739,30 +739,21 @@ class Mailer_i (ccReg__POA.Mailer):
 		os.write(tmpfile[0], mail)
 		os.close(tmpfile[0])
 		# do the signing
-		child = popen2.Popen3("%s smime -sign -signer %s -inkey %s -in %s" %
-				(self.openssl, self.certfile, self.keyfile, tmpfile[1]), True)
-		child.tochild.close()
-		# read signed email until eof occurs
-		buf = child.fromchild.read()
-		while buf:
-			signedmail += buf
-			buf = child.fromchild.read()
-		child.fromchild.close()
-		child.childerr.close()
-		# wait for child to terminate
-		stat = os.WEXITSTATUS(child.wait())
+		stat, outdata, errdata = runCommand(mailid, "%s smime -sign -signer %s -inkey %s -in %s" %
+				   (self.openssl, self.certfile, self.keyfile, tmpfile[1]), None, self.l)
 		os.remove(tmpfile[1])
+		
 		if stat:
-			if child.childerr:
-				err = child.childerr.read()
+			if errdata:
+				err = errdata
 			else:
 				err = ''
-			self.l.log(self.l.ERR, "Openssl exited with failure (%d): %s" %
-					(stat, err))
+			self.l.log(self.l.ERR, "<%d> Openssl exited with failure (%d): %s" % (mailid, stat, err))
 			raise ccReg.Mailer.InternalError("Signing of email failed.")
+		signedmail += outdata
 		return signedmail
 
-	def __sendEmail(self, mail, envelope_from):
+	def __sendEmail(self, mailid, mail, envelope_from):
 		"""
 		This routine sends email.
 		"""
@@ -774,16 +765,13 @@ class Mailer_i (ccReg__POA.Mailer):
 		if self.testmode:
 			# if tester is not set, do nothing
 			if self.tester:
-				p = os.popen("%s -f %s %s" %
-						(self.sendmail, envelope_from, self.tester), "w")
-				p.write(mail)
-				status = p.close()
+				status, outdata, errdata = runCommand(mailid, "%s -f %s %s" % (self.sendmail, envelope_from, self.tester), 
+													mail, self.l)
 			else:
 				status = 0
 		else:
-			p = os.popen("%s -f %s -t" % (self.sendmail, envelope_from), "w")
-			p.write(mail)
-			status = p.close()
+			status, outdata, errdata = runCommand(mailid, "%s -f %s -t" % (self.sendmail, envelope_from), 
+												  mail, self.l)
 
 		if status is None: status = 0 # ok
 		else: status = int(status) # sendmail failed
@@ -1170,4 +1158,3 @@ def init(logger, db, conf, joblist, corba_refs):
 	# Create an instance of Mailer_i and an Mailer object ref
 	servant = Mailer_i(logger, db, conf, joblist, corba_refs)
 	return servant, "Mailer"
-
