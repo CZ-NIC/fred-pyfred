@@ -252,6 +252,8 @@ class Install (install.install, object):
         self.nsport = DEFAULT_NSPORT
         self.modules = DEFAULT_MODULES
         self.pyfredport = DEFAULT_PYFREDPORT
+        self.sendmail = DEFAULT_SENDMAIL
+        self.drill = DEFAULT_DRILL
 
     def initialize_options(self):
         super(Install, self).initialize_options()
@@ -284,25 +286,6 @@ class Install (install.install, object):
             self.distribution.data_files.append(
                     ('LIBDIR/%s/unittests' % self.distribution.get_name(), 
                         file_util.all_files_in_2('unittests', ['.*'])))
-
-        error = False
-        if self.sendmail:
-            if not (os.path.exists(self.sendmail) or os.access(self.sendmail, os.X_OK)):
-                log.error("Error: not valid path to sendmail given through parameters.")
-                error = True
-        else:
-            if not self.find_sendmail():
-                error = True
-        if self.drill:
-            if not (os.path.exists(self.drill) or os.access(self.drill, os.X_OK)):
-                log.error("Error: not valid path to drill given through parameters.")
-                error = True
-        else:
-            if not self.find_drill():
-                error = True
-
-        if error:
-            raise SystemExit(1)
 
     def find_sendmail(self):
         self.sendmail = DEFAULT_SENDMAIL
@@ -378,8 +361,31 @@ class Install (install.install, object):
 
         print "genzone configuration file has been updated"
 
-    def run(self):
+    def check_dependencies(self):
         Config(self.distribution).run()
+
+        error = False
+        if self.sendmail:
+            if not (os.path.exists(self.sendmail) or os.access(self.sendmail, os.X_OK)):
+                log.error("Dependency error: not valid path to sendmail given through parameters.")
+                error = True
+        else:
+            if not self.find_sendmail():
+                error = True
+        if self.drill:
+            if not (os.path.exists(self.drill) or os.access(self.drill, os.X_OK)):
+                log.error("Dependency error: not valid path to drill given through parameters.")
+                error = True
+        else:
+            if not self.find_drill():
+                error = True
+        if error:
+            raise SystemExit, "If you want to suppress these error run install with " \
+                              "--no-check-deps option."
+
+    def run(self):
+        if not self.no_check_deps:
+            self.check_dependencies()
         
         self.update_server_config()
         self.update_genzone_config()
