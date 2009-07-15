@@ -368,7 +368,6 @@ class Mailer_i (ccReg__POA.Mailer):
 							" sent." % (mailid, mailid))
 					# archive email and status
 					self.__dbUpdateStatus(conn, mailid, 0)
-					conn.commit()
 				else:
 					self.l.log(self.l.ERR, "<%d> Sendmail exited with failure for "
 						"email with id %d (rc = %d)" % (mailid, mailid, status))
@@ -377,6 +376,7 @@ class Mailer_i (ccReg__POA.Mailer):
 				self.l.log(self.l.ERR, "<%d> Error when sending email with "
 						"mailid %d: %s" % (mailid, mailid, me))
 				self.__dbSendFailed(conn, mailid)
+			conn.commit()
 		self.db.releaseConn(conn)
 
 	def __checkUndelivered(self, ctx):
