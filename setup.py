@@ -379,6 +379,8 @@ class Install (install.install, object):
         print "genzone configuration file has been updated"
 
     def run(self):
+        Config(self.distribution).run()
+        
         self.update_server_config()
         self.update_genzone_config()
 
