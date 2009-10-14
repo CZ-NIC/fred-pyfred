@@ -749,7 +749,7 @@ class Mailer_i (ccReg__POA.Mailer):
 			else:
 				err = ''
 			self.l.log(self.l.ERR, "<%d> Openssl exited with failure (%d): %s" % (mailid, stat, err))
-			raise ccReg.Mailer.InternalError("Signing of email failed.")
+			raise Mailer_i.MailerException("Signing of email failed.")
 		signedmail += outdata
 		return signedmail
 
