@@ -324,8 +324,7 @@ This class implements TechCheck interface.
 				handle, objid, nsset_hid, nslist, level = self.__dbGetNsset(conn)
 				self.idle_rounds = 0
 				self.l.log(self.l.DEBUG, "<%d> Regular check created "
-						"(nsset = %s)." % (id, handle))
-				# dig associated domains
+						"(nsset = %s [hid=%d])." % (id, handle, nsset_hid))
 				fqdns = self.__dbGetAssocDomains(conn, objid)
 				check_obj = RegularCheck(id, handle, objid, nsset_hid, level,
 						nslist, fqdns)
@@ -336,6 +335,7 @@ This class implements TechCheck interface.
 				checkid = self.__dbArchiveCheck(conn, check_obj.nsset_hid, [],
 						status, results, ccReg.CHKR_REGULAR, True, 1)
 				conn.commit()
+				# reschedule failed tests
 				if status == 1:
 					self.queue_failed.put(check_obj)
 					self.l.log(self.l.DEBUG, "<%d> Regular check failed - "
@@ -356,8 +356,9 @@ This class implements TechCheck interface.
 			conn = self.db.getConn()
 			if not self.queue_failed.empty():
 				check_obj = self.queue_failed.get()
-				self.l.log(self.l.DEBUG, "<%d> Failed check revisited." %
-						check_obj.id)
+				self.l.log(self.l.DEBUG, "<%d> Failed check revisited. "
+						"(nsset = %s [hid=%d])" % (check_obj.id, check_obj.handle,
+							check_obj.nsset_hid))
 				# run the tests
 				status, results = self.__runTests(check_obj.id, check_obj.fqdns,
 						check_obj.nslist, check_obj.level)
@@ -372,8 +373,9 @@ This class implements TechCheck interface.
 			# finally last chance to get better if two previous attempts failed
 			elif not self.queue_last.empty():
 				check_obj = self.queue_last.get()
-				self.l.log(self.l.DEBUG, "<%d> Failed check revisited." %
-						check_obj.id)
+				self.l.log(self.l.DEBUG, "<%d> Failed check revisited. "
+						"(nsset = %s [%d])" % (check_obj.id, check_obj.handle, 
+							check_obj.nsset_hid))
 				# run the tests
 				status, results = self.__runTests(check_obj.id, check_obj.fqdns,
 						check_obj.nslist, check_obj.level)
@@ -384,15 +386,23 @@ This class implements TechCheck interface.
 				# send email notification if nsset failed three times
 				if status == 1:
 					emails = self.__dbGetEmail(conn, check_obj.objid)
+					history = self.__dbGetNssetHistory(conn, check_obj.objid)
 					self.l.log(self.l.DEBUG, "<%d> Last chance waisted - check "
 							"failed." % check_obj.id)
 					# it is possible that nsset does not exist any more
 					if not emails:
 						self.l.log(self.l.DEBUG, "<%d> No contacts to be "
 								"notified about bad nsset." % check_obj.id)
+					# check if we have newer version of nsset to not send
+					# notification which can be confusing
+					elif len([hid for hid in history if hid > check_obj.nsset_hid]):
+						self.l.log(self.l.DEBUG, "<%d> Nsset was updated "
+								"recently - we don't notify oldsters." % check_obj.id)
+					# notify it
 					else:
 						self.__notify(check_obj.id, checkid, emails,
 								check_obj.handle, results)
+
 			self.db.releaseConn(conn)
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "<0> Database error: %s" % e)
@@ -544,6 +554,18 @@ This class implements TechCheck interface.
 			row = cur.fetchone()
 		cur.close()
 		return handle, objid, histid, nameservers, level
+
+	def __dbGetNssetHistory(self, conn, nsset_id):
+		"""
+	Get all history ids of nsset.
+		"""
+		hid_list = []
+		cur = conn.cursor()
+		cur.execute("SELECT historyid FROM nsset_history WHERE id = %d",
+							[nsset_id])
+		hid_list = [row[0] for row in cur.fetchall()]
+		cur.close()
+		return hid_list
 
 	def __dbArchiveCheck(self, conn, histid, fqdns, status, results, reason,
 			dig, attempt):
