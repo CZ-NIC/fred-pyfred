@@ -191,8 +191,8 @@ def getConfiguration(configs):
             "nscontext":"fred",
             "nshost":"localhost",
             "nsport":"2809",
-            "loghandler:":"SysLog",
-            "loglevel":"INFO",
+            "loghandler":"syslog",
+            "loglevel":"info",
             "logfacility":"local1",
             "logfilename":"var/log/pyfred.log",
             "pidfile":"var/run/pyfred.pid",
@@ -286,7 +286,7 @@ def main(argv):
         # test if syslog facility is valid
         if loghandler == "syslog":
             logfacility = logging.handlers.SysLogHandler.facility_names[logfacility]
-        
+
         # try to set proper handler and formatting style
         handlers = {"console": 
                         {"handler": [logging.StreamHandler, {}],
