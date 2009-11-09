@@ -1,3 +1,12 @@
+2009-11-09 Jiri Sadek
+
+    * Fixed configuration defaults (logging option)
+
+    * Technical tests now notify only newest state (history) of nsset
+	  (parallel nsset of different states fix)
+
+    * Fixed email signing procedure - exception type changed
+
 2009-07-09 Jiri Sadek, Tomas Divis
 
     * Fixes in mail module to properly update number of attempts (sending

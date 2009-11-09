@@ -864,8 +864,6 @@ class Mailer_i (ccReg__POA.Mailer):
 					attachs)
 			# commit changes in mail archive
 			conn.commit()
-			self.db.releaseConn(conn)
-
 			return (mailid, "")
 
 		except ccReg.Mailer.InternalError, e:
@@ -886,6 +884,8 @@ class Mailer_i (ccReg__POA.Mailer):
 			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
 					(id, sys.exc_info()[0], e))
 			raise ccReg.Mailer.InternalError("Unexpected error")
+		finally:
+			self.db.releaseConn(conn)
 
 	def resend(self, mailid):
 		"""
