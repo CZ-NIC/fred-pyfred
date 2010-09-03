@@ -63,7 +63,7 @@ def main(argv):
 					"shutdown?\n")
 			os.unlink(pidfile)
 
-		pid = os.spawnl(os.P_WAIT, pyfred_server)
+		pid = os.spawnl(os.P_WAIT, pyfred_server, pyfred_server)
 		sys.stdout.write(pyfred_server+" was started\n")
 
 	elif command == "stop":
