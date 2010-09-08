@@ -72,7 +72,7 @@ def main():
     failed = []
 
     for domain in domains:
-        if not domain.endswith(zone):
+        if zone != '.' and not domain.endswith(zone):
             continue
 
         debug('Checking domain name %s ... ' % domain, False)
@@ -83,7 +83,9 @@ def main():
         child.wait()
 
         output = child.communicate()[0]
-        if output.find('Existence is denied by') != -1 or child.returncode != 0:
+        if output.find('Existence is denied by') != -1 \
+                or output.find('Bogus DNSSEC signature') != -1 \
+                or child.returncode != 0:
             failed.append(domain)
             debug('FAIL')
             debug(output)
