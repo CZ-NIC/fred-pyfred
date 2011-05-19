@@ -26,6 +26,15 @@ from email.Utils import formatdate, parseaddr
 # IMAP stuff
 import imaplib
 
+def convArray2List(array):
+	"""
+Converts pg array to python list.
+	"""
+	# trim {,} chars
+	array = array[1:-1]
+	if not array: return []
+	return array.split(',')
+
 def contentfilter(mail, ismultipart):
 	"""
 	This routine slightly modifies email in order to prevent unexpected results
@@ -107,6 +116,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		self.certfile     = ""
 		self.vcard        = ""
 		self.sendperiod   = 300
+		self.sendlimit    = 100
 		self.archstatus   = 1
 		self.maxattempts  = 3
 		self.undeliveredperiod = 0
@@ -215,6 +225,13 @@ class Mailer_i (ccReg__POA.Mailer):
 				self.sendperiod = conf.getint("Mailer", "sendperiod")
 				self.l.log(self.l.DEBUG, "Sendperiod is %d seconds." %
 							self.sendperiod)
+			except ConfigParser.NoOptionError, e:
+				pass
+			# sendlimit
+			try:
+				self.sendlimit = conf.getint("Mailer", "sendlimit")
+				self.l.log(self.l.DEBUG, "Sendlimit is %d emails." %
+							self.sendlimit)
 			except ConfigParser.NoOptionError, e:
 				pass
 			# archstatus alias manualconfirm
@@ -353,7 +370,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		self.l.log(self.l.DEBUG, "Regular send-emails procedure.")
 		conn = self.db.getConn()
 		# iterate over all emails from database ready to be sent
-		for (mailid, mail_text, attachs) in self.__dbGetReadyEmails(conn):
+		for (mailid, mail_text, attachs) in self.__dbGetReadyEmailsTypeFair(conn):
 			try:
 				# run email through completion procedure
 				(mail, efrom) = self.__completeEmail(mailid, mail_text, attachs)
@@ -573,6 +590,71 @@ class Mailer_i (ccReg__POA.Mailer):
 					result.append( (row[0], row[1], []) )
 			else:
 				result[-1][2].append(row[2])
+
+		return result
+
+	def __dbGetReadyEmailsTypeFair(self, conn):
+		"""
+		Get all emails from database which are ready to be send fairly by mail type.
+		"""
+		# get count of emails to send by type
+		cur = conn.cursor()
+		cur.execute("SELECT mar.mailtype, mt.name, count(mar.*) FROM mail_archive mar "
+				"JOIN mail_type mt ON mt.id = mar.mailtype "
+				"WHERE mar.status = 1 AND mar.attempt < %d "
+				"GROUP BY mar.mailtype, mt.name ORDER BY mar.mailtype", [self.maxattempts])
+		rows = cur.fetchall()
+		cur.close()
+
+		if len(rows) == 0:
+			return []
+
+		self.l.log(self.l.DEBUG, "emails ready to send: %s" \
+				% (", ".join([ str(mail_type_name + "=" + str(mail_count)) \
+						for mail_type, mail_type_name, mail_count in rows])))
+
+		send_count = {}
+		for row in rows:
+			send_count[row[0]] = 0
+
+		# count number of emails to send for each mail type
+		limit = self.sendlimit
+		changed = True
+		while limit and changed:
+			changed = False
+			for mail_type, mail_type_name, mail_count in rows:
+				if limit == 0:
+					break
+				if send_count[mail_type] < mail_count:
+					send_count[mail_type] += 1
+					limit -= 1
+					changed = True
+
+		sql_part = "SELECT mar.id, mar.message, array_filter_null(array_accum(mat.attachid)) " \
+			"FROM mail_archive mar LEFT JOIN mail_attachments mat ON mar.id = mat.mailid " \
+			"WHERE mar.mailtype = %d AND mar.status = 1 AND mar.attempt < %d " \
+			"GROUP BY mar.id, mar.message LIMIT %d"
+
+		sql_args = []
+
+		# construct union sql for all types
+		if len(send_count) == 1:
+			sql = sql_part
+		else:
+			sql = " UNION ALL ".join([ "(" + q + ")" for q in (len(send_count) * [sql_part])])
+
+		for mail_type, mail_type_limit in send_count.items():
+			sql_args += [mail_type, self.maxattempts, mail_type_limit]
+
+		cur = conn.cursor()
+		cur.execute(sql, sql_args)
+		rows = cur.fetchall()
+		cur.close()
+
+		# convert db array to list
+		result = []
+		for row in rows:
+			result.append([row[0], row[1], convArray2List(row[2])])
 
 		return result
 

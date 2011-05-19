@@ -46,6 +46,8 @@ sendmail=SENDMAIL
 filemanager_object=FileManager
 signing=off
 sendperiod=30
+# limit for number of emails send in one period
+sendlimit=100
 # Enable vcard attachment. To each email is added text/x-vcard attachemnt
 # Do NOT turn this off! (Outlook express cannot open multipart emails containing
 # only single part). When vcard is turned on, we are sure that this never happens
