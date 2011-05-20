@@ -599,10 +599,9 @@ class Mailer_i (ccReg__POA.Mailer):
 		"""
 		# get count of emails to send by type
 		cur = conn.cursor()
-		cur.execute("SELECT mar.mailtype, mt.name, count(mar.*) FROM mail_archive mar "
-				"JOIN mail_type mt ON mt.id = mar.mailtype "
+		cur.execute("SELECT mar.mailtype, count(mar.*) FROM mail_archive mar "
 				"WHERE mar.status = 1 AND mar.attempt < %d "
-				"GROUP BY mar.mailtype, mt.name ORDER BY mar.mailtype", [self.maxattempts])
+				"GROUP BY mar.mailtype", [self.maxattempts])
 		rows = cur.fetchall()
 		cur.close()
 
@@ -610,8 +609,8 @@ class Mailer_i (ccReg__POA.Mailer):
 			return []
 
 		self.l.log(self.l.DEBUG, "emails ready to send: %s" \
-				% (", ".join([ str(mail_type_name + "=" + str(mail_count)) \
-						for mail_type, mail_type_name, mail_count in rows])))
+				% (", ".join([ str(str(mail_type) + "=" + str(mail_count)) \
+						for mail_type, mail_count in rows])))
 
 		send_count = {}
 		for row in rows:
@@ -622,7 +621,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		changed = True
 		while limit and changed:
 			changed = False
-			for mail_type, mail_type_name, mail_count in rows:
+			for mail_type, mail_count in rows:
 				if limit == 0:
 					break
 				if send_count[mail_type] < mail_count:
