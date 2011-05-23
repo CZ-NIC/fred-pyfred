@@ -1,3 +1,9 @@
+2011-05-23 Jiri Sadek (2.2.0)
+
+    * Mailer - new approach for selecting emails ready to send
+
+    * fixing dnssec technical test - new version of ldns drill utility
+
 2009-11-09 Jiri Sadek (2.1.9)
 
     * Fixed configuration defaults (logging option)
