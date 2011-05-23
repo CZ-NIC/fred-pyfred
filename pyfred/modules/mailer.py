@@ -26,6 +26,22 @@ from email.Utils import formatdate, parseaddr
 # IMAP stuff
 import imaplib
 
+
+def convList2Array(list):
+	"""
+Converts python list to pg array.
+	"""
+	array = '{'
+	for item in list:
+		if isinstance(item, str):
+			item = pgdb.escape_string(item)
+		array += "%s," % str(item)
+	# trim ending ','
+	if len(array) > 1:
+		array = array[0:-1]
+	array += '}'
+	return array
+
 def convArray2List(array):
 	"""
 Converts pg array to python list.
@@ -315,6 +331,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		joblist.append( { "callback":self.__search_cleaner, "context":None,
 			"period":self.checkperiod, "ticks":1 } )
 		# schedule regular submission of ready emails
+		self.mail_type_penalization = {}
 		joblist.append( { "callback":self.__sendEmails, "context":None,
 			"period":self.sendperiod, "ticks":1 } )
 		# schedule checks for unsuccessfull delivery of emails
@@ -353,10 +370,10 @@ class Mailer_i (ccReg__POA.Mailer):
 				self.l.log(self.l.DEBUG, "search-object with id %d and type %s "
 							"left in queue." % (item.id, item.__class__.__name__))
 				self.search_objects.put(item)
-				
+
 		queue = self.search_objects 
 		self.l.log(self.l.DEBUG, '%d objects are scheduled to deletion and %d left in queue' % (len(remove), queue.qsize()))
-		
+
 		# delete objects scheduled for deletion
 		rootpoa = self.corba_refs.rootpoa
 		for item in remove:
@@ -370,7 +387,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		self.l.log(self.l.DEBUG, "Regular send-emails procedure.")
 		conn = self.db.getConn()
 		# iterate over all emails from database ready to be sent
-		for (mailid, mail_text, attachs) in self.__dbGetReadyEmailsTypeFair(conn):
+		for (mailid, mail_text, attachs) in self.__dbGetReadyEmailsTypePenalization(conn):
 			try:
 				# run email through completion procedure
 				(mail, efrom) = self.__completeEmail(mailid, mail_text, attachs)
@@ -593,67 +610,54 @@ class Mailer_i (ccReg__POA.Mailer):
 
 		return result
 
-	def __dbGetReadyEmailsTypeFair(self, conn):
+	def __dbGetReadyEmailsTypePenalization(self, conn):
 		"""
 		Get all emails from database which are ready to be send fairly by mail type.
 		"""
-		# get count of emails to send by type
 		cur = conn.cursor()
-		cur.execute("SELECT mar.mailtype, count(mar.*) FROM mail_archive mar "
-				"WHERE mar.status = 1 AND mar.attempt < %d "
-				"GROUP BY mar.mailtype", [self.maxattempts])
+
+		penalized = []
+		if len(self.mail_type_penalization):
+			for mt in self.mail_type_penalization.keys():
+				penalized.append(mt)
+				if self.mail_type_penalization[mt] == 0:
+					del self.mail_type_penalization[mt]
+				else:
+					self.mail_type_penalization[mt] -= 1
+
+		self.l.log(self.l.DEBUG, "mail types penalized in query: %s" % str(penalized))
+
+		cur.execute("SELECT mar.id, mar.mailtype, mar.message, "
+			"array_filter_null(array_accum(mat.attachid)) "
+			"FROM mail_archive mar LEFT JOIN mail_attachments mat "
+			"ON mar.id = mat.mailid "
+			"WHERE mar.status = 1 AND mar.attempt < %d "
+			"AND NOT mar.mailtype =ANY(%s::integer[]) "
+			"GROUP BY mar.id, mar.mailtype, mar.message LIMIT %d",
+			[self.maxattempts, convList2Array(penalized), self.sendlimit])
+
 		rows = cur.fetchall()
 		cur.close()
 
 		if len(rows) == 0:
+			self.mail_type_penalization = {}
+			self.l.log(self.l.DEBUG, "no mails selected; mail type penalties dropped")
 			return []
 
-		self.l.log(self.l.DEBUG, "emails ready to send: %s" \
-				% (", ".join([ str(str(mail_type) + "=" + str(mail_count)) \
-						for mail_type, mail_count in rows])))
-
-		send_count = {}
-		for row in rows:
-			send_count[row[0]] = 0
-
-		# count number of emails to send for each mail type
-		limit = self.sendlimit
-		changed = True
-		while limit and changed:
-			changed = False
-			for mail_type, mail_count in rows:
-				if limit == 0:
-					break
-				if send_count[mail_type] < mail_count:
-					send_count[mail_type] += 1
-					limit -= 1
-					changed = True
-
-		sql_part = "SELECT mar.id, mar.message, array_filter_null(array_accum(mat.attachid)) " \
-			"FROM mail_archive mar LEFT JOIN mail_attachments mat ON mar.id = mat.mailid " \
-			"WHERE mar.mailtype = %d AND mar.status = 1 AND mar.attempt < %d " \
-			"GROUP BY mar.id, mar.message LIMIT %d"
-
-		sql_args = []
-
-		# construct union sql for all types
-		if len(send_count) == 1:
-			sql = sql_part
-		else:
-			sql = " UNION ALL ".join([ "(" + q + ")" for q in (len(send_count) * [sql_part])])
-
-		for mail_type, mail_type_limit in send_count.items():
-			sql_args += [mail_type, self.maxattempts, mail_type_limit]
-
-		cur = conn.cursor()
-		cur.execute(sql, sql_args)
-		rows = cur.fetchall()
-		cur.close()
-
-		# convert db array to list
+		# convert db array to list and get mail type count statistics
+		type_stats = {}
 		result = []
-		for row in rows:
-			result.append([row[0], row[1], convArray2List(row[2])])
+		for m_id, m_type, m_body, m_attach_ids in rows:
+			result.append([m_id, m_body, convArray2List(m_attach_ids)])
+			type_stats[m_type] = type_stats.get(m_type, 0) + 1
+
+		self.l.log(self.l.DEBUG, "mail type distribution: %s" % str(type_stats))
+
+		# count penalties for next round
+		for mt, mc in type_stats.items():
+			if (float(mc) / self.sendlimit) > 0.3:
+				self.mail_type_penalization[mt] = 1
+				self.l.log(self.l.DEBUG, "mail type %d penalization scheduled" % int(mt))
 
 		return result
 
