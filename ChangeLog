@@ -1,6 +1,7 @@
 2011-05-23 Jiri Sadek (2.2.0)
 
     * Mailer - new approach for selecting emails ready to send
+             - fixed connection handling in mailNotify method
 
     * fixing dnssec technical test - new version of ldns drill utility
 
