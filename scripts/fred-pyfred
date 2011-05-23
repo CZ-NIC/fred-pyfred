@@ -161,7 +161,8 @@ class DB(object):
         """
         Release connection obtained in getConn() method.
         """
-        conn.close()
+        if conn:
+            conn.close()
 
 class CorbaRefs(object):
     """

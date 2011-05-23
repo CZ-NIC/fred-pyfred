@@ -928,6 +928,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		and generates an email. The text of the email and operation status must
 		be archived in database.
 		"""
+		conn = None
 		try:
 			id = random.randint(1, 9999)
 			self.l.log(self.l.INFO, "<%d> Email-Notification request received "
@@ -949,7 +950,6 @@ class Mailer_i (ccReg__POA.Mailer):
 					attachs)
 			# commit changes in mail archive
 			conn.commit()
-			self.db.releaseConn(conn)
 
 			return (mailid, "")
 
@@ -971,6 +971,8 @@ class Mailer_i (ccReg__POA.Mailer):
 			self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
 					(id, sys.exc_info()[0], e))
 			raise ccReg.Mailer.InternalError("Unexpected error")
+		finally:
+			self.db.releaseConn(conn)
 
 	def resend(self, mailid):
 		"""
