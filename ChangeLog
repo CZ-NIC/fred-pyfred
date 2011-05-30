@@ -1,3 +1,7 @@
+2011-05-30 Jiri Sadek (2.2.1)
+
+    * Mailer - bugfixed list of attachments
+
 2011-05-23 Jiri Sadek (2.2.0)
 
     * Mailer - new approach for selecting emails ready to send
