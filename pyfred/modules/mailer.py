@@ -648,7 +648,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		type_stats = {}
 		result = []
 		for m_id, m_type, m_body, m_attach_ids in rows:
-			result.append([m_id, m_body, convArray2List(m_attach_ids)])
+			result.append([m_id, m_body, [int(i) for i in convArray2List(m_attach_ids)]])
 			type_stats[m_type] = type_stats.get(m_type, 0) + 1
 
 		self.l.log(self.l.DEBUG, "mail type distribution: %s" % str(type_stats))
