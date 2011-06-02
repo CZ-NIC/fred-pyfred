@@ -640,9 +640,13 @@ class Mailer_i (ccReg__POA.Mailer):
 		cur.close()
 
 		if len(rows) == 0:
-			self.mail_type_penalization = {}
-			self.l.log(self.l.DEBUG, "no mails selected; mail type penalties dropped")
-			return []
+			self.l.log(self.l.DEBUG, "no mails selected")
+			if len(penalized) > 0:
+				self.mail_type_penalization = {}
+				self.l.log(self.l.DEBUG, "penalties used => now dropping and re-run")
+				return self.__dbGetReadyEmailsTypePenalization(conn)
+			else:
+				return []
 
 		# convert db array to list and get mail type count statistics
 		type_stats = {}
