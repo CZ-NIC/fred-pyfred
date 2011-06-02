@@ -25,8 +25,8 @@ pidfile=PIDFILE
 # syslog  (see logfacility option also)
 # file    (see logfilename option also)
 # console (can be used only if server is not demonized after start)
-loghandler=syslog
-loglevel=error
+loghandler=file
+loglevel=debug
 logfacility=local1
 logfilename=LOGFILENAME
 
