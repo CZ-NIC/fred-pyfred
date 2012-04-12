@@ -140,6 +140,7 @@ class Mailer_i (ccReg__POA.Mailer):
 		self.IMAPpass     = ""
 		self.IMAPserver   = "localhost"
 		self.IMAPport     = 143
+		self.IMAPssl      = False
 		# Parse Mailer-specific configuration
 		if conf.has_section("Mailer"):
 			# testmode
@@ -306,6 +307,13 @@ class Mailer_i (ccReg__POA.Mailer):
 							self.IMAPserver)
 			except ConfigParser.NoOptionError, e:
 				pass
+			# IMAPssl
+			try:
+				self.IMAPssl = conf.getboolean("Mailer", "IMAPssl")
+				if self.IMAPssl:
+					self.l.log(self.l.DEBUG, "IMAPssl is turned on.")
+			except ConfigParser.NoOptionError, e:
+				pass
 
 		# check configuration consistency
 		if self.tester and not self.testmode:
@@ -420,7 +428,10 @@ class Mailer_i (ccReg__POA.Mailer):
 		self.l.log(self.l.DEBUG, "Regular check-undelivered procedure.")
 		# get emails from mailbox
 		try:
-			server = imaplib.IMAP4(self.IMAPserver, self.IMAPport)
+			if self.IMAPssl:
+				server = imaplib.IMAP4_SSL(self.IMAPserver, self.IMAPport)
+			else:
+				server = imaplib.IMAP4(self.IMAPserver, self.IMAPport)
 			server.login(self.IMAPuser, self.IMAPpass)
 			server.select()
 			# XXX potencial source of error - hardcoded return.nic.cz
