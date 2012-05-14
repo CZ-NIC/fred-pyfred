@@ -1,3 +1,7 @@
+2012-05-14 Jiri Sadek (2.2.3)
+
+    * Mailer - add support for IMAP SSL
+
 2011-06-02 Jiri Sadek (2.2.2)
 
     * Mailer - little tweak to not loose one send period because of penalized
