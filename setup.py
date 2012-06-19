@@ -22,7 +22,6 @@ from freddist.filelist import FileList
 
 PROJECT_NAME = 'pyfred_server'
 PACKAGE_NAME = 'pyfred_server'
-PACKAGE_VERSION = '2.3.0'
 DEFAULT_DBUSER = 'fred'
 DEFAULT_DBNAME = 'fred'
 DEFAULT_DBHOST = 'localhost'
@@ -659,7 +658,7 @@ def main():
     try:
         if not os.path.isdir('build/stubs/pyfred/idlstubs'):
             os.makedirs('build/stubs/pyfred/idlstubs')
-        setup(name="fred-pyfred", version=PACKAGE_VERSION,
+        setup(name="fred-pyfred",
                 description="Component of FRED (Fast Registry for Enum and Domains)",
                 author   = "Jan Kryl",
                 author_email="jan.kryl@nic.cz",
