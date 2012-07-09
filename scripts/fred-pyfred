@@ -77,7 +77,8 @@ def sighandler(signum, arg):
 
     if not pidfile:
         log.log(log.INFO, "The pidfile is not set - signal was "
-                "probably delivered too early after the start.")
+                "probably delivered too early after the start "
+                "or pidfile creation is disabled.")
         sys.exit(0)
 
     # delete the pidfile
@@ -196,7 +197,6 @@ def getConfiguration(configs):
             "loglevel":"info",
             "logfacility":"local1",
             "logfilename":"var/log/pyfred.log",
-            "pidfile":"var/run/pyfred.pid",
             "host":"",
             "port":"2225"})
     # read configuration file
@@ -248,8 +248,13 @@ def main(argv):
         sys.exit(1)
 
     # Check pidfile
-    pidfile = conf.get("General", "pidfile")
-    if os.access(pidfile, os.F_OK):
+    try:
+        pidfile = conf.get("General", "pidfile")
+    except ConfigParser.NoOptionError:
+        # pidfile disabled
+        pidfile = None
+
+    if pidfile and os.access(pidfile, os.F_OK):
         pidfd = open(pidfile, "r")
         pidline = pidfd.readline()
         # strip trailing \n if there is any
@@ -461,14 +466,15 @@ def main(argv):
     poaManager.activate()
 
     # Create PID file
-    try:
-        pidfd = open(pidfile, "w")
-    except Exception, e:
-        log.log(log.ERR, "Could not create pid file %s. Check "
-                "permissions." % pidfile)
-        sys.exit(1)
-    pidfd.write("%d\n" % os.getpid())
-    pidfd.close()
+    if pidfile:
+        try:
+            pidfd = open(pidfile, "w")
+        except Exception, e:
+            log.log(log.ERR, "Could not create pid file %s. Check "
+                    "permissions." % pidfile)
+            sys.exit(1)
+        pidfd.write("%d\n" % os.getpid())
+        pidfd.close()
 
     # Install common signal handler for basic signals
     for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
