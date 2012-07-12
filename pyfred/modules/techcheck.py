@@ -835,8 +835,13 @@ This class implements TechCheck interface.
 		try:
 			for email in emails:
 				header.h_to = email[0]
-				mailer.mailNotify(self.mailtype, header, tpldata, [ email[1] ],
-						[], False)
+				# at least check we don't have empty string
+				if len(header.h_to.strip()):
+					mailer.mailNotify(self.mailtype, header, tpldata, [ email[1] ],
+							[], False)
+				else:
+					self.l.log(self.l.WARNING, "<%d> No recipients email address; "
+					"sending canceled" % id)
 		except ccReg.Mailer.InvalidHeader, e:
 			self.l.log(self.l.ERR, "<%d> Error when sending email - invalid "
 					"header '%s' (handle: '%s')" % (id, e.header, handle))
