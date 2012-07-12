@@ -296,6 +296,7 @@ This class implements TechCheck interface.
 					dig, regid, reason, cltestid) = self.queue_ooo.get()
 			self.l.log(self.l.DEBUG, "<%d> Found scheduled ooo tech check." % id)
 			(status, results) = self.__runTests(id, fqdns_all, nslist, level)
+			conn = None
 			try:
 				conn = self.db.getConn()
 				# archive results of check
@@ -304,9 +305,10 @@ This class implements TechCheck interface.
 				self.__dbQueuePollMsg(conn, regid, chkid)
 				# commit changes in archive and message queue
 				conn.commit()
-				self.db.releaseConn(conn)
 			except pgdb.DatabaseError, e:
 				self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
+			finally:
+				self.db.releaseConn(conn)
 			return
 		# when there are not ooo requests, there is time for regular checks
 		# recruit new regular check
@@ -318,6 +320,7 @@ This class implements TechCheck interface.
 				self.idle_rounds = -1 # signal that we have just changed status
 		else:
 			check_obj = None
+			conn = None
 			try:
 				id = random.randint(1, 9999) # generate random id of check
 				conn = self.db.getConn()
@@ -340,7 +343,6 @@ This class implements TechCheck interface.
 					self.queue_failed.put(check_obj)
 					self.l.log(self.l.DEBUG, "<%d> Regular check failed - "
 							"repetition scheduled." % id)
-				self.db.releaseConn(conn)
 				return
 			except pgdb.DatabaseError, e:
 				self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
@@ -350,8 +352,11 @@ This class implements TechCheck interface.
 					self.l.log(self.l.DEBUG, "<%d> Activating low-cost working"%
 							id)
 				self.idle_rounds = self.missrounds
+			finally:
+				self.db.releaseConn(conn)
 
 		# when all regular checks are done, try again the failed checks
+		conn = None
 		try:
 			conn = self.db.getConn()
 			if not self.queue_failed.empty():
@@ -403,9 +408,10 @@ This class implements TechCheck interface.
 						self.__notify(check_obj.id, checkid, emails,
 								check_obj.handle, results)
 
-			self.db.releaseConn(conn)
 		except pgdb.DatabaseError, e:
 			self.l.log(self.l.ERR, "<0> Database error: %s" % e)
+		finally:
+			self.db.releaseConn(conn)
 		return
 
 	def __search_cleaner(self, ctx):
@@ -831,6 +837,9 @@ This class implements TechCheck interface.
 				header.h_to = email[0]
 				mailer.mailNotify(self.mailtype, header, tpldata, [ email[1] ],
 						[], False)
+		except ccReg.Mailer.InvalidHeader, e:
+			self.l.log(self.l.ERR, "<%d> Error when sending email - invalid "
+					"header '%s' (handle: '%s')" % (id, e.header, handle))
 		except ccReg.Mailer.UnknownMailType, e:
 			self.l.log(self.l.ERR, "<%d> Mailer doesn't know the email type "
 					"'%s'." % (id, self.mailtype))
