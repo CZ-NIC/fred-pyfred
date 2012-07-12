@@ -627,14 +627,8 @@ class Mailer_i (ccReg__POA.Mailer):
 		"""
 		cur = conn.cursor()
 
-		penalized = []
-		if len(self.mail_type_penalization):
-			for mt in self.mail_type_penalization.keys():
-				penalized.append(mt)
-				if self.mail_type_penalization[mt] == 0:
-					del self.mail_type_penalization[mt]
-				else:
-					self.mail_type_penalization[mt] -= 1
+		penalized = self.mail_type_penalization.keys()
+		self.mail_type_penalization = dict((mt, p - 1) for mt, p in self.mail_type_penalization.iteritems() if p > 0)
 
 		self.l.log(self.l.DEBUG, "mail types penalized in query: %s" % str(penalized))
 
