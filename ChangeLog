@@ -1,3 +1,7 @@
+2012-07-13 Jiri Sadek (2.3.1)
+
+    * add more debug logging to pyfred main loop
+
 2012-05-14 Jiri Sadek (2.3.0)
 
     * Mailer - add support for IMAP SSL

@@ -483,14 +483,33 @@ def main(argv):
     # Run cron jobs forever
     if len(joblist) == 0:
         joblist = [ { "callback":job_noop, "context":None, "period":3600 } ]
+
+    # helper function
+    def get_job_name(job):
+        job_class = str(job["callback"].im_class).split(".")[-1]
+        job_method = str(job["callback"].__name__)
+        return "%s.%s" % (job_class, job_method)
+
     delay = 5 # initial delay
     while True:
+        log.log(log.DEBUG, "[main loop] sleep for %ds" % delay)
         time.sleep(delay)
+        # job list inspect
+        try:
+            log.log(log.DEBUG, "[main loop] %d job(s) in queue" % len(joblist))
+            ticks_sum = 0
+            for j in joblist:
+                ticks_sum += j["ticks"]
+                log.log(log.DEBUG, "[main loop] %ds till %s" % (ticks_sum, get_job_name(j)))
+        except Exception:
+            pass
         # look what is scheduled for execution
         job = joblist.pop(0)
         # execute first job in a queue
         try:
+            log.log(log.DEBUG, "[main loop] executing job %s" % get_job_name(job))
             job["callback"](job["context"])
+            log.log(log.DEBUG, "[main loop] job finished")
         except Exception, e:
             log.log(log.ERR, "Unexpected error when "
                     "executing job. %s:%s" % (sys.exc_info()[0], e))
