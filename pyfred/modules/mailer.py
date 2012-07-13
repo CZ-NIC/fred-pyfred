@@ -627,16 +627,12 @@ class Mailer_i (ccReg__POA.Mailer):
 		"""
 		cur = conn.cursor()
 
-		penalized = []
-		if len(self.mail_type_penalization):
-			for mt in self.mail_type_penalization.keys():
-				penalized.append(mt)
-				if self.mail_type_penalization[mt] == 0:
-					del self.mail_type_penalization[mt]
-				else:
-					self.mail_type_penalization[mt] -= 1
+		self.l.log(self.l.DEBUG, "computing mail type penalties")
 
-		self.l.log(self.l.DEBUG, "mail types penalized in query: %s" % str(penalized))
+		penalized = self.mail_type_penalization.keys()
+		self.mail_type_penalization = dict((mt, p - 1) for mt, p in self.mail_type_penalization.iteritems() if p > 0)
+
+		self.l.log(self.l.DEBUG, "mail types to be penalized in query: %s" % str(penalized))
 
 		cur.execute("SELECT mar.id, mar.mailtype, mar.message, "
 			"array_filter_null(array_accum(mat.attachid)) "
@@ -966,6 +962,8 @@ class Mailer_i (ccReg__POA.Mailer):
 			# commit changes in mail archive
 			conn.commit()
 
+			self.l.log(self.l.DEBUG, "<%d> Email-Notification request saved "
+					"(mailid=%d)" % (id, mailid))
 			return (mailid, "")
 
 		except ccReg.Mailer.InternalError, e:
