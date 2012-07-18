@@ -121,9 +121,9 @@ for checking of these conditions.
 
          *) Domain must have associated nsset.
          *) Domain must not be expired and additionaly if it is an enum domain,
-	    validation must be still valid. By 'expired' we mean that
-	    domain is out of safe-period (which is about one month after the
-	    real expiration date).
+        validation must be still valid. By 'expired' we mean that
+        domain is out of safe-period (which is about one month after the
+        real expiration date).
          *) The domain must not have set status 'outZoneManual', it means
             the domain was not manually outaged from zone.
 
@@ -160,7 +160,7 @@ attached to domains.
 Genzone client is configurable by configuration file. The default location
 is /etc/fred/genzone.conf, but you may override this default from command
 line. The configuration file may contain individual section for each zone.
-Configuration parameters, which are not specific to a zone, are in section 
+Configuration parameters, which are not specific to a zone, are in section
 called 'general'. The command line parameters are preferred to values
 from configuration file, but beware that options on command line override
 configuration of all generated zones. The description of configuration
@@ -303,11 +303,11 @@ off in configuration file.
 Emails in archive may have assigned several status values, which are numbers
 from 0 to 4. Here is their meaning:
 
-	0: Mail was successfully sent.
-	1: Mail is ready to be sent.
-	2: Mail waits for manual confirmation.
-	3: This email will not be sent or touched by mailer.
-	4: Delivery of email failed.
+    0: Mail was successfully sent.
+    1: Mail is ready to be sent.
+    2: Mail waits for manual confirmation.
+    3: This email will not be sent or touched by mailer.
+    4: Delivery of email failed.
 
 
  2.4 Techcheck
@@ -436,7 +436,7 @@ need to spawn new CORBA objects, which are dedicated to one simple task
  *) idletreshold [3600] - says how many seconds the object must not be
  accessed by any CORBA method in order to be taken as "death" and will be
  automically deleted.
- 
+
  *) checkperiod [60] - is interval in which are checked objects for being idle.
 
 The following rule should hold: checkperiod <= idletreshold.
@@ -514,8 +514,8 @@ no default value, the square brackets are missing.
 
      Example: If this is set to 'FileManager' the resulting identifier of
               CORBA object is: 'fred.context/FileManager.Object'.
-	      If this is set to 'fred2.FileManager' the resulting identifier
-	      is: 'fred2.context/FileManager.Object'.
+          If this is set to 'fred2.FileManager' the resulting identifier
+          is: 'fred2.context/FileManager.Object'.
 
   *) signing [Off] - Whether the emails should be cryptographically signed
      or not.
@@ -596,8 +596,8 @@ no default value, the square brackets are missing.
 
      Example: If this is set to 'Mailer' the resulting identifier of
               CORBA object is: 'fred.context/Mailer.Object'.
-	      If this is set to 'fred2.Mailer' the resulting identifier
-	      is: 'fred2.context/Mailer.Object'.
+          If this is set to 'fred2.Mailer' the resulting identifier
+          is: 'fred2.context/Mailer.Object'.
 
   *) mailtype [techcheck] - This is an type of email, which is used when
      sending an email through mailer.
@@ -632,4 +632,3 @@ Here are explicitly listed the dependencies:
 There are unittests in directory "unittests". Currently there is only test
 for genzone component. For more information about unittest see comments in
 file.
-

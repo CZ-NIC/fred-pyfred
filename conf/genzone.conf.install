@@ -9,7 +9,7 @@ context   = CONTEXT
 reload    = 1
 verbose   = 0
 # if empty all zones will be generated
-zones     = 
+zones     =
 
 #[0.2.4.e164.arpa]
 #chunk     = 3

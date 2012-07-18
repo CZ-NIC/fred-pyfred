@@ -81,10 +81,10 @@ def savefile(fm, mimetype, filetype, input, overwrite_label='', silent=False):
     try:
         saveobj = fm.save(label, mimetype, filetype)
         # we will upload file in 16K chunks
-        chunk = fd.read(2**14)
+        chunk = fd.read(2 ** 14)
         while chunk:
             saveobj.upload(chunk)
-            chunk = fd.read(2**14)
+            chunk = fd.read(2 ** 14)
         fd.close()
         id = saveobj.finalize_upload()
     except ccReg.FileManager.InternalError, e:
@@ -107,10 +107,10 @@ def loadfile(fm, id, output, silent):
     try:
         loadobj = fm.load(id)
         f = open(output, "wb")
-        data = loadobj.download(2**14)
+        data = loadobj.download(2 ** 14)
         while data:
             f.write(data)
-            data = loadobj.download(2**14)
+            data = loadobj.download(2 ** 14)
         f.close()
         loadobj.finalize_download()
 
@@ -136,15 +136,15 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                 "f:hi:l:n:c:m:o:st:x:",
-                ["file=", "help", "input=", "label=", "nameservice=", 
+                ["file=", "help", "input=", "label=", "nameservice=",
                  "context=", "mimetype=", "output=", "silent", "type=", "id="])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
-    
+
     configfile = '/etc/fred/pyfred.conf'
 
-    for o,a in opts:
+    for o, a in opts:
         if o in ('-f', '--file'):
             configfile = a
 

@@ -91,7 +91,7 @@ class UploadTest(unittest.TestCase):
         '''
         Upload a file specified by filename.
         '''
-        cmd = os.path.join(pyfred_bin_dir, 'filemanager_client --input=%s --mime="text/plain" --type=0' %\
+        cmd = os.path.join(pyfred_bin_dir, 'filemanager_client --input=%s --mime="text/plain" --type=0' % \
                 self.filename)
         (status, output) = commands.getstatusoutput(cmd)
         status = os.WEXITSTATUS(status) # translate status
@@ -102,7 +102,7 @@ class UploadTest(unittest.TestCase):
         '''
         Upload a content on stdin.
         '''
-        cmd = os.path.join(pyfred_bin_dir, 'filemanager_client --mime="text/plain" --type=0 <%s' %\
+        cmd = os.path.join(pyfred_bin_dir, 'filemanager_client --mime="text/plain" --type=0 <%s' % \
                 self.filename)
         (status, output) = commands.getstatusoutput(cmd)
         status = os.WEXITSTATUS(status) # translate status
@@ -137,7 +137,7 @@ class DownloadTest(unittest.TestCase):
         Download a file uploaded in setUp.
         '''
         filename = '/tmp/downloadtest'
-        cmd = os.path.join(pyfred_bin_dir, 'filemanager_client --output="%s" --id=%d' %\
+        cmd = os.path.join(pyfred_bin_dir, 'filemanager_client --output="%s" --id=%d' % \
                 (filename, self.fileid))
         (status, output) = commands.getstatusoutput(cmd)
         status = os.WEXITSTATUS(status) # translate status
@@ -175,11 +175,11 @@ class SearchTest(unittest.TestCase):
         Find uploaded file.
         '''
         cmd = os.path.join(pyfred_bin_dir, 'filemanager_admin_client --chunk=1 --label="%s" '\
-                '--mime="text/plain" --type=0 --id=%d' %\
-                (self.filename[self.filename.rfind('/')+1:], self.fileid))
+                '--mime="text/plain" --type=0 --id=%d' % \
+                (self.filename[self.filename.rfind('/') + 1:], self.fileid))
         (status, output) = commands.getstatusoutput(cmd)
         status = os.WEXITSTATUS(status) # translate status
-        self.assertEqual(status, 0, 'Error when searching for file\n%s'% output)
+        self.assertEqual(status, 0, 'Error when searching for file\n%s' % output)
         count = 0
         for line in output.split('\n'):
             if line.startswith('*' * 10):
@@ -196,7 +196,7 @@ if __name__ == '__main__':
         usage()
         sys.exit(2)
     level = 2 # default verbose level
-    for o,a in opts:
+    for o, a in opts:
         if o in ('-v', '--verbose'):
             level = int(a)
 
@@ -209,4 +209,4 @@ if __name__ == '__main__':
     fm_suite.addTest(SearchTest())
 
     # Run unittests
-    unittest.TextTestRunner(verbosity = level).run(fm_suite)
+    unittest.TextTestRunner(verbosity=level).run(fm_suite)

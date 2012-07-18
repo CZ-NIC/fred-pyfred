@@ -39,7 +39,7 @@ DEFAULT_DRILL = ''
 #$localstatedir/lib/pyfred/filemanager
 DEFAULT_FILEMANAGERFILES = 'lib/pyfred/filemanager/'
 #whole path is by default $libexecdir/pyfred
-DEFAULT_TECHCHECKSCRIPTDIR = 'pyfred' 
+DEFAULT_TECHCHECKSCRIPTDIR = 'pyfred'
 #whole is $localstatedir/run/pyfred.pid
 DEFAULT_PIDFILE = 'run/pyfred.pid'
 #$prefix/bin/pyfred_server
@@ -187,7 +187,7 @@ def compile_idl(cmd, pars, files):
                     print "Create directory", par.strip()[2:]
                 except OSError, e:
                     print e
-    cmdline = cmd +' '+ string.join(pars) +' '+ string.join(files)
+    cmdline = cmd + ' ' + string.join(pars) + ' ' + string.join(files)
     log.info(cmdline)
     status, output = commands.getstatusoutput(cmdline)
     log.info(output)
@@ -206,26 +206,26 @@ class Install (install.install, object):
     user_options.extend(install.install.user_options)
     user_options.append(('modules=', None, 'which pyfred modules will be loaded'
         ' [genzone mailer filemanager techcheck]'))
-    user_options.append(('nscontext=', None, 
+    user_options.append(('nscontext=', None,
         'CORBA nameservice context name [fred]'))
-    user_options.append(('nshost=', None, 
+    user_options.append(('nshost=', None,
         'CORBA nameservice host [localhost]'))
-    user_options.append(('nsport=', None, 
+    user_options.append(('nsport=', None,
         'Port where CORBA nameservice listen [2809]'))
-    user_options.append(('dbuser=', None, 
+    user_options.append(('dbuser=', None,
         'Name of FRED database user [fred]'))
-    user_options.append(('dbname=', None, 
+    user_options.append(('dbname=', None,
         'Name of FRED database [fred]'))
     user_options.append(('dbhost=', None, 'FRED database host [localhost]'))
-    user_options.append(('dbport=', None, 
+    user_options.append(('dbport=', None,
         'Port where PostgreSQL database listening [5432]'))
     user_options.append(('dbpass=', None, 'Password to FRED database []'))
     user_options.append(('pyfredport=', None, '  [2225]'))
-    user_options.append(("omniidl=", "i", 
+    user_options.append(("omniidl=", "i",
         "omniidl program used to build stubs [omniidl]"))
-    user_options.append(("idldir=",  "d", 
+    user_options.append(("idldir=", "d",
         "directory where IDL files reside [PREFIX/share/idl/fred/]"))
-    user_options.append(("idlforce", "o", 
+    user_options.append(("idlforce", "o",
         "force idl stubs to be always generated"))
     user_options.append(('install-unittests', None,
         'setup will install unittest scripts into '
@@ -256,9 +256,9 @@ class Install (install.install, object):
 
     def initialize_options(self):
         super(Install, self).initialize_options()
-        self.idldir   = None
+        self.idldir = None
         self.idlforce = False
-        self.omniidl  = None
+        self.omniidl = None
         self.omniidl_params = g_omniidl_params #["-Cbuild/lib", "-bpython", "-Wbinline"]
         self.idlfiles = g_modules#["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
         self.install_unittests = None
@@ -279,11 +279,11 @@ class Install (install.install, object):
 
         if not self.idldir:
             # set idl directory to datarootdir/idl/fred/
-            self.idldir=os.path.join(self.datarootdir, "idl", "fred")
+            self.idldir = os.path.join(self.datarootdir, "idl", "fred")
 
         if self.install_unittests:
             self.distribution.data_files.append(
-                    ('LIBDIR/%s/unittests' % self.distribution.get_name(), 
+                    ('LIBDIR/%s/unittests' % self.distribution.get_name(),
                         file_util.all_files_in_2('unittests', ['.*'])))
 
     def find_sendmail(self):
@@ -385,7 +385,7 @@ class Install (install.install, object):
     def run(self):
         if not self.no_check_deps:
             self.check_dependencies()
-        
+
         self.update_server_config()
         self.update_genzone_config()
 
@@ -395,13 +395,13 @@ class Install (install.install, object):
 
 class Install_data(install_data):
     user_options = install_data.user_options
-    user_options.append(("omniidl=", "i", 
+    user_options.append(("omniidl=", "i",
         "omniidl program used to build stubs [omniidl]"))
-    user_options.append(("idldir=",  "d", 
+    user_options.append(("idldir=", "d",
         "directory where IDL files reside [PREFIX/share/idl/fred/]"))
-    user_options.append(("idlforce", "o", 
+    user_options.append(("idlforce", "o",
         "force idl stubs to be always generated"))
-    
+
     boolean_options = install_data.boolean_options
     boolean_options.append('idlforce')
 
@@ -466,13 +466,13 @@ class Install_data(install_data):
                     [ gen_idl_name(self.idldir, module) for module in self.modules ]),
                     "Generating python stubs from IDL files")
 
-        self.data_files = self.data_files +\
+        self.data_files = self.data_files + \
                 file_util.all_files_in('PURELIBDIR',
                         os.path.join('build', 'stubs', 'pyfred', 'idlstubs'),
                         recursive=True, cutSlashes_dst=1)
         install_data.run(self)
 
-        # TODO so far is impossible to create rpm package with unittests \ 
+        # TODO so far is impossible to create rpm package with unittests \
         # scripts in it, because of update_* methods have wrong paths \
         # to files which should be changed.
         if self.install_unittests or self.is_bdist_mode:
@@ -490,7 +490,7 @@ class Install_scripts(install_scripts):
     def __init__(self, *attrs):
         install_scripts.__init__(self, *attrs)
         self.pythonLibPath = os.path.join('lib', 'python' +
-                str(sys.version_info[0]) + '.' + 
+                str(sys.version_info[0]) + '.' +
                 str(sys.version_info[1]), 'site-packages')
 
     def update_pyfredctl(self):
@@ -534,7 +534,7 @@ class Install_scripts(install_scripts):
             r"\1 '%s')" % os.path.join(self.getDir('prefix'),
                 self.pythonLibPath)))
         values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
-            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
                 'pyfred.conf')))
 
         self.replace_pattern(
@@ -562,7 +562,7 @@ class Install_scripts(install_scripts):
             r"\1 '%s')" % os.path.join(self.getDir('prefix'),
                 self.pythonLibPath)))
         values.append((r"(configfile\ =\ )'\/etc\/fred\/genzone.conf'",
-            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
                 'genzone.conf')))
 
         self.replace_pattern(
@@ -576,7 +576,7 @@ class Install_scripts(install_scripts):
             r"\1 '%s')" % os.path.join(self.getDir('prefix'),
                 self.pythonLibPath)))
         values.append((r"(configfile\ =\ )'\/etc\/fred\/genzone.conf'",
-            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
                 'genzone.conf')))
 
         self.replace_pattern(
@@ -629,10 +629,10 @@ class Install_scripts(install_scripts):
     def update_techcheck_client(self):
         values = []
         values.append((r"(sys\.path\.insert\(0,\ )''\)",
-            r"\1 '%s')" % os.path.join(self.getDir('prefix'), 
+            r"\1 '%s')" % os.path.join(self.getDir('prefix'),
                 self.pythonLibPath)))
         values.append((r"(configfile\ =\ )'\/etc\/fred\/pyfred.conf'",
-            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred', 
+            r"\1'%s'" % os.path.join(self.getDir('sysconfdir'), 'fred',
                 'pyfred.conf')))
 
         self.replace_pattern(
@@ -660,23 +660,23 @@ def main():
             os.makedirs('build/stubs/pyfred/idlstubs')
         setup(name="fred-pyfred",
                 description="Component of FRED (Fast Registry for Enum and Domains)",
-                author   = "Jan Kryl",
+                author="Jan Kryl",
                 author_email="jan.kryl@nic.cz",
-                url      = "http://fred.nic.cz/",
-                license  = "GNU GPL",
-                cmdclass = { "config":Config,
+                url="http://fred.nic.cz/",
+                license="GNU GPL",
+                cmdclass={ "config":Config,
                              "install":Install,
                              "install_scripts":Install_scripts,
                              "install_data":Install_data,
                              },
-                packages = ["pyfred", "pyfred.modules"],
-                py_modules = ['pyfred.idlstubs',
+                packages=["pyfred", "pyfred.modules"],
+                py_modules=['pyfred.idlstubs',
                     'pyfred.idlstubs.ccReg',
                     'pyfred.idlstubs.ccReg__POA'],
                 #XXX 'requires' option does not work allthough it is described in
                 #official documentation.
                 #requires = ["omniORB", "pgdb(>=3.6)", "dns(>=1.3)", "neo_cgi"],
-                scripts  = [
+                scripts=[
                     "scripts/fred-pyfred",
                     "scripts/pyfredctl",
                     "scripts/filemanager_admin_client",
@@ -688,7 +688,7 @@ def main():
                     "scripts/techcheck_admin_client",
                     "scripts/techcheck_client",
                     ],
-                data_files = [
+                data_files=[
                     # create empty directories
                     ('LOCALSTATEDIR/run',),
                     ('LOCALSTATEDIR/lib/pyfred/filemanager',),

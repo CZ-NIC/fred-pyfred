@@ -35,7 +35,7 @@ start/stop/status script.
   Step 2: Build the pyfred. In this step will be generated libraries from IDL
   ------  files. Rest of this step is fairly trivial since we do not need to
       compile anything (it's more or less about copying files in build
-	  directory).
+      directory).
 
     $python setup.py build
 
@@ -43,22 +43,22 @@ start/stop/status script.
   ------
     $ python setup.py install
 
-	Note: You may need to adjust 'idldir' in your setup.cfg to point to correct
-	      directory where your IDL files reside. This you can also do by pass
-		  option '-idldir' with correct path on command line. 
+    Note: You may need to adjust 'idldir' in your setup.cfg to point to correct
+          directory where your IDL files reside. This you can also do by pass
+          option '-idldir' with correct path on command line.
 
   Step 4: Configure it. Here we assume that your configuration directory is
   ------  /etc, this might not be always true. You will need probably root
-	  privileges for this step. Hopefully the default configuration will
-	  work for you.
+      privileges for this step. Hopefully the default configuration will
+      work for you.
 
     # cd /etc/fred
     # cp pyfred.conf-example pyfred.conf
 
   Step 5: Run it! Again you will need root privileges for this step.
   ------  Theoretically it should be possible to run pyfred under non-privileged
-	  account, however it was not tried yet and you may encounter
-	  unexpected problems when trying to do so.
+      account, however it was not tried yet and you may encounter
+      unexpected problems when trying to do so.
 
     $ pyfred_server
 
@@ -112,4 +112,3 @@ Genzone client does not need a configuration file but it is convenient to use
 one, so that you don't have to name all options on command line. You can use
 and modify genzone.conf-example configuration file, which has to be copied
 to /etc/fred/genzone.conf.
-

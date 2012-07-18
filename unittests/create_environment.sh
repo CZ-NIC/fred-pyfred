@@ -41,4 +41,3 @@ fi
 
 echo "Usage: create_environment.sh [create|destroy]"
 exit 1
-

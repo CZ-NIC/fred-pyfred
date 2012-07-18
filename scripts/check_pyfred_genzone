@@ -48,7 +48,7 @@ def main():
     nameservice = "localhost"
     zonename = sys.argv[-1]
     # get parameters
-    for o,a in opts:
+    for o, a in opts:
         if o in ("-h", "--help"):
             usage()
             sys.exit()
@@ -63,7 +63,7 @@ def main():
         nameservice = config.get("general", "nameservice")
 
     # now load command line options for nameservice if present
-    for o,a in opts:
+    for o, a in opts:
         if o in ('-n', '--ns'):
             nameservice = a
 
@@ -78,4 +78,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

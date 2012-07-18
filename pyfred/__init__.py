@@ -4,8 +4,8 @@ of opensource internet domain register implementation.
 """
 
 __all__ = [
-	"idlstubs",
-	"modules",
-	"utils.py",
-	"zone.py"
+    "idlstubs",
+    "modules",
+    "utils.py",
+    "zone.py"
 ]

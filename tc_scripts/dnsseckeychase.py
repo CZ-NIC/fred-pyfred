@@ -60,7 +60,7 @@ def main():
     if not os.path.exists(trusted_key):
         sys.stderr.write("Usage error (wrong argument: trusted key); test aborted\n")
         return 2
-    
+
     # get zone for trusted key for filtering stding
     zone = get_trustedkey_zone(trusted_key)
     if not zone:
@@ -76,7 +76,7 @@ def main():
             continue
 
         debug('Checking domain name %s ... ' % domain, False)
-        # will check only SOA record signature - because some domains 
+        # will check only SOA record signature - because some domains
         # are in zone and do not have any A record
         command = '%s -k %s -S %s SOA' % (drill, trusted_key, domain)
         child = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
@@ -113,4 +113,3 @@ if __name__ == '__main__':
         sys.exit(2)
 
     sys.exit(RET_VAL)
-

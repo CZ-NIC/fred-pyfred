@@ -80,7 +80,7 @@ def main():
 
     configfile = '/etc/fred/pyfred.conf'
 
-    for o,a in opts:
+    for o, a in opts:
         if o in ('-e', '--file'):
             configfile = a
 
@@ -88,7 +88,7 @@ def main():
     conf.read(configfile)
 
     attach = -1
-    chunk  = 1
+    chunk = 1
     fulltext = ""
     mailid = -1
     handle = ""

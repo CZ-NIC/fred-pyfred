@@ -91,13 +91,13 @@ class ZoneConfig (object):
             # set zone specific default values
             zconf["backupdir"] = None
             zconf["nobackups"] = False
-            zconf["chunk"]     = 100
-            zconf["footer"]    = None
-            zconf["header"]    = None
-            zconf["maxchanges"]= -1
-            zconf["mchproc"]   = False # procentual change
+            zconf["chunk"] = 100
+            zconf["footer"] = None
+            zconf["header"] = None
+            zconf["maxchanges"] = -1
+            zconf["mchproc"] = False # procentual change
             zconf["post-hook"] = ""
-            zconf["zonedir"]   = "./"
+            zconf["zonedir"] = "./"
 
     def set(self, name, value, zone=""):
         """
@@ -137,7 +137,7 @@ def hook_subst(hookcmd, subst_dict):
 def main():
     try:
         # parse command line parameters
-        opts, zonenames = getopt.getopt(sys.argv[1:], 
+        opts, zonenames = getopt.getopt(sys.argv[1:],
                 "b:c:e:f:hm:n:op:vt:z:x:g:",
                 ["backupdir=", "chunk=", "header=", "file=", "help",
                  "maxchanges=", "nameservice=", "nobackups", "post-hook=",
@@ -151,11 +151,11 @@ def main():
     nameservice = "localhost"
     corba_context = "fred"
     pcb_param = None # progress callback
-    verbose   = False
+    verbose = False
     bind_conf = None
 
     # get only location of config file, the other options will be parsed later
-    for o,a in opts:
+    for o, a in opts:
         if o in ("-f", "--file"):
             configfile = a
 
@@ -170,30 +170,30 @@ def main():
     if config.has_option("general", "verbose"):
         verbose = config.getboolean("general", "verbose")
         if verbose: pcb_param = pcb
-        
+
     # get only nameservice the other options will be parsed later
     # because server must be contacted to gain list of all zones
-    for o,a in opts:
+    for o, a in opts:
         if o in ("-n", "--nameservice"):
             nameservice = a
         elif o in ("-x", "--context"):
             corba_context = a
-        
+
     # process zones to be generated from config file only if there aren't any
     # on command line
     if len(zonenames) == 0:
         if config.has_option("general", "zones"):
             zonenames = config.get("general", "zones").split()
-        
+
     # if no zones were specified in config file or on cmd line, then
     # load all zones from register
     if len(zonenames) == 0:
         zonenames = pyfred.zone.ZoneGeneratorObject().getObject(
-            ns = nameservice, context=corba_context).getZoneNameList()
+            ns=nameservice, context=corba_context).getZoneNameList()
         if len(zonenames) == 0:
             usage()
             sys.exit(2)
-    
+
     # create config and set default values which are zone specific
     zoneconf = ZoneConfig(zonenames)
 
@@ -216,7 +216,7 @@ def main():
             else:
                 zoneconf.set("maxchanges", int(value), zonename)
         if config.has_option(zonename, "post-hook"):
-            zoneconf.set("post-hook", config.get(zonename,"post-hook"),zonename)
+            zoneconf.set("post-hook", config.get(zonename, "post-hook"), zonename)
         if config.has_option(zonename, "zonedir"):
             zoneconf.set("zonedir", config.get(zonename, "zonedir"), zonename)
         if config.has_option(zonename, "nobackups"):
@@ -224,7 +224,7 @@ def main():
                     zonename)
 
     # get command line parameters' values
-    for o,a in opts:
+    for o, a in opts:
         if o in ("-b", "--backupdir"):
             zoneconf.set("backupdir", a)
         elif o in ("-c", "--chunk"):
@@ -281,10 +281,10 @@ def main():
         bind_filter = pyfred.zone.BindFilter(zonefiletmps[zone])
         try:
             # initialize zone generator
-            zone_obj = pyfred.zone.Zone(bind_filter, zone, ns = nameservice,
-                    context = corba_context,
-                    chunk = zoneconf.get("chunk", zone),
-                    progress_callback = pcb_param)
+            zone_obj = pyfred.zone.Zone(bind_filter, zone, ns=nameservice,
+                    context=corba_context,
+                    chunk=zoneconf.get("chunk", zone),
+                    progress_callback=pcb_param)
             zone_obj.dump() # this will do the rest of the work
             zone_obj.cleanup() # cleanup server-side resources
         except pyfred.zone.ZoneException, e:
@@ -308,7 +308,7 @@ def main():
     error_zones = []
     for zone in zonefiletmps:
         zonefile = "db." + zone
-        zonedir  = zoneconf.get("zonedir", zone)
+        zonedir = zoneconf.get("zonedir", zone)
         zonefilepath = os.path.join(zonedir, zonefile)
         zonetmpfd = zonefiletmps[zone]
         zonetmpfd.seek(0) # rewind the temp file to beginning
@@ -323,14 +323,14 @@ def main():
                     oldzonefd.close()
                     totallines = len(oldzonelines)
                     diffgen = difflib.unified_diff(oldzonelines,
-                            zonetmpfd.read().splitlines(), "","","","", 0, "")
+                            zonetmpfd.read().splitlines(), "", "", "", "", 0, "")
                     # count changed lines
                     comp = re.compile("^@@ -\d+,(\d+) \+\d+,(\d+) @@$")
                     changedlines = 0
                     for line in diffgen:
                         matchobj = comp.match(line)
                         if matchobj:
-                            c1,c2 = matchobj.groups()
+                            c1, c2 = matchobj.groups()
                             if c1 >= c2:
                                 changedlines += int(c1)
                             else:
@@ -370,7 +370,7 @@ def main():
                 cmd = hook_subst(zoneconf.get("post-hook", zone), subst_dict)
                 if verbose:
                     sys.stderr.write("Running post-hook: %s\n" % cmd)
-                status,output = commands.getstatusoutput(cmd)
+                status, output = commands.getstatusoutput(cmd)
                 if os.WEXITSTATUS(status) != 0:
                     sys.stderr.write("Error when running post-hook "
                             "(status = %d).\n%s\n" % (status, output))
@@ -383,18 +383,17 @@ def main():
 
     if error_zones:
         sys.exit(-1)
-        
+
     # generate bind configuration file
     if bind_conf:
-        bconf = open(bind_conf,"w")
+        bconf = open(bind_conf, "w")
         for zone in zonenames:
             bconf.write("zone \"%s\" IN {\n" % zone)
             bconf.write("        type master;\n")
             bconf.write("        file \"%s/db.%s\";\n" % (zonedir, zone))
             bconf.write("};\n\n")
-        
+
     sys.exit()
 
 if __name__ == "__main__":
     main()
-

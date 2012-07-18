@@ -35,7 +35,7 @@ def createPairs(keyvalues):
     """
 Create sequence of key-value pairs acceptable for corba.
     """
-    return [ ccReg.KeyValue(key, value) for key,value in keyvalues ]
+    return [ ccReg.KeyValue(key, value) for key, value in keyvalues ]
 
 def main():
     try:
@@ -50,7 +50,7 @@ def main():
 
     configfile = '/etc/fred/pyfred.conf'
 
-    for o,a in opts:
+    for o, a in opts:
         if o in ('-f', '--file'):
             configfile = a
 
@@ -172,7 +172,7 @@ def main():
         sys.exit(2)
 
     # Prepare data for mailer's function
-    corba_pairs = [ ccReg.KeyValue(key, value) for key,value in pairs ]
+    corba_pairs = [ ccReg.KeyValue(key, value) for key, value in pairs ]
     #
     # Call mailer's function
     try:

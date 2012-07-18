@@ -4,8 +4,8 @@ CORBA servers.
 """
 
 __all__ = [
-	"filemanager.py",
-	"genzone.py",
-	"mailer.py",
-	"techcheck.py",
+    "filemanager.py",
+    "genzone.py",
+    "mailer.py",
+    "techcheck.py",
 ]

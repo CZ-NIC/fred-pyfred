@@ -99,9 +99,9 @@ def sighandler(signum, arg):
 class Logger(object):
     """
     This class encapsulates logging module functionality. Logger name is set
-    in object initialization. Logging module and root logger should be 
+    in object initialization. Logging module and root logger should be
     configured before use.
-    NOTE: refactored to use standard python logging module (previously 
+    NOTE: refactored to use standard python logging module (previously
     only syslog function) with minimum code changes.
     """
     LEVELS = {"emerg":    logging.CRITICAL,
@@ -113,14 +113,14 @@ class Logger(object):
               "info":     logging.INFO,
               "debug":    logging.DEBUG}
 
-    EMERG   = LEVELS["emerg"]
-    ALERT   = LEVELS["alert"]
-    CRIT    = LEVELS["critical"]
-    ERR     = LEVELS["error"]
+    EMERG = LEVELS["emerg"]
+    ALERT = LEVELS["alert"]
+    CRIT = LEVELS["critical"]
+    ERR = LEVELS["error"]
     WARNING = LEVELS["warning"]
-    NOTICE  = LEVELS["notice"]
-    INFO    = LEVELS["info"]
-    DEBUG   = LEVELS["debug"]
+    NOTICE = LEVELS["notice"]
+    INFO = LEVELS["info"]
+    DEBUG = LEVELS["debug"]
 
     def __init__(self, prefix):
         """
@@ -154,9 +154,9 @@ class DB(object):
         """
         Obtain connection to database.
         """
-        return pgdb.connect(host = self.host +":"+ self.port,
-                database = self.dbname, user = self.user,
-                password = self.password)
+        return pgdb.connect(host=self.host + ":" + self.port,
+                database=self.dbname, user=self.user,
+                password=self.password)
 
     def releaseConn(self, conn):
         """
@@ -276,8 +276,8 @@ def main(argv):
             conf.get("General", "dbpassword"))
 
     # get logger configuration
-    loghandler  = conf.get("General", "loghandler").lower()
-    loglevel    = conf.get("General", "loglevel").lower()
+    loghandler = conf.get("General", "loghandler").lower()
+    loglevel = conf.get("General", "loglevel").lower()
     logfacility = conf.get("General", "logfacility").lower()
     logfilename = conf.get("General", "logfilename")
 
@@ -294,14 +294,14 @@ def main(argv):
             logfacility = logging.handlers.SysLogHandler.facility_names[logfacility]
 
         # try to set proper handler and formatting style
-        handlers = {"console": 
+        handlers = {"console":
                         {"handler": [logging.StreamHandler, {}],
                          "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
                     "file":
                         {"handler": [logging.FileHandler, {"filename": logfilename }],
                          "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
                     "syslog":
-                        {"handler": [logging.handlers.SysLogHandler, 
+                        {"handler": [logging.handlers.SysLogHandler,
                                      {"address": "/dev/log", "facility": logfacility}],
                          "formatter": logging.Formatter("%(name)s - %(message)s")}}
 
@@ -320,7 +320,7 @@ def main(argv):
 
     except Exception, e:
         sys.stderr.write("Logger configuration error: handler=%s level=%s"
-                         " [facility=%s filename=%s] (%s)\n" % (loghandler, 
+                         " [facility=%s filename=%s] (%s)\n" % (loghandler,
                          loglevel, logfacility, logfilename, str(e)))
         sys.exit(1)
 
@@ -353,11 +353,11 @@ def main(argv):
         modules.append(eval("mods." + module))
 
     # Run init methods in registered modules and save servant refs for later use
-    joblist  = []
+    joblist = []
     servants = []
     for module in modules:
         try:
-            servants.append(module.init(Logger(module.__name__), 
+            servants.append(module.init(Logger(module.__name__),
                             db, conf, joblist, corba_refs))
         except Exception, e:
             sys.stderr.write("Error when initializing module '%s': %s:%s\n" %
@@ -429,10 +429,10 @@ def main(argv):
     name = [CosNaming.NameComponent(conf.get("General", "nscontext"), "context")]
     try:
         fredContext = nsref.bind_new_context(name)
-        log.log(log.INFO, "New %s context bound" % 
+        log.log(log.INFO, "New %s context bound" %
                 conf.get("General", "nscontext"))
     except CosNaming.NamingContext.AlreadyBound, ex:
-        log.log(log.NOTICE, "%s context already exists" % 
+        log.log(log.NOTICE, "%s context already exists" %
                 conf.get("General", "nscontext"))
         obj = nsref.resolve(name)
         fredContext = obj._narrow(CosNaming.NamingContext)
@@ -549,4 +549,3 @@ if __name__ == "__main__":
         log.log(log.CRIT, msg)
         # do cleanup
         sighandler(0, None)
-

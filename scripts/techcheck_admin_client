@@ -78,7 +78,7 @@ def main():
 
     configfile = '/etc/fred/pyfred.conf'
 
-    for o,a in opts:
+    for o, a in opts:
         if o in ('-f', '--file'):
             configfile = a
 

@@ -10,10 +10,10 @@ def countKeyTag(flags, protocol, alg, key):
         if (len(key) < 4):
             return 0;
         else:
-            return (ord(key[len(key)-4]) << 8) + ord(key[len(key)-3])
+            return (ord(key[len(key) - 4]) << 8) + ord(key[len(key) - 3])
     else :
-        sum = flags + (protocol<< 8) + alg
-        for i in range(0,len(key)):
+        sum = flags + (protocol << 8) + alg
+        for i in range(0, len(key)):
             if (i & 1):
                 sum += ord(key[i])
             else:

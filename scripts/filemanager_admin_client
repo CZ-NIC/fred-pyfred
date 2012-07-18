@@ -69,7 +69,7 @@ def main():
 
     configfile = '/etc/fred/pyfred.conf'
 
-    for o,a in opts:
+    for o, a in opts:
         if o in ('-f', '--file'):
             configfile = a
 
@@ -78,8 +78,8 @@ def main():
         'context':'fred',
         })
     conf.read(configfile)
-    
-    chunk  = 1
+
+    chunk = 1
     listtypes = False
     id = -1
     label = ""
