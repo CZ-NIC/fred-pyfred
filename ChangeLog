@@ -1,3 +1,11 @@
+2012-09-06 Jiri Sadek, Tomas Divis, Vlastimil Zima (2.4.0)
+
+    * Whitespace normalization and PEP8-ification
+
+    * Update due to distutils changes (setup.cfg)
+
+    * Mailer - email type penalization code simplified
+
 2012-07-13 Jiri Sadek (2.3.1)
 
     * add more debug logging to pyfred main loop
