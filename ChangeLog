@@ -6,6 +6,10 @@
 
     * Mailer - email type penalization code simplified
 
+    * Optional PID file
+
+    * Configure option for number of wait round for external mail signing command
+
 2012-07-13 Jiri Sadek (2.3.1)
 
     * add more debug logging to pyfred main loop
