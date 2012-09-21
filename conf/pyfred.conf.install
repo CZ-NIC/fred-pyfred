@@ -45,6 +45,7 @@ tester=
 sendmail=SENDMAIL
 filemanager_object=FileManager
 signing=off
+signing_cmd_retry_rounds=100
 sendperiod=30
 # limit for number of emails send in one period
 sendlimit=100

@@ -98,14 +98,16 @@ def makeNonBlocking(fd):
         fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
 
 
-def runCommand(id, cmd, stdin, logger):
+def runCommand(id, cmd, stdin, logger, retry_rounds=None):
     """
     Run command in non-blocking manner.
     """
+    if retry_rounds is None:
+        retry_rounds = 8
     # run the command
     child = popen2.Popen3(cmd, True)
-    logger.log(logger.DEBUG, "<%d> Running command '%s', pid %d." %
-            (id, cmd, child.pid))
+    logger.log(logger.DEBUG, "<%d> Running command '%s', pid %d. (rounds=%d)" %
+            (id, cmd, child.pid, retry_rounds))
     if (stdin):
         child.tochild.write(stdin)
     child.tochild.close()
@@ -117,7 +119,7 @@ def runCommand(id, cmd, stdin, logger):
     makeNonBlocking(errfd)
     outdata = errdata = ''
     outeof = erreof = 0
-    for round in range(8):
+    for round in range(retry_rounds):
         # wait for input at most 1 second
         ready = select.select([outfd, errfd], [], [], 1.0)
         if outfd in ready[0]:

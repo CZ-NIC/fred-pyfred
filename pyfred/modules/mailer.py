@@ -141,6 +141,7 @@ class Mailer_i (ccReg__POA.Mailer):
         self.IMAPserver = "localhost"
         self.IMAPport = 143
         self.IMAPssl = False
+        self.signing_cmd_retry_rounds = 8
         # Parse Mailer-specific configuration
         if conf.has_section("Mailer"):
             # testmode
@@ -312,6 +313,12 @@ class Mailer_i (ccReg__POA.Mailer):
                 self.IMAPssl = conf.getboolean("Mailer", "IMAPssl")
                 if self.IMAPssl:
                     self.l.log(self.l.DEBUG, "IMAPssl is turned on.")
+            except ConfigParser.NoOptionError, e:
+                pass
+            try:
+                self.signing_cmd_retry_rounds = conf.getint("Mailer", "signing_cmd_retry_rounds")
+                self.l.log(self.l.DEBUG, "Signing mail command retry rounds are set to %d." %
+                        self.signing_cmd_retry_rounds)
             except ConfigParser.NoOptionError, e:
                 pass
 
@@ -836,7 +843,7 @@ class Mailer_i (ccReg__POA.Mailer):
         os.close(tmpfile[0])
         # do the signing
         stat, outdata, errdata = runCommand(mailid, "%s smime -sign -signer %s -inkey %s -in %s" %
-                   (self.openssl, self.certfile, self.keyfile, tmpfile[1]), None, self.l)
+                   (self.openssl, self.certfile, self.keyfile, tmpfile[1]), None, self.l, retry_rounds=self.signing_cmd_retry_rounds)
         os.remove(tmpfile[1])
 
         if stat:
