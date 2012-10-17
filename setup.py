@@ -690,8 +690,8 @@ def main():
                     ],
                 data_files=[
                     # create empty directories
-                    ('LOCALSTATEDIR/run',),
-                    ('LOCALSTATEDIR/lib/pyfred/filemanager',),
+                    ('LOCALSTATEDIR/run', []),
+                    ('LOCALSTATEDIR/lib/pyfred/filemanager', []),
                     ('LIBEXECDIR/pyfred',
                         [
                             "tc_scripts/authoritative.py",
