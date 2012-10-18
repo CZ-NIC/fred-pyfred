@@ -1,3 +1,7 @@
+2012-10-18 Vlastimil Zima (2.4.1)
+
+    * Fix installation of additional directories
+
 2012-09-06 Jiri Sadek, Tomas Divis, Vlastimil Zima (2.4.0)
 
     * Whitespace normalization and PEP8-ification
