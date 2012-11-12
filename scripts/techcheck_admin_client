@@ -177,8 +177,9 @@ def main():
             sys.exit(1)
     else:
         todate = str2date("0000-00-00T00:00:00")
-    filter = ccReg.CheckFilter(checkid, nssetid,
-            ccRegDateTimeInterval(ccReg, fromdate, todate), reason, status)
+
+    check_filter = ccReg.CheckFilter(checkid, nssetid, status, reason,
+            ccRegDateTimeInterval(ccReg, fromdate, todate))
     #
     # Call techcheck's function
     try:
@@ -191,7 +192,7 @@ def main():
             tests[item.id] = item
         # create search object
         if verbose: print "Submitting filter ... ",
-        search_obj = tc_obj.createSearchObject(filter)
+        search_obj = tc_obj.createSearchObject(check_filter)
         if verbose: print "ok"
     except ccReg.TechCheck.InternalError, e:
         sys.stderr.write("Internal error on server: %s\n" % e.message)
