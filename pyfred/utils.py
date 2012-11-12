@@ -162,3 +162,15 @@ def runCommand(id, cmd, stdin, logger, retry_rounds=None):
         stat = os.WEXITSTATUS(status[1])
 
     return stat, outdata, errdata
+
+
+def ccRegDateTimeInterval(ccReg, from_date, to_date):
+    "Create ccReg.DateTimeInterval"
+    try:
+        # DateTimeInterval(Date from, Date to)
+        interval = ccReg.DateTimeInterval(from_date, to_date)
+    except TypeError, msg:
+        # TypeError: __init__() takes exactly 5 arguments (3 given)
+        # DateTimeInterval(Date from, Date to, type <DateTimeIntervalType>, offset  <short>)
+        interval = ccReg.DateTimeInterval(from_date, to_date, ccReg.INTERVAL, 0)
+    return interval

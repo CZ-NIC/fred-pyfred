@@ -9,6 +9,7 @@ import ConfigParser
 # update import path
 sys.path.insert(0, '')
 from pyfred.idlstubs import ccReg
+from pyfred.utils import ccRegDateTimeInterval
 
 def usage():
     """
@@ -177,7 +178,7 @@ def main():
     else:
         todate = str2date("0000-00-00T00:00:00")
     filter = ccReg.CheckFilter(checkid, nssetid,
-            ccReg.DateTimeInterval(fromdate, todate), reason, status)
+            ccRegDateTimeInterval(ccReg, fromdate, todate), reason, status)
     #
     # Call techcheck's function
     try:

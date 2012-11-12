@@ -8,6 +8,7 @@ import ConfigParser
 # next line will be updated during setup
 sys.path.insert(0, '')
 from pyfred.idlstubs import ccReg
+from pyfred.utils import ccRegDateTimeInterval
 
 def usage():
     """
@@ -219,7 +220,7 @@ def main():
         sys.exit(0)
 
     if verbose: print "Constructing filter ... ",
-    interval = ccReg.DateTimeInterval(fromdate, todate)
+    interval = ccRegDateTimeInterval(ccReg, fromdate, todate)
     filter = ccReg.MailFilter(mailid, mailtype, status, handle, attach,
             fulltext, interval)
     if verbose: print "ok"

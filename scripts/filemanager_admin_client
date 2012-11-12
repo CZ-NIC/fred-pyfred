@@ -9,6 +9,7 @@ import ConfigParser
 # update import path
 sys.path.insert(0, '')
 from pyfred.idlstubs import ccReg
+from pyfred.utils import ccRegDateTimeInterval
 
 def usage():
     """
@@ -182,7 +183,7 @@ def main():
         sys.exit()
 
     if verbose: print "Constructing filter ... ",
-    interval = ccReg.DateTimeInterval(fromdate, todate)
+    interval = ccRegDateTimeInterval(ccReg, fromdate, todate)
     filter = ccReg.FileFilter(id, label, path, mime, type, interval)
     if verbose: print "ok"
     #
