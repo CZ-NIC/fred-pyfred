@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import ConfigParser
 # pyfred
-from pyfred.idlstubs import Registry__POA
+from pyfred.idlstubs import Registry, Registry__POA
 
 
 
@@ -29,7 +29,45 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                 except ConfigParser.NoOptionError, msg:
                     pass # use default defined above when the limit is not in the config
 
-        self.logger.log(self.logger.DEBUG, "self.limits=%s" % self.limits)
+        self.logger.log(self.logger.DEBUG, "Object initialized")
+
+
+    def getDomainListMeta(self):
+        """Return the Domain list column names.
+
+        enum RecordType {
+            TEXT,
+            DATE,
+            BOOL,
+            INT
+        };
+        struct RecordSetMeta
+        {
+            sequence<string> column_names;
+            sequence<RecordType> data_types; // for sorting in frontend
+        };
+        """
+        self.logger.log(self.logger.DEBUG, "Call Server.getDomainListMeta()")
+
+        # prepare record types into dictionnary:
+        rtp = dict([(inst._n, inst) for inst in Registry.DomainBrowser.RecordType._items])
+
+        column_names, data_types = [], []
+        for name, value in (
+                            ("domain_name",      "TEXT"),
+                            ("domain_state",     "TEXT"),
+                            ("next_state",       "TEXT"),
+                            ("next_state_date",  "DATE"),
+                            ("dnssec_available", "BOOL"),
+                            ("your_role",        "TEXT"),
+                            ("registrar_handle", "TEXT"),
+                            ("blocked_update",   "BOOL"),
+                            ("blocked_transfer", "BOOL"),
+                        ):
+            column_names.append(name)
+            data_types.append(rtp[value])
+
+        return Registry.DomainBrowser.RecordSetMeta(column_names, data_types)
 
 
 
