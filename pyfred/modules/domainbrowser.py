@@ -2,6 +2,7 @@
 import ConfigParser
 # pyfred
 from pyfred.idlstubs import Registry, Registry__POA
+from pyfred.utils import DatabaseCursor
 
 
 
@@ -10,12 +11,12 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
     This class implements DomainBrowser interface.
     """
 
-    def __init__(self, logger, db, conf, joblist, corba_refs):
+    def __init__(self, logger, database, conf, joblist, corba_refs):
         """
         Initializer saves db (which is later used for opening database
         connection) and logger (used for logging).
         """
-        self.db = db # db connection string
+        self.database = database # db connection string
         self.logger = logger # syslog functionality
         self.corba_refs = corba_refs
         self.limits = dict(list_domains=100, list_nssets=100, list_keysets=100)
@@ -68,6 +69,42 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             data_types.append(rtp[value])
 
         return Registry.DomainBrowser.RecordSetMeta(column_names, data_types)
+
+
+    def getDomainList(self, user, sort_by):
+        """
+        RecordSet getDomainList(
+                in RegistryObject user,
+                in SortSpec sort_by
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
+
+        typedef string RegistryObject;
+        struct SortSpec
+        {
+            string field;
+            boolean desc;
+            long limit;
+            long offset;
+        };
+        """
+        self.logger.log(self.logger.DEBUG, "Call Server.getDomainList(user=%s, sort_by=%s)" % (user, sort_by))
+
+        # TODO: rethrow_translate_exceptions_handler - Registry.DomainBrowser.INCORRECT_USAGE
+
+        with DatabaseCursor(self.database, self.logger, Registry) as cursor:
+            response_user = cursor.fetchall("SELECT object_registry.id, object_registry.name FROM object_registry "
+                                   "LEFT JOIN contact ON object_registry.id = contact.id "
+                                   "WHERE object_registry.name = %s",
+                                   user)
+            # data: [['ID', 'CONTACT_HANDLE']]
+            if not len(response_user):
+                raise Registry.DomainBrowser.USER_NOT_EXISTS
+
+        user_id = response_user[0][0]
+        self.logger.log(self.logger.DEBUG, "User ID of handle '%s' is %s." % (user, user_id))
+
+        # TODO: a list of domains...
+        return []
 
 
 
