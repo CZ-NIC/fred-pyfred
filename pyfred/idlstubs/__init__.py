@@ -9,5 +9,8 @@ __all__ = [
     "Mailer_idl.py",
     "TechCheck_idl.py",
     "Whois_idl.py",
-    "ZoneGenerator_idl.py"
+    "ZoneGenerator_idl.py",
+    "Registry",
+    "Registry__POA",
+    "DomainBrowser_idl.py",
     ]

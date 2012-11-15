@@ -73,3 +73,8 @@ oldperiod=30
 missrounds=10
 drill=DRILL
 trusted_key=
+
+[DomainBrowser]
+list_domains_limit=1000
+list_nssets_limit=1000
+list_keysets_limit=1000

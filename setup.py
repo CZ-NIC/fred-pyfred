@@ -3,6 +3,7 @@
 #
 # All changes in classes against standart distutils is marked with `DIST'
 # string in comments above each change.
+# python setup.py install --idldir ~/cznic/fred/idl/idl/ --root=/tmp/pyfredtest
 
 import sys, os, string, commands, stat, types
 from distutils import log
@@ -27,7 +28,7 @@ DEFAULT_DBNAME = 'fred'
 DEFAULT_DBHOST = 'localhost'
 DEFAULT_DBPORT = '5432'
 DEFAULT_DBPASS = ''
-DEFAULT_MODULES = 'genzone mailer filemanager techcheck'
+DEFAULT_MODULES = 'genzone mailer filemanager techcheck domainbrowser'
 DEFAULT_NSCONTEXT = 'fred'
 DEFAULT_NSHOST = 'localhost'
 DEFAULT_NSPORT = '2809'
@@ -52,7 +53,7 @@ DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 DEFAULT_LOGFILENAME = 'log/fred-pyfred.log'
 
 #list of all default pyfred modules
-g_modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
+g_modules = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator", "DomainBrowser"]
 #list of parameters for omniidl executable
 g_omniidl_params = ["-Cbuild/stubs", "-bpython", "-Wbinline"]
 
@@ -259,8 +260,8 @@ class Install (install.install, object):
         self.idldir = None
         self.idlforce = False
         self.omniidl = None
-        self.omniidl_params = g_omniidl_params #["-Cbuild/lib", "-bpython", "-Wbinline"]
-        self.idlfiles = g_modules#["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
+        self.omniidl_params = g_omniidl_params # ["-Cbuild/lib", "-bpython", "-Wbinline"]
+        self.idlfiles = g_modules # ["FileManager", "Mailer", "TechCheck", "ZoneGenerator", "DomainBrowser"]
         self.install_unittests = None
         self.sendmail = None
         self.drill = None
