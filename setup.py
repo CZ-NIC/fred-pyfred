@@ -670,7 +670,7 @@ def main():
                              "install_scripts":Install_scripts,
                              "install_data":Install_data,
                              },
-                packages=["pyfred", "pyfred.modules"],
+                packages=["pyfred", "pyfred.modules", "pyfred.utils"],
                 py_modules=['pyfred.idlstubs',
                     'pyfred.idlstubs.ccReg',
                     'pyfred.idlstubs.ccReg__POA'],

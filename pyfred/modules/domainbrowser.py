@@ -2,7 +2,7 @@
 import ConfigParser
 # pyfred
 from pyfred.idlstubs import Registry, Registry__POA
-from pyfred.utils import DatabaseCursor
+from pyfred.utils.cursors import DatabaseCursor
 
 
 
