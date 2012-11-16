@@ -17,3 +17,8 @@ def check_handle_format(logger, handle):
     if match is None:
         logger.log(logger.DEBUG, 'Invalid format of handle "%s".' % handle)
         raise Registry.DomainBrowser.INCORRECT_USAGE
+
+
+def normalize_spaces(text):
+    "Remove enters and redundant spaces."
+    return re.sub("\s+", " ", text).strip()

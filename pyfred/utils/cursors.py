@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import pgdb
 from pyfred.idlstubs import Registry
+from pyfred.utils.registry import normalize_spaces
 
 
 class DatabaseCursor(object):
@@ -27,26 +28,26 @@ class DatabaseCursor(object):
         self.cursor.close()
         self.database.releaseConn(self.connection)
 
-    def execute(self, sql, *params):
+    def execute(self, sql, params=None):
         "Execute SQL query."
-        self.logger.log(self.logger.DEBUG, 'Execute "%s" %s' % (sql, params))
+        self.logger.log(self.logger.DEBUG, 'Execute "%s"; %s' % (normalize_spaces(sql), params))
         # InterfaceError (quote), OperationalError, DatabaseError (executemany)
         try:
             self.cursor.execute(sql, params)
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError, pgdb.InterfaceError), msg:
-            self.logger.log(self.logger.ERROR, 'cursor.excecute("%s", %s) %s' % (sql, params, msg))
+            self.logger.log(self.logger.ERROR, 'cursor.excecute("%s", %s) %s' % (normalize_spaces(sql), params, msg))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-    def fetchall(self, sql, *params):
+    def fetchall(self, sql, params=None):
         "Return result of SQL query."
         self.execute(sql, params)
         try:
             return self.cursor.fetchall()
         except pgdb.DatabaseError, msg:
-            self.logger.log(self.logger.ERROR, 'cursor.fetchall("%s", %s) %s' % (sql, params, msg))
+            self.logger.log(self.logger.ERROR, 'cursor.fetchall("%s", %s) %s' % (normalize_spaces(sql), params, msg))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-    def fetchallstr(self, sql, *params):
+    def fetchallstr(self, sql, params=None):
         "Return result of SQL query. All values are strings."
         record_set = []
         for row in self.fetchall(sql, params):
