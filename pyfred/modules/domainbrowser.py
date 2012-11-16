@@ -120,7 +120,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                             registrar.handle,
                             domain.exdate,
                             domain.registrant,
-                            dnssec.digest IS NULL
+                            dnssec.digest IS NOT NULL
                         FROM object_registry
                         LEFT JOIN domain ON object_registry.id = domain.id
                         LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -168,7 +168,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
 
                 domain_list.append([
                     domain_row[DOMAIN_NAME], # domain_name TEXT
-                    ",".join(domain_states), # domain_state TEXT
+                    " ".join(domain_states), # domain_state TEXT
                     next_state,              # next_state TEXT
                     str(next_state_date),    # next_state_date DATE
                     "t" if domain_row[DNSSEC] else "f", # dnssec_available BOOL
