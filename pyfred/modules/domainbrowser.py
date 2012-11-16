@@ -129,6 +129,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                         LEFT JOIN dnssec ON dnssec.domainid = domain.id
                         LEFT JOIN registrar ON registrar.id = object_history.clid
                         WHERE domain_contact_map.contactid = %(contact_id)d
+                            OR domain.registrant = %(contact_id)d
                         ORDER BY domain.exdate DESC
                         LIMIT %(limit)d
                         """,
