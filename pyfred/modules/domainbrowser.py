@@ -3,6 +3,7 @@ import ConfigParser
 # pyfred
 from pyfred.idlstubs import Registry, Registry__POA
 from pyfred.utils.cursors import DatabaseCursor
+from pyfred.utils.registry import check_handle_format
 
 
 
@@ -71,7 +72,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         return Registry.DomainBrowser.RecordSetMeta(column_names, data_types)
 
 
-    def getDomainList(self, user, sort_by):
+    def getDomainList(self, handle, sort_by):
         """
         RecordSet getDomainList(
                 in RegistryObject user,
@@ -87,21 +88,21 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             long offset;
         };
         """
-        self.logger.log(self.logger.DEBUG, "Call Server.getDomainList(user=%s, sort_by=%s)" % (user, sort_by))
+        self.logger.log(self.logger.DEBUG, 'Call Server.getDomainList(handle="%s", sort_by=%s)' % (handle, sort_by))
 
-        # TODO: rethrow_translate_exceptions_handler - Registry.DomainBrowser.INCORRECT_USAGE
+        check_handle_format(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
 
-        with DatabaseCursor(self.database, self.logger, Registry) as cursor:
+        with DatabaseCursor(self.database, self.logger) as cursor:
             response_user = cursor.fetchall("SELECT object_registry.id, object_registry.name FROM object_registry "
                                    "LEFT JOIN contact ON object_registry.id = contact.id "
                                    "WHERE object_registry.name = %s",
-                                   user)
+                                   handle)
             # data: [['ID', 'CONTACT_HANDLE']]
             if not len(response_user):
                 raise Registry.DomainBrowser.USER_NOT_EXISTS
 
         user_id = response_user[0][0]
-        self.logger.log(self.logger.DEBUG, "User ID of handle '%s' is %s." % (user, user_id))
+        self.logger.log(self.logger.DEBUG, "Found user ID %d of the handle '%s'." % (user_id, handle))
 
         # TODO: a list of domains...
         return []
