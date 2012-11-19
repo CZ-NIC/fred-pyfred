@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
@@ -46,7 +48,53 @@ class ContactInterface(BaseInterface):
         """
         self.logger.log(self.logger.DEBUG, 'Call ContactInterface.getContactDetail(handle="%s")' % handle)
         handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
-        return Registry.DomainBrowser.ContactDetail(id=0)
+
+        # Dummy answer:
+        return Registry.DomainBrowser.ContactDetail(
+            id=100,
+            handle=handle,
+
+            name='Tester Testovič',
+            organization='CZ.NIC s.p.z.o.',
+            vat='CZ1234567890',
+
+            street1='U práce 123',
+            street2='U testu 789',
+            street3='Za bránou 16',
+            city='Praha',
+            postalcode='12300',
+            province='',
+            country='CZ',
+
+            telephone='+420.728123456',
+            email='pepa.zdepa@nic.cz',
+            notify_email='pepa.zdepa+notify@nic.cz',
+            fax='+420.728123456',
+            ssn='0123456789',
+            ssn_type='op',
+
+            roid='C0000000001-CZ',
+            registrar='REG-TEST',
+            create_registrar='REG-TEST-CREATOR',
+            update_registrar='REG-TEST-UPDATER',
+            create_date='2012-03-14 10:16:28.516926',
+            update_date='2012-03-14 11:26:13.616443',
+            transfer_date='2012-03-14 12:36:53.517955',
+            status_list = ('testLinked', 'testValidated'), # Registry.DomainBrowser.ObjectStatusSeq
+
+            auth_info='password',
+            disclose_flags=Registry.DomainBrowser.ContactDiscloseFlags(
+                name=True,
+                organization=True,
+                email=True,
+                address=True,
+                telephone=False,
+                fax=False,
+                ident=False,
+                vat=False,
+                notify_email=False
+            )
+        )
 
 
     def setContactDiscloseFlags(self, contact, flags):
