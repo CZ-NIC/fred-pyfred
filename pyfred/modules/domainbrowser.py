@@ -2,7 +2,7 @@
 import ConfigParser
 from datetime import datetime, timedelta
 # pyfred
-from pyfred.idlstubs import Registry__POA
+from pyfred.idlstubs import Registry, Registry__POA
 # objects
 from pyfred.registry.interface import ContactInterface, DomainInterface, NssetInterface, KeysetInterface
 

@@ -1,5 +1,5 @@
 #!/usr/bin/python
+from pyfred.registry.interface.base import BaseInterface
 
-
-class NssetInterface(object):
+class NssetInterface(BaseInterface):
     "NSSET corba interface."
