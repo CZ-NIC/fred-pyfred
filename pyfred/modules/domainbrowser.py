@@ -3,9 +3,9 @@ import ConfigParser
 from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry, Registry__POA
-from pyfred.utils.cursors import DatabaseCursor
-from pyfred.utils.registry import check_handle_format
-from pyfred.utils.fredconst import DOMAIN_ROLE
+from pyfred.registry.utils.cursors import DatabaseCursor
+from pyfred.registry.utils import check_handle_format
+from pyfred.registry.utils.constants import DOMAIN_ROLE
 
 
 

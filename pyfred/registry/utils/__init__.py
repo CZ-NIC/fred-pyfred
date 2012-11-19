@@ -2,7 +2,7 @@
 "Registry utils."
 import re
 # pyfred
-from pyfred.utils.fredconst import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED
+from pyfred.registry.utils.constants import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED
 from pyfred.idlstubs import Registry
 
 
