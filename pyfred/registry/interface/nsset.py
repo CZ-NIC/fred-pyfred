@@ -43,4 +43,25 @@ class NssetInterface(ListMetaInterface):
         """
         self.logger.log(self.logger.DEBUG, 'Call NssetInterface.getNssetDetail(nsset="%s", handle="%s")' % (nsset, handle))
         handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
-        return Registry.DomainBrowser.NssetDetail(id=0)
+
+        PUBLIC_DATA, PRIVATE_DATA = range(2)
+        return (Registry.DomainBrowser.NSSetDetail(
+                id=130,
+                handle=handle,
+                roid='C0000000003-CZ',
+                registrar='REG-DESIGNATED',
+                create_date='2012-03-14 11:16:28.516926',
+                transfer_date='',
+                update_date='',
+                create_registrar='REG-CREATED',
+                update_registrar='',
+                auth_info='password',
+                admins=('CONTACT04',),
+                hosts=(
+                    Registry.DomainBrowser.DNSHost("a.ns.nic.cz", "193.29.206.1 2001:678:1::1"),
+                    Registry.DomainBrowser.DNSHost("b.ns.nic.cz", "196.30.208.2 2001:677:1::2")
+                ),
+                status_list = (),
+                report_level=0
+                ),
+                Registry.DomainBrowser.DataAccessLevel._item(PRIVATE_DATA))
