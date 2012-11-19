@@ -149,7 +149,7 @@ class DomainInterface(ListMetaInterface):
         return []
 
     @furnish_database_cursor_m
-    def getDomainsForKeyset(self, handle, nsset):
+    def getDomainsForKeyset(self, handle, keyset):
         "Domains for nsset"
         return []
 
@@ -180,4 +180,27 @@ class DomainInterface(ListMetaInterface):
         """
         self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainDetail(domain="%s", handle="%s")' % (domain, handle))
         handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
-        return Registry.DomainBrowser.DomainDetail(id=0)
+
+        PUBLIC_DATA, PRIVATE_DATA = range(2)
+        return (Registry.DomainBrowser.DomainDetail(
+                    id=140,
+                    fqdn=domain,
+                    roid='C0000000003-CZ',
+                    registrar='REG-DESIGNATED',
+                    create_date='2012-03-14 11:16:28.516926',
+                    transfer_date='',
+                    update_date='',
+                    create_registrar='REG-CREATED',
+                    update_registrar='',
+                    auth_info='password',
+                    registrant="KONTAKT",
+                    expiration_date='2013-03-14 11:16:28.516926',
+                    val_ex_date='',
+                    publish=True,
+                    nsset='NSSET:102',
+                    keyset='KEYSID:102',
+                    admins=('ADMIN01', 'ADMIN02'),
+                    temps=('TEMPS-01', 'TEMPS-02'),
+                    status_list=('testLinked', 'testValidated')
+                ),
+                Registry.DomainBrowser.DataAccessLevel._item(PUBLIC_DATA))
