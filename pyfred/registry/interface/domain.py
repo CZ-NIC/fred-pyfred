@@ -3,40 +3,21 @@ from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils.cursors import DatabaseCursor
-from pyfred.registry.utils import check_handle_format
+from pyfred.registry.utils import normalize_and_check_handle
 from pyfred.registry.utils.constants import DOMAIN_ROLE
+from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
-from pyfred.registry.interface.base import BaseInterface
 
 
 
-class DomainInterface(BaseInterface):
+class DomainInterface(ListMetaInterface):
     """
     This class implements DomainBrowser Domain interface.
     """
 
     def getDomainListMeta(self):
-        """Return the Domain list column names.
-
-        enum RecordType {
-            TEXT,
-            DATE,
-            BOOL,
-            INT
-        };
-        struct RecordSetMeta
-        {
-            sequence<string> column_names;
-            sequence<RecordType> data_types; // for sorting in frontend
-        };
-        """
-        self.logger.log(self.logger.DEBUG, "Call Server.getDomainListMeta()")
-
-        # prepare record types into dictionnary:
-        rtp = dict([(inst._n, inst) for inst in Registry.DomainBrowser.RecordType._items])
-
-        column_names, data_types = [], []
-        for name, value in (
+        "Return the Domain list column names."
+        return self._getObjectListMeta((
                             ("domain_name",      "TEXT"),
                             ("domain_state",     "TEXT"),
                             ("next_state",       "TEXT"),
@@ -46,19 +27,23 @@ class DomainInterface(BaseInterface):
                             ("registrar_handle", "TEXT"),
                             ("blocked_update",   "BOOL"),
                             ("blocked_transfer", "BOOL"),
-                        ):
-            column_names.append(name)
-            data_types.append(rtp[value])
+                        ))
 
-        return Registry.DomainBrowser.RecordSetMeta(column_names, data_types)
+
+    def getDomainsForNssetMeta(self):
+        "Dummy Domain for Nsset List Meta"
+        return self.getDomainListMeta() # TODO: remove redundant
+
+    def getDomainsForKeysetMeta(self):
+        "Dummy Domain for Keyset List Meta"
+        return self.getDomainListMeta() # TODO: remove redundant
 
 
     @furnish_database_cursor_m
-    def getDomainList(self, handle, sort_by):
+    def getDomainList(self, handle):
         """
         RecordSet getDomainList(
-                in RegistryObject user,
-                in SortSpec sort_by
+                in RegistryObject handle,
             ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
 
         typedef string RegistryObject;
@@ -70,10 +55,8 @@ class DomainInterface(BaseInterface):
             long offset;
         };
         """
-        self.logger.log(self.logger.DEBUG, 'Call Server.getDomainList(handle="%s", sort_by=%s)' % (handle, sort_by))
-
-        handle = handle.upper()
-        check_handle_format(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
+        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainList(handle="%s")' % handle)
+        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
 
         response_user = self.cursor.fetchall("SELECT object_registry.id, object_registry.name FROM object_registry "
                                "LEFT JOIN contact ON object_registry.id = contact.id "
@@ -158,3 +141,43 @@ class DomainInterface(BaseInterface):
                 ])
 
         return domain_list
+
+
+    @furnish_database_cursor_m
+    def getDomainsForNsset(self, handle, nsset):
+        "Domains for nsset"
+        return []
+
+    @furnish_database_cursor_m
+    def getDomainsForKeyset(self, handle, nsset):
+        "Domains for nsset"
+        return []
+
+    @furnish_database_cursor_m
+    def getDomainDetail(self, domain, handle):
+        """Get dummy Domain
+        struct DomainDetail {
+            TID id;
+            string fqdn;
+            string roid;
+            string registrar;
+            string create_date;
+            string transfer_date;
+            string update_date;
+            string create_registrar;
+            string update_registrar;
+            string auth_info;
+            string registrant;
+            string expiration_date;
+            string val_ex_date;
+            boolean publish;
+            string nsset;
+            string keyset;
+            ContactHandleSeq admins;
+            ContactHandleSeq temps;
+            ObjectStatusSeq status_list;
+        };
+        """
+        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainDetail(domain="%s", handle="%s")' % (domain, handle))
+        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
+        return Registry.DomainBrowser.DomainDetail(id=0)

@@ -11,12 +11,14 @@ CONTACT_REGEX_RESTRICTED_PATT = re.compile(CONTACT_REGEX_RESTRICTED)
 
 
 # DUPLICITY: server/src/fredlib/contact.cc: bool checkHandleFormat(const std::string& handle) const
-def check_handle_format(logger, handle):
+def normalize_and_check_handle(logger, handle):
     "Check format of the handle."
+    handle = handle.upper()
     match = CONTACT_REGEX_PATT.match(handle)
     if match is None:
         logger.log(logger.DEBUG, 'Invalid format of handle "%s".' % handle)
         raise Registry.DomainBrowser.INCORRECT_USAGE
+    return handle
 
 
 def normalize_spaces(text):

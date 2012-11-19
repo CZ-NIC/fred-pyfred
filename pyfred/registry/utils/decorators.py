@@ -10,10 +10,12 @@ def furnish_database_cursor_m(interface_function):
 
     def wrapper(self, *args, **kwargs):
         "Decorate an interface class method."
+        #self.logger.log(self.logger.DEBUG, '@furnish_database_cursor_m BEGIN') # DEBUG ONLY
         with DatabaseCursor(self.database, self.logger, self.INTERNAL_SERVER_ERROR) as cursor:
             self.cursor = cursor
             retval = interface_function(self, *args, **kwargs)
             self.cursor = None
+        #self.logger.log(self.logger.DEBUG, '@furnish_database_cursor_m END') # DEBUG ONLY
         return retval
 
     return wrapper
