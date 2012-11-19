@@ -72,7 +72,7 @@ class DomainInterface(object):
         handle = handle.upper()
         check_handle_format(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
 
-        with DatabaseCursor(self.database, self.logger) as cursor:
+        with DatabaseCursor(self.database, self.logger, Registry.DomainBrowser.INTERNAL_SERVER_ERROR) as cursor:
             response_user = cursor.fetchall("SELECT object_registry.id, object_registry.name FROM object_registry "
                                    "LEFT JOIN contact ON object_registry.id = contact.id "
                                    "WHERE object_registry.name = %(handle)s",

@@ -6,12 +6,14 @@ from pyfred.registry.utils import normalize_spaces
 
 class DatabaseCursor(object):
     "Create database cursor."
+    INTERNAL_SERVER_ERROR = Exception
 
-    def __init__(self, database, logger):
+    def __init__(self, database, logger, internal_server_error):
         self.database = database
         self.logger = logger
         self.connection = None
         self.cursor = None
+        self.INTERNAL_SERVER_ERROR = internal_server_error
 
     def __enter__(self):
         "Open database connection."
@@ -20,7 +22,7 @@ class DatabaseCursor(object):
             self.cursor = self.connection.cursor()
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError), msg:
             self.logger.log(self.logger.ERROR, "Open connection and cursor. %s" % msg)
-            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+            raise self.INTERNAL_SERVER_ERROR
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -36,7 +38,7 @@ class DatabaseCursor(object):
             self.cursor.execute(sql, params)
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError, pgdb.InterfaceError), msg:
             self.logger.log(self.logger.ERROR, 'cursor.excecute("%s", %s) %s' % (normalize_spaces(sql), params, msg))
-            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+            raise self.INTERNAL_SERVER_ERROR
 
     def fetchall(self, sql, params=None):
         "Return result of SQL query."
@@ -45,7 +47,7 @@ class DatabaseCursor(object):
             return self.cursor.fetchall()
         except pgdb.DatabaseError, msg:
             self.logger.log(self.logger.ERROR, 'cursor.fetchall("%s", %s) %s' % (normalize_spaces(sql), params, msg))
-            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+            raise self.INTERNAL_SERVER_ERROR
 
     def fetchallstr(self, sql, params=None):
         "Return result of SQL query. All values are strings."
