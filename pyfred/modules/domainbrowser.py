@@ -12,6 +12,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server, ContactIn
     """
     This class implements DomainBrowser interface.
     """
+    INTERNAL_SERVER_ERROR = Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
     def __init__(self, logger, database, conf, joblist, corba_refs):
         """
@@ -20,6 +21,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server, ContactIn
         """
         self.database = database # db connection string
         self.logger = logger # syslog functionality
+        self.cursor = None # initialized by @furnish_database_cursor_m decorator
         self.corba_refs = corba_refs
         self.limits = dict(list_domains=100, list_nssets=100, list_keysets=100)
 
