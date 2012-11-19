@@ -97,6 +97,8 @@ class ContactInterface(BaseInterface):
         )
 
 
-    def setContactDiscloseFlags(self, contact, flags):
+    def setContactDiscloseFlags(self, handle, flags):
         "Dummy setContactDiscloseFlags"
+        self.logger.log(self.logger.DEBUG, 'Call ContactInterface.setContactDiscloseFlags(handle="%s", flags=%s)' % (handle, flags))
+        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
         # TODO: ...
