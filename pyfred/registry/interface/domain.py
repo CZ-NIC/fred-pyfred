@@ -174,7 +174,30 @@ class DomainInterface(ListMetaInterface):
             WHERE object_registry.name = %(handle)s""")
         self.logger.log(self.logger.DEBUG, "Found NSSET ID %d of the handle '%s'." % (nsset_id, nsset))
 
-        return [] # self.__provideDomainList()
+        sql_query = """
+            SELECT
+                object_registry.id,
+                object_registry.name,
+                registrar.handle,
+                domain.exdate,
+                domain.registrant,
+                domain.keyset IS NOT NULL,
+                domain_states_view.states
+            FROM object_registry
+            LEFT JOIN domain ON object_registry.id = domain.id
+            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                      AND domain_contact_map.role = %(role_id)d
+            LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
+            LEFT JOIN registrar ON registrar.id = object_history.clid
+            LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
+            WHERE domain.nsset = %(nsset_id)d
+            ORDER BY domain.exdate DESC
+            LIMIT %(limit)d"""
+        sql_params = dict(nsset_id=nsset_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])
+
+        return self.__provideDomainList(contact_id, sql_query, sql_params)
+
+
 
     @normalize_handles_m(((0, "handle"), (1, "keyset")))
     @furnish_database_cursor_m
@@ -192,7 +215,29 @@ class DomainInterface(ListMetaInterface):
             WHERE object_registry.name = %(handle)s""")
         self.logger.log(self.logger.DEBUG, "Found KEYSET ID %d of the handle '%s'." % (keyset_id, keyset))
 
-        return [] # self.__provideDomainList()
+        sql_query = """
+            SELECT
+                object_registry.id,
+                object_registry.name,
+                registrar.handle,
+                domain.exdate,
+                domain.registrant,
+                domain.keyset IS NOT NULL,
+                domain_states_view.states
+            FROM object_registry
+            LEFT JOIN domain ON object_registry.id = domain.id
+            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                      AND domain_contact_map.role = %(role_id)d
+            LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
+            LEFT JOIN registrar ON registrar.id = object_history.clid
+            LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
+            WHERE domain.keyset = %(keyset_id)d
+            ORDER BY domain.exdate DESC
+            LIMIT %(limit)d"""
+        sql_params = dict(keyset_id=keyset_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])
+
+        return self.__provideDomainList(contact_id, sql_query, sql_params)
+
 
     @normalize_domain_m
     @normalize_contact_handle_m
