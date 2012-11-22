@@ -24,6 +24,7 @@ def normalize_and_check_handle(logger, handle):
 
 def normalize_and_check_domain(logger, domain_name):
     "Normalize domain name."
+    # TODO: server/src/fredlib/zone.cc: parseDomainName()
     domain_name = domain_name.lower()
     match = DOMAIN_NAME_REGEX_PATT.match(domain_name)
     if match is None:

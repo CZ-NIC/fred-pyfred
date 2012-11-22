@@ -20,6 +20,8 @@ class BaseInterface(object):
 class ListMetaInterface(BaseInterface):
     "Parent of interfaces with getDomainListMeta"
 
+    PUBLIC_DATA, PRIVATE_DATA = range(2)
+    PASSWORD_SUBSTITUTION = "********"
 
     def _getObjectListMeta(self, list_of_meta_names):
         """

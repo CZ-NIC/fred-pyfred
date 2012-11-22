@@ -243,51 +243,157 @@ class DomainInterface(ListMetaInterface):
     @normalize_contact_handle_m
     @furnish_database_cursor_m
     def getDomainDetail(self, handle, domain):
-        """Get dummy Domain
+        """
         struct DomainDetail {
             TID id;
             string fqdn;
             string roid;
+
             string registrar;
+
             string create_date;
             string transfer_date;
             string update_date;
+
             string create_registrar;
             string update_registrar;
+
             string auth_info;
+
             string registrant;
+
             string expiration_date;
             string val_ex_date;
             boolean publish;
             string nsset;
             string keyset;
+
             ContactHandleSeq admins;
             ContactHandleSeq temps;
             ObjectStatusSeq status_list;
         };
+        SELECT type, name FROM object_registry;
+            1 - contact
+            2 - nsset
+            3 - domain
+            4 - keyset
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainDetail(domain="%s", handle="%s")' % (domain, handle))
+        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainDetail(handle="%s", domain="%s")' % (handle, domain))
 
-        PUBLIC_DATA, PRIVATE_DATA = range(2)
-        return (Registry.DomainBrowser.DomainDetail(
-                    id=140,
-                    fqdn=domain,
-                    roid='C0000000003-CZ',
-                    registrar='REG-DESIGNATED',
-                    create_date='2012-03-14 11:16:28.516926',
-                    transfer_date='',
-                    update_date='',
-                    create_registrar='REG-CREATED',
-                    update_registrar='',
-                    auth_info='password',
-                    registrant="KONTAKT",
-                    expiration_date='2013-03-14 11:16:28.516926',
-                    val_ex_date='',
-                    publish=True,
-                    nsset='NSSET:102',
-                    keyset='KEYSID:102',
-                    admins=('ADMIN01', 'ADMIN02'),
-                    temps=('TEMPS-01', 'TEMPS-02'),
-                    status_list=('testLinked', 'testValidated')
-                ),
-                Registry.DomainBrowser.DataAccessLevel._item(PUBLIC_DATA))
+        contact_id = self.__getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+
+
+        status_list = []
+        for row_states in self.cursor.fetchall("""
+                SELECT
+                    enum_object_states.name
+                FROM object_registry
+                LEFT JOIN object_state ON object_state.object_id = object_registry.id
+                    AND (object_state.valid_from < NOW()
+                    AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
+                LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
+                WHERE object_registry.name = %(name)s""", dict(name=domain)):
+            if row_states[0]:
+                status_list.append(row_states[0])
+        self.logger.log(self.logger.DEBUG, "Domain '%s' has states: %s." % (domain, status_list))
+
+        results = self.cursor.fetchall("""
+            SELECT
+                oreg.id AS id,
+                oreg.roid AS roid,
+                oreg.name AS fqdn,
+
+                current.handle AS registrar,
+
+                oreg.crdate AS create_date,
+                obj.trdate AS transfer_date,
+                obj.update AS update_date,
+
+                creator.handle AS create_registrar,
+                updator.handle AS update_registrar,
+
+                obj.authinfopw AS auth_info,
+
+                registrant.name AS registrant,
+
+                domain.exdate AS expiration_date,
+                registrant.erdate AS val_ex_date,
+
+                enum.publish AS publish,
+
+                regnsset.name AS nsset,
+                regkeyset.name AS keyset
+
+            FROM object_registry oreg
+                LEFT JOIN object obj ON obj.id = oreg.id
+
+                LEFT JOIN domain ON oreg.id = domain.id
+                LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
+
+                LEFT JOIN registrar creator ON creator.id = oreg.crid
+                LEFT JOIN registrar current ON current.id = obj.clid
+                LEFT JOIN registrar updator ON updator.id = obj.upid
+
+                LEFT JOIN object_registry regnsset ON regnsset.id = domain.nsset
+                LEFT JOIN object_registry regkeyset ON regkeyset.id = domain.keyset
+
+                LEFT JOIN enumval enum ON enum.domainid = oreg.id
+
+            WHERE oreg.name = %(domain)s
+        """, dict(domain=domain))
+
+        if len(results) == 0:
+            raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
+
+        if len(results) != 1:
+            self.logger.log(self.logger.CRITICAL, "Domain detail of '%s' does not have one record: %s" % (domain, results))
+            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
+        TID, PASSWORD, REGISTRANT, PUBLISH = 0, 9, 10, 13
+
+        domain_detail = results[0]
+
+        if domain_detail[PUBLISH] is None:
+            domain_detail[PUBLISH] = False
+
+        if domain_detail[REGISTRANT] == handle:
+            # owner
+            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
+        else:
+            # not owner
+            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
+            domain_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
+
+        admins = self.cursor.fetchall("""
+            SELECT object_registry.name
+            FROM domain_contact_map
+            LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
+            WHERE domain_contact_map.role = %(role_id)d
+                AND domainid = %(obj_id)d
+            """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[TID]))
+
+        # OBSOLETE
+        temps = self.cursor.fetchall("""
+            SELECT object_registry.name
+            FROM domain_contact_map
+            LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
+            WHERE domain_contact_map.role = %(role_id)d
+                AND domainid = %(obj_id)d
+            """, dict(role_id=DOMAIN_ROLE["temp"], obj_id=domain_detail[TID]))
+
+        domain_detail.append([row[0] for row in admins])
+        domain_detail.append([row[0] for row in temps]) # OBSOLETE
+        domain_detail.append(status_list)
+
+        # replace None by empty string
+        domain_detail = ['' if value is None else value for value in domain_detail]
+
+        columns = ("id", "roid", "fqdn", "registrar", "create_date", "transfer_date",
+                   "update_date", "create_registrar", "update_registrar", "auth_info",
+                   "registrant", "expiration_date", "val_ex_date", "publish", "nsset", "keyset",
+                   "admins", "temps", "status_list")
+
+        data = dict(zip(columns, domain_detail))
+
+        return (Registry.DomainBrowser.DomainDetail(**data), data_type)
