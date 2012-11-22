@@ -73,7 +73,17 @@ class DomainInterface(ListMetaInterface):
         #self.logger.log(self.logger.DEBUG, "enum_parameters = %s" % enum_parameters) # TEST
 
         domain_list = []
-        REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC = range(6)
+        REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
+
+        self.cursor.execute("""
+            CREATE TEMPORARY VIEW domain_states_view AS SELECT
+                object_registry.id, array_agg(enum_object_states.name) AS states
+            FROM object_registry
+            LEFT JOIN object_state ON object_state.object_id = object_registry.id
+                AND (object_state.valid_from < NOW()
+                AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
+            LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
+            GROUP BY object_registry.id""")
 
         for domain_row in self.cursor.fetchall("""
                     SELECT
@@ -82,7 +92,8 @@ class DomainInterface(ListMetaInterface):
                         registrar.handle,
                         domain.exdate,
                         domain.registrant,
-                        dnssec.digest IS NOT NULL
+                        dnssec.digest IS NOT NULL,
+                        domain_states_view.states
                     FROM object_registry
                     LEFT JOIN domain ON object_registry.id = domain.id
                     LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -90,6 +101,7 @@ class DomainInterface(ListMetaInterface):
                     LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
                     LEFT JOIN dnssec ON dnssec.domainid = domain.id
                     LEFT JOIN registrar ON registrar.id = object_history.clid
+                    LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
                     WHERE domain_contact_map.contactid = %(contact_id)d
                         OR domain.registrant = %(contact_id)d
                     ORDER BY domain.exdate DESC
@@ -97,18 +109,9 @@ class DomainInterface(ListMetaInterface):
                     """,
                     dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])):
             # row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True]
-            domain_states = []
-            for row_states in self.cursor.fetchall("""
-                    SELECT
-                        enum_object_states.name
-                    FROM object_registry
-                    LEFT JOIN object_state ON object_state.object_id = object_registry.id
-                        AND (object_state.valid_from < NOW()
-                        AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
-                    LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
-                    WHERE object_registry.id = %(regid)d""", dict(regid=domain_row[REGID])):
-                if row_states[0]:
-                    domain_states.append(row_states[0])
+
+            # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
+            domain_states = [name for name in domain_row[DOMAIN_STATES][1:-1].split(",") if name != "NULL"]
 
             # expiration_dns_protection_period, expiration_registration_protection_period
             exdate = datetime.strptime(domain_row[EXDATE], '%Y-%m-%d').date()
