@@ -92,14 +92,13 @@ class DomainInterface(ListMetaInterface):
                         registrar.handle,
                         domain.exdate,
                         domain.registrant,
-                        dnssec.digest IS NOT NULL,
+                        domain.keyset IS NOT NULL,
                         domain_states_view.states
                     FROM object_registry
                     LEFT JOIN domain ON object_registry.id = domain.id
                     LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                               AND domain_contact_map.role = %(role_id)d
                     LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
-                    LEFT JOIN dnssec ON dnssec.domainid = domain.id
                     LEFT JOIN registrar ON registrar.id = object_history.clid
                     LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
                     WHERE domain_contact_map.contactid = %(contact_id)d
