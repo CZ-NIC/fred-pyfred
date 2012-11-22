@@ -2,7 +2,6 @@
 from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
-from pyfred.registry.utils.cursors import DatabaseCursor
 from pyfred.registry.utils.constants import DOMAIN_ROLE
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
@@ -39,35 +38,10 @@ class DomainInterface(ListMetaInterface):
         return self.getDomainListMeta() # TODO: remove redundant
 
 
-    @normalize_contact_handle_m
-    @furnish_database_cursor_m
-    def getDomainList(self, handle):
+    def __provideDomainList(self, contact_id, sql_query, sql_params):
         """
-        RecordSet getDomainList(
-                in RegistryObject handle,
-            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
-
-        typedef string RegistryObject;
-        struct SortSpec
-        {
-            string field;
-            boolean desc;
-            long limit;
-            long offset;
-        };
+        Provide domain list for interface functions.
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainList(handle="%s")' % handle)
-
-        response_user = self.cursor.fetchall("SELECT object_registry.id, object_registry.name FROM object_registry "
-                               "LEFT JOIN contact ON object_registry.id = contact.id "
-                               "WHERE object_registry.name = %(handle)s",
-                               dict(handle=handle))
-        # data: [[ID, 'CONTACT_HANDLE']]
-        if not len(response_user):
-            raise Registry.DomainBrowser.USER_NOT_EXISTS
-
-        contact_id = response_user[0][0]
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
         enum_parameters = dict(self.cursor.fetchall("SELECT name, val FROM enum_parameters"))
         #self.logger.log(self.logger.DEBUG, "enum_parameters = %s" % enum_parameters) # TEST
@@ -76,7 +50,7 @@ class DomainInterface(ListMetaInterface):
         REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
         self.cursor.execute("""
-            CREATE TEMPORARY VIEW domain_states_view AS SELECT
+            CREATE OR REPLACE TEMPORARY VIEW domain_states_view AS SELECT
                 object_registry.id, array_agg(enum_object_states.name) AS states
             FROM object_registry
             LEFT JOIN object_state ON object_state.object_id = object_registry.id
@@ -85,30 +59,8 @@ class DomainInterface(ListMetaInterface):
             LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
             GROUP BY object_registry.id""")
 
-        for domain_row in self.cursor.fetchall("""
-                    SELECT
-                        object_registry.id,
-                        object_registry.name,
-                        registrar.handle,
-                        domain.exdate,
-                        domain.registrant,
-                        domain.keyset IS NOT NULL,
-                        domain_states_view.states
-                    FROM object_registry
-                    LEFT JOIN domain ON object_registry.id = domain.id
-                    LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                              AND domain_contact_map.role = %(role_id)d
-                    LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
-                    LEFT JOIN registrar ON registrar.id = object_history.clid
-                    LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
-                    WHERE domain_contact_map.contactid = %(contact_id)d
-                        OR domain.registrant = %(contact_id)d
-                    ORDER BY domain.exdate DESC
-                    LIMIT %(limit)d
-                    """,
-                    dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])):
-            # row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True]
-
+        # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
+        for domain_row in self.cursor.fetchall(sql_query, sql_params):
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
             domain_states = [name for name in domain_row[DOMAIN_STATES][1:-1].split(",") if name != "NULL"]
 
@@ -145,17 +97,102 @@ class DomainInterface(ListMetaInterface):
         return domain_list
 
 
+    def __getHandleId(self, handle, query, exception_not_exists=None):
+        "Returns ID of handle."
+        if exception_not_exists is None:
+            exception_not_exists = Registry.DomainBrowser.OBJECT_NOT_EXISTS
+
+        response = self.cursor.fetchall(query, dict(handle=handle))
+        if not len(response):
+            raise exception_not_exists
+
+        return response[0][0]
+
+
+    def __getContactHandleId(self, handle):
+        "Returns ID of contact handle."
+        return self.__getHandleId(handle, """
+            SELECT
+                object_registry.id, object_registry.name
+            FROM object_registry
+            LEFT JOIN contact ON object_registry.id = contact.id
+            WHERE object_registry.name = %(handle)s""",
+            Registry.DomainBrowser.USER_NOT_EXISTS)
+
+
+    @normalize_contact_handle_m
+    @furnish_database_cursor_m
+    def getDomainList(self, handle):
+        """
+        RecordSet getDomainList(
+                in RegistryObject handle,
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
+        """
+        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainList(handle="%s")' % handle)
+
+        contact_id = self.__getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+
+        sql_query = """
+            SELECT
+                object_registry.id,
+                object_registry.name,
+                registrar.handle,
+                domain.exdate,
+                domain.registrant,
+                domain.keyset IS NOT NULL,
+                domain_states_view.states
+            FROM object_registry
+            LEFT JOIN domain ON object_registry.id = domain.id
+            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                      AND domain_contact_map.role = %(role_id)d
+            LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
+            LEFT JOIN registrar ON registrar.id = object_history.clid
+            LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
+            WHERE domain_contact_map.contactid = %(contact_id)d
+                OR domain.registrant = %(contact_id)d
+            ORDER BY domain.exdate DESC
+            LIMIT %(limit)d"""
+        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])
+
+        return self.__provideDomainList(contact_id, sql_query, sql_params)
+
+
     @normalize_handles_m(((0, "handle"), (1, "nsset")))
     @furnish_database_cursor_m
     def getDomainsForNsset(self, handle, nsset):
         "Domains for nsset"
-        return []
+        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainsForNsset(handle="%s", nsset="%s")' % (handle, nsset))
+
+        contact_id = self.__getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+
+        nsset_id = self.__getHandleId(nsset, """
+            SELECT object_registry.id, object_registry.name
+            FROM object_registry
+            LEFT JOIN nsset ON object_registry.id = nsset.id
+            WHERE object_registry.name = %(handle)s""")
+        self.logger.log(self.logger.DEBUG, "Found NSSET ID %d of the handle '%s'." % (nsset_id, nsset))
+
+        return [] # self.__provideDomainList()
 
     @normalize_handles_m(((0, "handle"), (1, "keyset")))
     @furnish_database_cursor_m
     def getDomainsForKeyset(self, handle, keyset):
-        "Domains for nsset"
-        return []
+        "Domains for keyset"
+        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainsForKeyset(handle="%s", keyset="%s")' % (handle, keyset))
+
+        contact_id = self.__getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+
+        keyset_id = self.__getHandleId(keyset, """
+            SELECT object_registry.id, object_registry.name
+            FROM object_registry
+            LEFT JOIN keyset ON object_registry.id = keyset.id
+            WHERE object_registry.name = %(handle)s""")
+        self.logger.log(self.logger.DEBUG, "Found KEYSET ID %d of the handle '%s'." % (keyset_id, keyset))
+
+        return [] # self.__provideDomainList()
 
     @normalize_domain_m
     @normalize_contact_handle_m
