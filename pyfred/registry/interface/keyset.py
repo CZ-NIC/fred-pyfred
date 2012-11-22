@@ -2,8 +2,9 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils import normalize_and_check_handle
-from pyfred.registry.utils.decorators import furnish_database_cursor_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
+            normalize_contact_handle_m, normalize_handles_m, normalize_domain_m
+
 
 
 class KeysetInterface(ListMetaInterface):
@@ -18,10 +19,13 @@ class KeysetInterface(ListMetaInterface):
                             ("blocked_transfer", "BOOL"),
                         ))
 
+    @normalize_contact_handle_m
     @furnish_database_cursor_m
     def getKeysetList(self, handle):
         return []
 
+    @normalize_handles_m(((0, "handle"), (1, "keyset")))
+    @furnish_database_cursor_m
     def getKeysetDetail(self, handle, keyset):
         """
         struct KeysetDetail {
@@ -59,7 +63,6 @@ class KeysetInterface(ListMetaInterface):
         };
         """
         self.logger.log(self.logger.DEBUG, 'Call KeysetInterface.getKeysetDetail(keyset="%s", handle="%s")' % (keyset, handle))
-        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
 
         key = "BQEAAAABt3LenoCVTV0okqKYPDnnVJqvwCD9MKJNXg8fcOCdLQYncyoehpwM5RK2UkZDcDxWkMo7yMa35ej+Mhpa" \
               "ji9si4xXD+Syl4Q06LFiFkdN/5GlVlrIdE3GW7zC7Z4sS14Vz8FbYfcRmhsh19Ob718jGZneGfw2UPbvkyxUR8wD" \

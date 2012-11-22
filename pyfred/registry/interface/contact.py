@@ -4,14 +4,15 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
-from pyfred.registry.utils import normalize_and_check_handle
-from pyfred.registry.utils.decorators import furnish_database_cursor_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
+            normalize_contact_handle_m
 
 
 class ContactInterface(BaseInterface):
     "Contact corba interface."
 
-
+    @normalize_contact_handle_m
+    @furnish_database_cursor_m
     def getContactDetail(self, handle):
         """Return detail of contact."
 
@@ -47,7 +48,6 @@ class ContactInterface(BaseInterface):
         };
         """
         self.logger.log(self.logger.DEBUG, 'Call ContactInterface.getContactDetail(handle="%s")' % handle)
-        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
 
         # Dummy answer:
         return Registry.DomainBrowser.ContactDetail(
@@ -97,8 +97,9 @@ class ContactInterface(BaseInterface):
         )
 
 
+    @normalize_contact_handle_m
+    @furnish_database_cursor_m
     def setContactDiscloseFlags(self, handle, flags):
         "Dummy setContactDiscloseFlags"
         self.logger.log(self.logger.DEBUG, 'Call ContactInterface.setContactDiscloseFlags(handle="%s", flags=%s)' % (handle, flags))
-        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
         # TODO: ...

@@ -2,8 +2,8 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils import normalize_and_check_handle
-from pyfred.registry.utils.decorators import furnish_database_cursor_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
+            normalize_contact_handle_m, normalize_handles_m, normalize_domain_m
 
 
 class NssetInterface(ListMetaInterface):
@@ -18,10 +18,13 @@ class NssetInterface(ListMetaInterface):
                             ("blocked_transfer", "BOOL"),
                         ))
 
+    @normalize_contact_handle_m
     @furnish_database_cursor_m
     def getNssetList(self, handle):
         return []
 
+    @normalize_handles_m(((0, "handle"), (1, "nsset")))
+    @furnish_database_cursor_m
     def getNssetDetail(self, handle, nsset):
         """
         struct NSSetDetail {
@@ -42,7 +45,6 @@ class NssetInterface(ListMetaInterface):
         };
         """
         self.logger.log(self.logger.DEBUG, 'Call NssetInterface.getNssetDetail(nsset="%s", handle="%s")' % (nsset, handle))
-        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
 
         PUBLIC_DATA, PRIVATE_DATA = range(2)
         return (Registry.DomainBrowser.NSSetDetail(

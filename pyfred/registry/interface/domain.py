@@ -6,7 +6,7 @@ from pyfred.registry.utils.cursors import DatabaseCursor
 from pyfred.registry.utils.constants import DOMAIN_ROLE
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_contact_handle_m, normalize_handles_m
+            normalize_contact_handle_m, normalize_handles_m, normalize_domain_m
 
 
 
@@ -155,6 +155,7 @@ class DomainInterface(ListMetaInterface):
         "Domains for nsset"
         return []
 
+    @normalize_domain_m
     @normalize_contact_handle_m
     @furnish_database_cursor_m
     def getDomainDetail(self, handle, domain):

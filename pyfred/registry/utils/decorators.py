@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from pyfred.registry.utils.cursors import DatabaseCursor
-from pyfred.registry.utils import normalize_and_check_handle
+from pyfred.registry.utils import normalize_and_check_handle, normalize_and_check_domain
 
 
 def furnish_database_cursor_m(interface_function):
@@ -21,18 +21,21 @@ def furnish_database_cursor_m(interface_function):
 
     return wrapper
 
-def _normalize_attrs(logger, list_of_attrs, *args, **kwargs):
+
+def _normalize_attrs(logger, transform_type, list_of_attrs, *args, **kwargs):
     """
     Normalize attributes. Used in devorators.
     """
     boundary = len(args)
     attrs = list(args)
 
+    normalize = normalize_and_check_domain if transform_type == "domain" else normalize_and_check_handle
+
     for position, key in list_of_attrs:
         if position < boundary:
-            attrs[position] = normalize_and_check_handle(logger, attrs[position])
+            attrs[position] = normalize(logger, attrs[position])
         elif key in kwargs:
-            kwargs[key] = normalize_and_check_handle(logger, kwargs[key])
+            kwargs[key] = normalize(logger, kwargs[key])
 
     args = tuple(attrs)
 
@@ -46,7 +49,7 @@ def normalize_contact_handle_m(interface_function):
     """
     def wrapper(self, *args, **kwargs):
         "Decorate an interface class method."
-        args, kwargs = _normalize_attrs(self.logger, ((0, "handle"),), *args, **kwargs)
+        args, kwargs = _normalize_attrs(self.logger, "handle", ((0, "handle"),), *args, **kwargs)
         return interface_function(self, *args, **kwargs)
 
     return wrapper
@@ -64,8 +67,20 @@ def normalize_handles_m(list_of_attrs):
         """
         def wrapper(self, *args, **kwargs):
             "Decorate an interface class method."
-            args, kwargs = _normalize_attrs(self.logger, list_of_attrs, *args, **kwargs)
+            args, kwargs = _normalize_attrs(self.logger, "handle", list_of_attrs, *args, **kwargs)
             return interface_function(self, *args, **kwargs)
 
         return wrapper
     return decorator
+
+
+def normalize_domain_m(interface_function):
+    """
+    Parameter domain must be at the second position and have name 'domain'.
+    """
+    def wrapper(self, *args, **kwargs):
+        "Decorate an interface class method."
+        args, kwargs = _normalize_attrs(self.logger, "domain", ((1, "domain"),), *args, **kwargs)
+        return interface_function(self, *args, **kwargs)
+
+    return wrapper
