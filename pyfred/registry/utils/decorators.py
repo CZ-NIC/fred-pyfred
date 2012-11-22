@@ -21,22 +21,51 @@ def furnish_database_cursor_m(interface_function):
 
     return wrapper
 
-
-def normalize_handle_m(interface_function):
+def _normalize_attrs(logger, list_of_attrs, *args, **kwargs):
     """
-    Normalize handle and check the validity.
-    Invalid handle raise Registry.DomainBrowser.INCORRECT_USAGE.
+    Normalize attributes. Used in devorators.
     """
+    boundary = len(args)
+    attrs = list(args)
 
+    for position, key in list_of_attrs:
+        if position < boundary:
+            attrs[position] = normalize_and_check_handle(logger, attrs[position])
+        elif key in kwargs:
+            kwargs[key] = normalize_and_check_handle(logger, kwargs[key])
+
+    args = tuple(attrs)
+
+    return tuple(attrs), kwargs
+
+
+def normalize_contact_handle_m(interface_function):
+    """
+    Normalize contact handle and check the validity.
+    Raise Registry.DomainBrowser.INCORRECT_USAGE in case of invalid format.
+    """
     def wrapper(self, *args, **kwargs):
         "Decorate an interface class method."
-        if len(args):
-            attrs = list(args)
-            attrs[0] = normalize_and_check_handle(self.logger, attrs[0]) # raise INCORRECT_USAGE
-            args = tuple(attrs)
-        elif "handle" in kwargs:
-            kwargs["handle"] = normalize_and_check_handle(self.logger, kwargs["handle"]) # raise INCORRECT_USAGE
-
+        args, kwargs = _normalize_attrs(self.logger, ((0, "handle"),), *args, **kwargs)
         return interface_function(self, *args, **kwargs)
 
     return wrapper
+
+
+def normalize_handles_m(list_of_attrs):
+    """
+    list_of_attrs are positions and names of function attributes:
+    ((position, key), ...) --> fnc(value) / fnc(key=value)
+    """
+    def decorator(interface_function):
+        """
+        Normalize handle and check the validity.
+        Invalid handle raise Registry.DomainBrowser.INCORRECT_USAGE.
+        """
+        def wrapper(self, *args, **kwargs):
+            "Decorate an interface class method."
+            args, kwargs = _normalize_attrs(self.logger, list_of_attrs, *args, **kwargs)
+            return interface_function(self, *args, **kwargs)
+
+        return wrapper
+    return decorator

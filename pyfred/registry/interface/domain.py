@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils.cursors import DatabaseCursor
-from pyfred.registry.utils import normalize_and_check_handle
 from pyfred.registry.utils.constants import DOMAIN_ROLE
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils.decorators import furnish_database_cursor_m, normalize_handle_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
+            normalize_contact_handle_m, normalize_handles_m
 
 
 
@@ -39,7 +39,7 @@ class DomainInterface(ListMetaInterface):
         return self.getDomainListMeta() # TODO: remove redundant
 
 
-    @normalize_handle_m
+    @normalize_contact_handle_m
     @furnish_database_cursor_m
     def getDomainList(self, handle):
         """
@@ -143,19 +143,19 @@ class DomainInterface(ListMetaInterface):
         return domain_list
 
 
-    @normalize_handle_m
+    @normalize_handles_m(((0, "handle"), (1, "nsset")))
     @furnish_database_cursor_m
     def getDomainsForNsset(self, handle, nsset):
         "Domains for nsset"
         return []
 
-    @normalize_handle_m
+    @normalize_handles_m(((0, "handle"), (1, "keyset")))
     @furnish_database_cursor_m
     def getDomainsForKeyset(self, handle, keyset):
         "Domains for nsset"
         return []
 
-    @normalize_handle_m
+    @normalize_contact_handle_m
     @furnish_database_cursor_m
     def getDomainDetail(self, handle, domain):
         """Get dummy Domain
@@ -182,7 +182,6 @@ class DomainInterface(ListMetaInterface):
         };
         """
         self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainDetail(domain="%s", handle="%s")' % (domain, handle))
-        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
 
         PUBLIC_DATA, PRIVATE_DATA = range(2)
         return (Registry.DomainBrowser.DomainDetail(
