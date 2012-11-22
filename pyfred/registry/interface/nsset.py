@@ -22,7 +22,7 @@ class NssetInterface(ListMetaInterface):
     def getNssetList(self, handle):
         return []
 
-    def getNssetDetail(self, nsset, handle):
+    def getNssetDetail(self, handle, nsset):
         """
         struct NSSetDetail {
             TID id;

@@ -22,7 +22,7 @@ class KeysetInterface(ListMetaInterface):
     def getKeysetList(self, handle):
         return []
 
-    def getKeysetDetail(self, keyset, handle):
+    def getKeysetDetail(self, handle, keyset):
         """
         struct KeysetDetail {
             TID id;
