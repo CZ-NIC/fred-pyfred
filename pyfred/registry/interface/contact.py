@@ -5,13 +5,13 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_contact_handle_m
+            normalize_object_handle_m
 
 
 class ContactInterface(BaseInterface):
     "Contact corba interface."
 
-    @normalize_contact_handle_m
+    @normalize_object_handle_m
     @furnish_database_cursor_m
     def getContactDetail(self, handle):
         """Return detail of contact."
@@ -97,7 +97,7 @@ class ContactInterface(BaseInterface):
         )
 
 
-    @normalize_contact_handle_m
+    @normalize_object_handle_m
     @furnish_database_cursor_m
     def setContactDiscloseFlags(self, handle, flags):
         "Dummy setContactDiscloseFlags"

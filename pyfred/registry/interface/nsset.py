@@ -4,7 +4,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils import parse_array_agg
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_contact_handle_m, normalize_handles_m
+            normalize_object_handle_m, normalize_handles_m
 from pyfred.registry.utils.constants import EnunObjectStates
 
 
@@ -21,7 +21,7 @@ class NssetInterface(ListMetaInterface):
                         ))
 
 
-    @normalize_contact_handle_m
+    @normalize_object_handle_m
     @furnish_database_cursor_m
     def getNssetList(self, handle):
         "List of nssets"

@@ -5,7 +5,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.utils.constants import DOMAIN_ROLE
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_contact_handle_m, normalize_handles_m, normalize_domain_m
+            normalize_object_handle_m, normalize_handles_m, normalize_domain_m
 from pyfred.registry.utils import parse_array_agg
 
 
@@ -101,7 +101,7 @@ class DomainInterface(ListMetaInterface):
             Registry.DomainBrowser.USER_NOT_EXISTS)
 
 
-    @normalize_contact_handle_m
+    @normalize_object_handle_m
     @furnish_database_cursor_m
     def getDomainList(self, handle):
         """
@@ -221,7 +221,7 @@ class DomainInterface(ListMetaInterface):
 
 
     @normalize_domain_m
-    @normalize_contact_handle_m
+    @normalize_object_handle_m
     @furnish_database_cursor_m
     def getDomainDetail(self, handle, domain):
         """

@@ -42,7 +42,7 @@ def _normalize_attrs(logger, transform_type, list_of_attrs, *args, **kwargs):
     return tuple(attrs), kwargs
 
 
-def normalize_contact_handle_m(interface_function):
+def normalize_object_handle_m(interface_function):
     """
     Normalize contact handle and check the validity.
     Raise Registry.DomainBrowser.INCORRECT_USAGE in case of invalid format.
