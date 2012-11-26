@@ -5,6 +5,10 @@ from pyfred.registry.utils import normalize_and_check_handle
 
 class BaseInterface(object):
     "Base interface object."
+
+    PUBLIC_DATA, PRIVATE_DATA = range(2)
+    PASSWORD_SUBSTITUTION = "********"
+
     logger = None
     source = None
     limits = None
@@ -52,12 +56,26 @@ class BaseInterface(object):
             GROUP BY object_registry.id""")
 
 
+    def _get_status_list(self, handle):
+        "Returns the list of status."
+        status_list = []
+        for row_states in self.source.fetchall("""
+                SELECT
+                    enum_object_states.name
+                FROM object_registry
+                LEFT JOIN object_state ON object_state.object_id = object_registry.id
+                    AND (object_state.valid_from < NOW()
+                    AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
+                LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
+                WHERE object_registry.name = %(name)s""", dict(name=handle)):
+            if row_states[0]:
+                status_list.append(row_states[0])
+        return status_list
+
+
 
 class ListMetaInterface(BaseInterface):
     "Parent of interfaces with getDomainListMeta"
-
-    PUBLIC_DATA, PRIVATE_DATA = range(2)
-    PASSWORD_SUBSTITUTION = "********"
 
     def _getObjectListMeta(self, list_of_meta_names):
         """

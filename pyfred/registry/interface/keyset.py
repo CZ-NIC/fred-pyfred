@@ -108,20 +108,6 @@ class KeysetInterface(ListMetaInterface):
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
-        status_list = []
-        for row_states in self.source.fetchall("""
-                SELECT
-                    enum_object_states.name
-                FROM object_registry
-                LEFT JOIN object_state ON object_state.object_id = object_registry.id
-                    AND (object_state.valid_from < NOW()
-                    AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
-                LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
-                WHERE object_registry.name = %(name)s""", dict(name=keyset)):
-            if row_states[0]:
-                status_list.append(row_states[0])
-        self.logger.log(self.logger.DEBUG, "Keyset '%s' has states: %s." % (keyset, status_list))
-
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -154,6 +140,13 @@ class KeysetInterface(ListMetaInterface):
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
+
+        if len(results) != 1:
+            self.logger.log(self.logger.CRITICAL, "Keyset detail of '%s' does not have one record: %s" % (keyset, results))
+            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
+        status_list = self._get_status_list(keyset)
+        self.logger.log(self.logger.DEBUG, "Keyset '%s' has states: %s." % (keyset, status_list))
 
         TID, PASSWORD = 0, 9
 

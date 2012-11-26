@@ -90,20 +90,6 @@ class NssetInterface(ListMetaInterface):
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
-        status_list = []
-        for row_states in self.source.fetchall("""
-                SELECT
-                    enum_object_states.name
-                FROM object_registry
-                LEFT JOIN object_state ON object_state.object_id = object_registry.id
-                    AND (object_state.valid_from < NOW()
-                    AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
-                LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
-                WHERE object_registry.name = %(name)s""", dict(name=nsset)):
-            if row_states[0]:
-                status_list.append(row_states[0])
-        self.logger.log(self.logger.DEBUG, "Nsset '%s' has states: %s." % (nsset, status_list))
-
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -138,6 +124,13 @@ class NssetInterface(ListMetaInterface):
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
+
+        if len(results) != 1:
+            self.logger.log(self.logger.CRITICAL, "Nsset detail of '%s' does not have one record: %s" % (nsset, results))
+            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
+        status_list = self._get_status_list(nsset)
+        self.logger.log(self.logger.DEBUG, "Nsset '%s' has states: %s." % (nsset, status_list))
 
         TID, PASSWORD = 0, 9
 
