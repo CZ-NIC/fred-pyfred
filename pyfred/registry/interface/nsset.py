@@ -85,26 +85,109 @@ class NssetInterface(ListMetaInterface):
             short report_level;
         };
         """
-        self.logger.log(self.logger.DEBUG, 'Call NssetInterface.getNssetDetail(nsset="%s", handle="%s")' % (nsset, handle))
+        self.logger.log(self.logger.DEBUG, 'Call NssetInterface.getNssetDetail(handle="%s", nsset="%s")' % (handle, nsset))
 
-        PUBLIC_DATA, PRIVATE_DATA = range(2)
-        return (Registry.DomainBrowser.NSSetDetail(
-                id=130,
-                handle=handle,
-                roid='C0000000003-CZ',
-                registrar='REG-DESIGNATED',
-                create_date='2012-03-14 11:16:28.516926',
-                transfer_date='',
-                update_date='',
-                create_registrar='REG-CREATED',
-                update_registrar='',
-                auth_info='password',
-                admins=('CONTACT04',),
-                hosts=(
-                    Registry.DomainBrowser.DNSHost("a.ns.nic.cz", "193.29.206.1 2001:678:1::1"),
-                    Registry.DomainBrowser.DNSHost("b.ns.nic.cz", "196.30.208.2 2001:677:1::2")
-                ),
-                status_list = (),
-                report_level=0
-                ),
-                Registry.DomainBrowser.DataAccessLevel._item(PRIVATE_DATA))
+        contact_id = self._getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+
+        status_list = []
+        for row_states in self.source.fetchall("""
+                SELECT
+                    enum_object_states.name
+                FROM object_registry
+                LEFT JOIN object_state ON object_state.object_id = object_registry.id
+                    AND (object_state.valid_from < NOW()
+                    AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
+                LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
+                WHERE object_registry.name = %(name)s""", dict(name=nsset)):
+            if row_states[0]:
+                status_list.append(row_states[0])
+        self.logger.log(self.logger.DEBUG, "Nsset '%s' has states: %s." % (nsset, status_list))
+
+        results = self.source.fetchall("""
+            SELECT
+                oreg.id AS id,
+                oreg.name AS handle,
+                oreg.roid AS roid,
+
+                current.handle AS registrar,
+
+                oreg.crdate AS create_date,
+                obj.trdate AS transfer_date,
+                obj.update AS update_date,
+
+                creator.handle AS create_registrar,
+                updator.handle AS update_registrar,
+
+                obj.authinfopw AS auth_info,
+                registrant.name AS registrant,
+                nsset.checklevel
+
+            FROM object_registry oreg
+                LEFT JOIN object obj ON obj.id = oreg.id
+                LEFT JOIN nsset ON nsset.id = oreg.id
+                LEFT JOIN domain ON oreg.id = domain.nsset
+                LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
+
+                LEFT JOIN registrar creator ON creator.id = oreg.crid
+                LEFT JOIN registrar current ON current.id = obj.clid
+                LEFT JOIN registrar updator ON updator.id = obj.upid
+
+            WHERE oreg.name = %(nsset)s
+        """, dict(nsset=nsset))
+
+        if len(results) == 0:
+            raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
+
+        TID, PASSWORD = 0, 9
+
+        nsset_detail = results[0]
+        report_level = nsset_detail.pop()
+        registrant = nsset_detail.pop()
+
+        if registrant == handle:
+            # owner
+            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
+        else:
+            # not owner
+            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
+            nsset_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
+
+        admins = self.source.fetchall("""
+            SELECT object_registry.name
+            FROM nsset_contact_map
+            LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+            WHERE nssetid = %(obj_id)d
+            """, dict(obj_id=nsset_detail[TID]))
+
+        hosts = []
+        for row_host in self.source.fetchall("""
+                SELECT
+                    MIN(host.fqdn),
+                    array_agg(host_ipaddr_map.ipaddr)
+                FROM host_ipaddr_map
+                LEFT JOIN host ON host_ipaddr_map.hostid = host.id
+                WHERE host_ipaddr_map.nssetid = %(nsset_id)d
+                GROUP BY host_ipaddr_map.hostid""", dict(nsset_id=nsset_detail[TID])):
+            #     min     |  array_agg
+            #-------------+--------------
+            # a.ns.nic.cz | {194.0.12.1,123.4.0.1}
+            # b.ns.nic.cz | {194.0.13.1}
+            # c.ns.nic.cz | {NULL}
+            ip_address = parse_array_agg(row_host[1])
+            hosts.append(Registry.DomainBrowser.DNSHost(fqdn=row_host[0], inet=", ".join(ip_address)))
+
+        nsset_detail.append([row[0] for row in admins])
+        nsset_detail.append(hosts)
+        nsset_detail.append(status_list)
+        nsset_detail.append(report_level)
+
+        # replace None by empty string
+        nsset_detail = ['' if value is None else value for value in nsset_detail]
+
+        columns = ("id", "handle", "roid", "registrar", "create_date", "transfer_date",
+                   "update_date", "create_registrar", "update_registrar", "auth_info",
+                   "admins", "hosts", "status_list", "report_level")
+        data = dict(zip(columns, nsset_detail))
+
+        return (Registry.DomainBrowser.NSSetDetail(**data), data_type)

@@ -90,17 +90,6 @@ class DomainInterface(ListMetaInterface):
         return domain_list
 
 
-    def __getContactHandleId(self, handle):
-        "Returns ID of contact handle."
-        return self._getHandleId(handle, """
-            SELECT
-                object_registry.id, object_registry.name
-            FROM object_registry
-            LEFT JOIN contact ON object_registry.id = contact.id
-            WHERE object_registry.name = %(handle)s""",
-            Registry.DomainBrowser.USER_NOT_EXISTS)
-
-
     @normalize_object_handle_m
     @furnish_database_cursor_m
     def getDomainList(self, handle):
@@ -111,7 +100,7 @@ class DomainInterface(ListMetaInterface):
         """
         self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainList(handle="%s")' % handle)
 
-        contact_id = self.__getContactHandleId(handle)
+        contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
         sql_query = """
@@ -145,7 +134,7 @@ class DomainInterface(ListMetaInterface):
         "Domains for nsset"
         self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainsForNsset(handle="%s", nsset="%s")' % (handle, nsset))
 
-        contact_id = self.__getContactHandleId(handle)
+        contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
         nsset_id = self._getHandleId(nsset, """
@@ -186,7 +175,7 @@ class DomainInterface(ListMetaInterface):
         "Domains for keyset"
         self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainsForKeyset(handle="%s", keyset="%s")' % (handle, keyset))
 
-        contact_id = self.__getContactHandleId(handle)
+        contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
         keyset_id = self._getHandleId(keyset, """
@@ -261,7 +250,7 @@ class DomainInterface(ListMetaInterface):
         """
         self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainDetail(handle="%s", domain="%s")' % (handle, domain))
 
-        contact_id = self.__getContactHandleId(handle)
+        contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
 

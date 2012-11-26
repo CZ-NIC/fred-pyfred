@@ -28,6 +28,17 @@ class BaseInterface(object):
         return response[0][0]
 
 
+    def _getContactHandleId(self, handle):
+        "Returns ID of contact handle."
+        return self._getHandleId(handle, """
+            SELECT
+                object_registry.id, object_registry.name
+            FROM object_registry
+            LEFT JOIN contact ON object_registry.id = contact.id
+            WHERE object_registry.name = %(handle)s""",
+            Registry.DomainBrowser.USER_NOT_EXISTS)
+
+
     def _group_object_states(self):
         "Group objecst states into VIEW."
         self.source.execute("""
