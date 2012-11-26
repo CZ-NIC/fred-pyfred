@@ -2,8 +2,10 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
+from pyfred.registry.utils import parse_array_agg
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_contact_handle_m, normalize_handles_m, normalize_domain_m
+            normalize_contact_handle_m, normalize_handles_m
+from pyfred.registry.utils.constants import EnunObjectStates
 
 
 
@@ -23,7 +25,43 @@ class KeysetInterface(ListMetaInterface):
     @furnish_database_cursor_m
     def getKeysetList(self, handle):
         "List of keysets"
-        self.logger.log(self.logger.DEBUG, 'Call KeysetInterface.getKeysetList(handle="%s")' % handle)
+        keyset_id = self._getHandleId(handle, "SELECT id FROM object_registry WHERE name = %(handle)s")
+        self.logger.log(self.logger.DEBUG, "Found keyset ID %d of the handle '%s'." % (keyset_id, handle))
+
+        self.cursor.execute("""
+            CREATE OR REPLACE TEMPORARY VIEW domains_by_keyset_view AS
+            SELECT keyset, COUNT(keyset) AS number FROM domain GROUP BY keyset""")
+
+        self._group_object_states()
+
+        KEYSET_ID, KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(4)
+        UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 3, 4
+        result = []
+        for row in self.cursor.fetchall("""
+                SELECT
+                    object_registry.id,
+                    object_registry.name,
+                    domains.number,
+                    object_states_view.states,
+                    ''
+                FROM object_registry
+                LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
+                LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+                WHERE object_registry.id = %(keyset_id)d
+                LIMIT %(limit)d""",
+                dict(keyset_id=keyset_id, limit=self.limits["list_keysets"])):
+
+            # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
+            obj_states = parse_array_agg(row[OBJ_STATES])
+
+            row[KEYSET_ID] = "%d" % row[KEYSET_ID]
+            row[NUM_OF_DOMAINS] = "%d" % row[NUM_OF_DOMAINS]
+            row[UPDATE_PROHIBITED] = "t" if EnunObjectStates.server_update_prohibited in obj_states else "f"
+            row[TRANSFER_PROHIBITED] = "t" if EnunObjectStates.server_transfer_prohibited in obj_states else "f"
+            result.append(row)
+
+        self.logger.log(self.logger.DEBUG, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (handle, len(result)))
+        return result
 
         return []
 
