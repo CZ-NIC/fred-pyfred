@@ -28,7 +28,7 @@ class KeysetInterface(ListMetaInterface):
         keyset_id = self._getHandleId(handle, "SELECT id FROM object_registry WHERE name = %(handle)s")
         self.logger.log(self.logger.DEBUG, "Found keyset ID %d of the handle '%s'." % (keyset_id, handle))
 
-        self.cursor.execute("""
+        self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_keyset_view AS
             SELECT keyset, COUNT(keyset) AS number FROM domain GROUP BY keyset""")
 
@@ -37,7 +37,7 @@ class KeysetInterface(ListMetaInterface):
         KEYSET_ID, KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(4)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 3, 4
         result = []
-        for row in self.cursor.fetchall("""
+        for row in self.source.fetchall("""
                 SELECT
                     object_registry.id,
                     object_registry.name,

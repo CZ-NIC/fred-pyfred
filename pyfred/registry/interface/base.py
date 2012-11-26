@@ -6,7 +6,7 @@ from pyfred.registry.utils import normalize_and_check_handle
 class BaseInterface(object):
     "Base interface object."
     logger = None
-    cursor = None
+    source = None
     limits = None
 
     def setObjectBlockStatus(self, handle, selections, action):
@@ -21,7 +21,7 @@ class BaseInterface(object):
         if exception_not_exists is None:
             exception_not_exists = Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
-        response = self.cursor.fetchall(query, dict(handle=handle))
+        response = self.source.fetchall(query, dict(handle=handle))
         if not len(response):
             raise exception_not_exists
 
@@ -30,7 +30,7 @@ class BaseInterface(object):
 
     def _group_object_states(self):
         "Group objecst states into VIEW."
-        self.cursor.execute("""
+        self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW object_states_view AS SELECT
                 object_registry.id, array_agg(enum_object_states.name) AS states
             FROM object_registry

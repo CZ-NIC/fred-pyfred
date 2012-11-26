@@ -28,7 +28,7 @@ class NssetInterface(ListMetaInterface):
         nsset_id = self._getHandleId(handle, "SELECT id FROM object_registry WHERE name = %(handle)s")
         self.logger.log(self.logger.DEBUG, "Found nsset ID %d of the handle '%s'." % (nsset_id, handle))
 
-        self.cursor.execute("""
+        self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_nsset_view AS
             SELECT nsset, COUNT(nsset) AS number FROM domain GROUP BY nsset""")
 
@@ -37,7 +37,7 @@ class NssetInterface(ListMetaInterface):
         NSSET_ID, NSSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(4)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 3, 4
         result = []
-        for row in self.cursor.fetchall("""
+        for row in self.source.fetchall("""
                 SELECT
                     object_registry.id,
                     object_registry.name,

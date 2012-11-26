@@ -44,7 +44,7 @@ class DomainInterface(ListMetaInterface):
         Provide domain list for interface functions.
         """
 
-        enum_parameters = dict(self.cursor.fetchall("SELECT name, val FROM enum_parameters"))
+        enum_parameters = dict(self.source.fetchall("SELECT name, val FROM enum_parameters"))
         #self.logger.log(self.logger.DEBUG, "enum_parameters = %s" % enum_parameters) # TEST
 
         domain_list = []
@@ -53,7 +53,7 @@ class DomainInterface(ListMetaInterface):
         self._group_object_states()
 
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
-        for domain_row in self.cursor.fetchall(sql_query, sql_params):
+        for domain_row in self.source.fetchall(sql_query, sql_params):
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
             domain_states = parse_array_agg(domain_row[DOMAIN_STATES]) ## [name for name in domain_row[DOMAIN_STATES][1:-1].split(",") if name != "NULL"]
 
@@ -266,7 +266,7 @@ class DomainInterface(ListMetaInterface):
 
 
         status_list = []
-        for row_states in self.cursor.fetchall("""
+        for row_states in self.source.fetchall("""
                 SELECT
                     enum_object_states.name
                 FROM object_registry
@@ -279,7 +279,7 @@ class DomainInterface(ListMetaInterface):
                 status_list.append(row_states[0])
         self.logger.log(self.logger.DEBUG, "Domain '%s' has states: %s." % (domain, status_list))
 
-        results = self.cursor.fetchall("""
+        results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.roid AS roid,
@@ -346,7 +346,7 @@ class DomainInterface(ListMetaInterface):
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
             domain_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
 
-        admins = self.cursor.fetchall("""
+        admins = self.source.fetchall("""
             SELECT object_registry.name
             FROM domain_contact_map
             LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
@@ -355,7 +355,7 @@ class DomainInterface(ListMetaInterface):
             """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[TID]))
 
         # OBSOLETE
-        temps = self.cursor.fetchall("""
+        temps = self.source.fetchall("""
             SELECT object_registry.name
             FROM domain_contact_map
             LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
