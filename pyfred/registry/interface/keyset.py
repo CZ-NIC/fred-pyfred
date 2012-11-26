@@ -22,6 +22,9 @@ class KeysetInterface(ListMetaInterface):
     @normalize_contact_handle_m
     @furnish_database_cursor_m
     def getKeysetList(self, handle):
+        "List of keysets"
+        self.logger.log(self.logger.DEBUG, 'Call KeysetInterface.getKeysetList(handle="%s")' % handle)
+
         return []
 
     @normalize_handles_m(((0, "handle"), (1, "keyset")))

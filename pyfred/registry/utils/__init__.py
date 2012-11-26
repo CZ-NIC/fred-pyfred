@@ -36,3 +36,9 @@ def normalize_and_check_domain(logger, domain_name):
 def normalize_spaces(text):
     "Remove enters and redundant spaces."
     return re.sub("\s+", " ", text).strip()
+
+
+def parse_array_agg(value):
+    "Parse postgresql array_agg"
+    # "{outzone,nssetMissing}" or "{NULL}" -> ["outzone", "nssetMissing"] or []
+    return [name for name in value[1:-1].split(",") if name != "NULL"]

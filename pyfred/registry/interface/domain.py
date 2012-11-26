@@ -6,6 +6,7 @@ from pyfred.registry.utils.constants import DOMAIN_ROLE
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_contact_handle_m, normalize_handles_m, normalize_domain_m
+from pyfred.registry.utils import parse_array_agg
 
 
 
@@ -49,20 +50,12 @@ class DomainInterface(ListMetaInterface):
         domain_list = []
         REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
-        self.cursor.execute("""
-            CREATE OR REPLACE TEMPORARY VIEW domain_states_view AS SELECT
-                object_registry.id, array_agg(enum_object_states.name) AS states
-            FROM object_registry
-            LEFT JOIN object_state ON object_state.object_id = object_registry.id
-                AND (object_state.valid_from < NOW()
-                AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
-            LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
-            GROUP BY object_registry.id""")
+        self._group_object_states()
 
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
         for domain_row in self.cursor.fetchall(sql_query, sql_params):
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
-            domain_states = [name for name in domain_row[DOMAIN_STATES][1:-1].split(",") if name != "NULL"]
+            domain_states = parse_array_agg(domain_row[DOMAIN_STATES]) ## [name for name in domain_row[DOMAIN_STATES][1:-1].split(",") if name != "NULL"]
 
             # expiration_dns_protection_period, expiration_registration_protection_period
             exdate = datetime.strptime(domain_row[EXDATE], '%Y-%m-%d').date()
@@ -97,21 +90,9 @@ class DomainInterface(ListMetaInterface):
         return domain_list
 
 
-    def __getHandleId(self, handle, query, exception_not_exists=None):
-        "Returns ID of handle."
-        if exception_not_exists is None:
-            exception_not_exists = Registry.DomainBrowser.OBJECT_NOT_EXISTS
-
-        response = self.cursor.fetchall(query, dict(handle=handle))
-        if not len(response):
-            raise exception_not_exists
-
-        return response[0][0]
-
-
     def __getContactHandleId(self, handle):
         "Returns ID of contact handle."
-        return self.__getHandleId(handle, """
+        return self._getHandleId(handle, """
             SELECT
                 object_registry.id, object_registry.name
             FROM object_registry
@@ -141,14 +122,14 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                domain_states_view.states
+                object_states_view.states
             FROM object_registry
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
+            LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
             WHERE domain_contact_map.contactid = %(contact_id)d
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate DESC
@@ -167,7 +148,7 @@ class DomainInterface(ListMetaInterface):
         contact_id = self.__getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
-        nsset_id = self.__getHandleId(nsset, """
+        nsset_id = self._getHandleId(nsset, """
             SELECT object_registry.id, object_registry.name
             FROM object_registry
             LEFT JOIN nsset ON object_registry.id = nsset.id
@@ -182,14 +163,14 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                domain_states_view.states
+                object_states_view.states
             FROM object_registry
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
+            LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
             WHERE domain.nsset = %(nsset_id)d
             ORDER BY domain.exdate DESC
             LIMIT %(limit)d"""
@@ -208,7 +189,7 @@ class DomainInterface(ListMetaInterface):
         contact_id = self.__getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
-        keyset_id = self.__getHandleId(keyset, """
+        keyset_id = self._getHandleId(keyset, """
             SELECT object_registry.id, object_registry.name
             FROM object_registry
             LEFT JOIN keyset ON object_registry.id = keyset.id
@@ -223,14 +204,14 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                domain_states_view.states
+                object_states_view.states
             FROM object_registry
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN domain_states_view ON domain_states_view.id = object_registry.id
+            LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
             WHERE domain.keyset = %(keyset_id)d
             ORDER BY domain.exdate DESC
             LIMIT %(limit)d"""
