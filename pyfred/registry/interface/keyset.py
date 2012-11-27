@@ -104,8 +104,6 @@ class KeysetInterface(ListMetaInterface):
             string         key;
         };
         """
-        self.logger.log(self.logger.DEBUG, 'Call KeysetInterface.getKeysetDetail(handle="%s", keyset="%s")' % (handle, keyset))
-
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 

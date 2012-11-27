@@ -47,8 +47,6 @@ class ContactInterface(BaseInterface):
             ObjectStatusSeq status_list;
         };
         """
-        self.logger.log(self.logger.DEBUG, 'Call ContactInterface.getContactDetail(handle="%s")' % handle)
-
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -149,5 +147,4 @@ class ContactInterface(BaseInterface):
     @furnish_database_cursor_m
     def setContactDiscloseFlags(self, handle, flags):
         "Dummy setContactDiscloseFlags"
-        self.logger.log(self.logger.DEBUG, 'Call ContactInterface.setContactDiscloseFlags(handle="%s", flags=%s)' % (handle, flags))
         # TODO: ...

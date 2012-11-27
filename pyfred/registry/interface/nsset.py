@@ -89,8 +89,6 @@ class NssetInterface(ListMetaInterface):
             short report_level;
         };
         """
-        self.logger.log(self.logger.DEBUG, 'Call NssetInterface.getNssetDetail(handle="%s", nsset="%s")' % (handle, nsset))
-
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 

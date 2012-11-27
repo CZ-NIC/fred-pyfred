@@ -93,13 +93,7 @@ class DomainInterface(ListMetaInterface):
     @normalize_object_handle_m
     @furnish_database_cursor_m
     def getDomainList(self, handle):
-        """
-        RecordSet getDomainList(
-                in RegistryObject handle,
-            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
-        """
-        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainList(handle="%s")' % handle)
-
+        "Return list of domains."
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
@@ -132,8 +126,6 @@ class DomainInterface(ListMetaInterface):
     @furnish_database_cursor_m
     def getDomainsForNsset(self, handle, nsset):
         "Domains for nsset"
-        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainsForNsset(handle="%s", nsset="%s")' % (handle, nsset))
-
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
@@ -172,8 +164,6 @@ class DomainInterface(ListMetaInterface):
     @furnish_database_cursor_m
     def getDomainsForKeyset(self, handle, keyset):
         "Domains for keyset"
-        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainsForKeyset(handle="%s", keyset="%s")' % (handle, keyset))
-
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
@@ -247,8 +237,6 @@ class DomainInterface(ListMetaInterface):
             3 - domain
             4 - keyset
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainInterface.getDomainDetail(handle="%s", domain="%s")' % (handle, domain))
-
         contact_id = self._getContactHandleId(handle)
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 

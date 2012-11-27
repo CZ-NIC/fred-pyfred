@@ -1,6 +1,9 @@
 #!/usr/bin/python
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils import normalize_and_check_handle
+from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
+            normalize_object_handle_m
+
 
 
 class BaseInterface(object):
@@ -18,12 +21,10 @@ class BaseInterface(object):
         self.list_limit = list_limit
         self.source = None
 
-
+    @normalize_object_handle_m
+    @furnish_database_cursor_m
     def setObjectBlockStatus(self, handle, selections, action):
         "Dummy setObjectBlockStatus"
-        self.logger.log(self.logger.DEBUG, 'Call BaseInterface.setObjectBlockStatus'
-                        '(handle="%s", selections="%s", action="%s", )' % (handle, selections, action))
-        handle = normalize_and_check_handle(self.logger, handle) # Registry.DomainBrowser.INCORRECT_USAGE
         # TODO: ...
 
     def _getHandleId(self, handle, query, exception_not_exists=None):
