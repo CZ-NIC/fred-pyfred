@@ -34,12 +34,11 @@ class KeysetInterface(ListMetaInterface):
 
         self._group_object_states()
 
-        KEYSET_ID, KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(4)
-        UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 3, 4
+        KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
+        UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result = []
         for row in self.source.fetchall("""
                 SELECT
-                    object_registry.id,
                     object_registry.name,
                     domains.number,
                     object_states_view.states,
@@ -54,8 +53,7 @@ class KeysetInterface(ListMetaInterface):
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
             obj_states = parse_array_agg(row[OBJ_STATES])
 
-            row[KEYSET_ID] = "%d" % row[KEYSET_ID]
-            row[NUM_OF_DOMAINS] = "%d" % row[NUM_OF_DOMAINS]
+            row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
             row[UPDATE_PROHIBITED] = "t" if EnunObjectStates.server_update_prohibited in obj_states else "f"
             row[TRANSFER_PROHIBITED] = "t" if EnunObjectStates.server_transfer_prohibited in obj_states else "f"
             result.append(row)
