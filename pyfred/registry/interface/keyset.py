@@ -5,7 +5,7 @@ from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils import parse_array_agg
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, normalize_handles_m
-from pyfred.registry.utils.constants import EnunObjectStates
+from pyfred.registry.utils.constants import EnunObjectStates, OBJECT_REGISTRY_TYPES
 
 
 
@@ -25,8 +25,8 @@ class KeysetInterface(ListMetaInterface):
     @furnish_database_cursor_m
     def getKeysetList(self, handle):
         "List of keysets"
-        keyset_id = self._getHandleId(handle, "SELECT id FROM object_registry WHERE name = %(handle)s")
-        self.logger.log(self.logger.DEBUG, "Found keyset ID %d of the handle '%s'." % (keyset_id, handle))
+        contact_id = self._getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
         self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_keyset_view AS
@@ -41,21 +41,24 @@ class KeysetInterface(ListMetaInterface):
                 SELECT
                     object_registry.name,
                     domains.number,
-                    object_states_view.states,
-                    ''
+                    object_states_view.states
                 FROM object_registry
-                LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
-                LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
-                WHERE object_registry.id = %(keyset_id)d
-                LIMIT %(limit)d""",
-                dict(keyset_id=keyset_id, limit=self.limits["list_keysets"])):
+                    LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
+                    LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+                    LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
+                WHERE type = %(objtype)d
+                    AND keyset_contact_map.contactid = %(contact_id)d
+                LIMIT %(limit)d
+                """,
+                dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact_id,
+                     limit=self.limits["list_keysets"])):
 
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
             obj_states = parse_array_agg(row[OBJ_STATES])
 
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
             row[UPDATE_PROHIBITED] = "t" if EnunObjectStates.server_update_prohibited in obj_states else "f"
-            row[TRANSFER_PROHIBITED] = "t" if EnunObjectStates.server_transfer_prohibited in obj_states else "f"
+            row.append("t" if EnunObjectStates.server_transfer_prohibited in obj_states else "f")
             result.append(row)
 
         self.logger.log(self.logger.DEBUG, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (handle, len(result)))

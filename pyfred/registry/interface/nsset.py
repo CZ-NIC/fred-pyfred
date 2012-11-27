@@ -5,7 +5,8 @@ from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils import parse_array_agg
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, normalize_handles_m
-from pyfred.registry.utils.constants import EnunObjectStates
+from pyfred.registry.utils.constants import EnunObjectStates, OBJECT_REGISTRY_TYPES
+
 
 
 class NssetInterface(ListMetaInterface):
@@ -25,8 +26,8 @@ class NssetInterface(ListMetaInterface):
     @furnish_database_cursor_m
     def getNssetList(self, handle):
         "List of nssets"
-        nsset_id = self._getHandleId(handle, "SELECT id FROM object_registry WHERE name = %(handle)s")
-        self.logger.log(self.logger.DEBUG, "Found nsset ID %d of the handle '%s'." % (nsset_id, handle))
+        contact_id = self._getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
         self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_nsset_view AS
@@ -41,22 +42,26 @@ class NssetInterface(ListMetaInterface):
                 SELECT
                     object_registry.name,
                     domains.number,
-                    object_states_view.states,
-                    ''
+                    object_states_view.states
                 FROM object_registry
-                LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
-                LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
-                WHERE object_registry.id = %(nsset_id)d
-                LIMIT %(limit)d""",
-                dict(nsset_id=nsset_id, limit=self.limits["list_nssets"])):
+                    LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
+                    LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+                    LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
+                WHERE type = %(objtype)d
+                    AND nsset_contact_map.contactid = %(contact_id)d
+                LIMIT %(limit)d
+                """,
+                dict(objtype=OBJECT_REGISTRY_TYPES['nsset'], contact_id=contact_id,
+                     limit=self.limits["list_nssets"])):
 
-            # row: ['KONTAKT', None, '{linked}', '']
+            # row: ['KONTAKT', None, '{linked}']
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
             obj_states = parse_array_agg(row[OBJ_STATES])
 
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
             row[UPDATE_PROHIBITED] = "t" if EnunObjectStates.server_update_prohibited in obj_states else "f"
-            row[TRANSFER_PROHIBITED] = "t" if EnunObjectStates.server_transfer_prohibited in obj_states else "f"
+            row.append("t" if EnunObjectStates.server_transfer_prohibited in obj_states else "f")
+
             result.append(row)
 
         self.logger.log(self.logger.DEBUG, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (handle, len(result)))
