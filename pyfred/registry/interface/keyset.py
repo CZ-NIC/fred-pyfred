@@ -51,7 +51,7 @@ class KeysetInterface(ListMetaInterface):
                 LIMIT %(limit)d
                 """,
                 dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact_id,
-                     limit=self.limits["list_keysets"])):
+                     limit=self.list_limit)):
 
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
             obj_states = parse_array_agg(row[OBJ_STATES])

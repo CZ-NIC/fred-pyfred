@@ -123,7 +123,7 @@ class DomainInterface(ListMetaInterface):
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate DESC
             LIMIT %(limit)d"""
-        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])
+        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.list_limit)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
@@ -163,7 +163,7 @@ class DomainInterface(ListMetaInterface):
             ORDER BY domain.exdate DESC
             LIMIT %(limit)d"""
         sql_params = dict(nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          limit=self.limits["list_domains"])
+                          limit=self.list_limit)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
@@ -203,7 +203,7 @@ class DomainInterface(ListMetaInterface):
             ORDER BY domain.exdate DESC
             LIMIT %(limit)d"""
         sql_params = dict(keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          limit=self.limits["list_domains"])
+                          limit=self.list_limit)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 

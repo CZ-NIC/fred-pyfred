@@ -52,7 +52,7 @@ class NssetInterface(ListMetaInterface):
                 LIMIT %(limit)d
                 """,
                 dict(objtype=OBJECT_REGISTRY_TYPES['nsset'], contact_id=contact_id,
-                     limit=self.limits["list_nssets"])):
+                     limit=self.list_limit)):
 
             # row: ['KONTAKT', None, '{linked}']
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":

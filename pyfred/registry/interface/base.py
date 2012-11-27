@@ -9,9 +9,15 @@ class BaseInterface(object):
     PUBLIC_DATA, PRIVATE_DATA = range(2)
     PASSWORD_SUBSTITUTION = "********"
 
-    logger = None
-    source = None
-    limits = None
+    INTERNAL_SERVER_ERROR = Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
+
+    def __init__(self, database, logger, list_limit=None):
+        self.database = database
+        self.logger = logger
+        self.list_limit = list_limit
+        self.source = None
+
 
     def setObjectBlockStatus(self, handle, selections, action):
         "Dummy setObjectBlockStatus"
