@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
-from pyfred.registry.utils.constants import DOMAIN_ROLE
+from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, normalize_handles_m, normalize_domain_m
@@ -154,19 +154,18 @@ class DomainInterface(ListMetaInterface):
                 domain.keyset IS NOT NULL,
                 object_states_view.states
             FROM object_registry
-            LEFT JOIN domain ON object_registry.id = domain.id
-            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                      AND domain_contact_map.role = %(role_id)d
+            LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
             LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
-            WHERE domain.nsset = %(nsset_id)d
+            WHERE object_registry.type = %(objtype)d
+                AND domain.nsset = %(nsset_id)d
             ORDER BY domain.exdate DESC
             LIMIT %(limit)d"""
-        sql_params = dict(nsset_id=nsset_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])
+        sql_params = dict(nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
+                          limit=self.limits["list_domains"])
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
-
 
 
     @normalize_handles_m(((0, "handle"), (1, "keyset")))
@@ -195,16 +194,16 @@ class DomainInterface(ListMetaInterface):
                 domain.keyset IS NOT NULL,
                 object_states_view.states
             FROM object_registry
-            LEFT JOIN domain ON object_registry.id = domain.id
-            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                      AND domain_contact_map.role = %(role_id)d
+            LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
             LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
-            WHERE domain.keyset = %(keyset_id)d
+            WHERE object_registry.type = %(objtype)d
+                AND domain.keyset = %(keyset_id)d
             ORDER BY domain.exdate DESC
             LIMIT %(limit)d"""
-        sql_params = dict(keyset_id=keyset_id, role_id=DOMAIN_ROLE["admin"], limit=self.limits["list_domains"])
+        sql_params = dict(keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
+                          limit=self.limits["list_domains"])
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 

@@ -47,7 +47,7 @@ class NssetInterface(ListMetaInterface):
                     LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
                     LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
                     LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
-                WHERE type = %(objtype)d
+                WHERE object_registry.type = %(objtype)d
                     AND nsset_contact_map.contactid = %(contact_id)d
                 LIMIT %(limit)d
                 """,

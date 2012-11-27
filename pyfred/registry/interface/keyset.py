@@ -46,7 +46,7 @@ class KeysetInterface(ListMetaInterface):
                     LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
                     LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
                     LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
-                WHERE type = %(objtype)d
+                WHERE object_registry.type = %(objtype)d
                     AND keyset_contact_map.contactid = %(contact_id)d
                 LIMIT %(limit)d
                 """,
