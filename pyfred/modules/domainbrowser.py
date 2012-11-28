@@ -171,15 +171,16 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getKeysetDetail(handle="%s", keyset="%s")' % (handle, keyset))
         return self.keyset.getKeysetDetail(handle, keyset)
 
-    def setContactDiscloseFlags(self, handle, flags):
+    def setContactAuthInfoAndDiscloseFlags(self, handle, auth_info, flags):
         """
-        void setContactDiscloseFlags(
-            in RegistryObject handle,
-            in ContactDiscloseFlags flags
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, ACCESS_DENIED);
+        void setContactAuthInfoAndDiscloseFlags(
+                in RegistryObject handle,
+                in RegistryObject auth_info,
+                in ContactDiscloseFlags flags
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, ACCESS_DENIED);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setContactDiscloseFlags(handle="%s", flags=%s)' % (handle, flags))
-        return self.contact.setContactDiscloseFlags(handle, flags)
+        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setContactDiscloseFlags(handle="%s", auth_info="*******", flags=%s)' % (handle, flags))
+        return self.contact.setContactAuthInfoAndDiscloseFlags(handle, auth_info, flags)
 
     def setObjectBlockStatus(self, handle, objects, block):
         """

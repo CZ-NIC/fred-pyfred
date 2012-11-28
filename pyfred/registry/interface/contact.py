@@ -104,6 +104,7 @@ class ContactInterface(BaseInterface):
             WHERE oreg.name = %(handle)s""", dict(handle=handle))
 
         if len(results) == 0:
+            self.logger.log(self.logger.DEBUG, 'Contact of handle "%s" does not exist.' % handle)
             raise Registry.DomainBrowser.USER_NOT_EXISTS
 
         if len(results) != 1:
@@ -145,12 +146,13 @@ class ContactInterface(BaseInterface):
 
     @normalize_object_handle_m
     @furnish_database_cursor_m
-    def setContactDiscloseFlags(self, handle, flags):
+    def setContactAuthInfoAndDiscloseFlags(self, handle, auth_info, flags):
         "Set contact disclose flags."
 
         results = self.source.fetchall("""
             SELECT
                 contact.id,
+                object.authinfopw,
                 contact.disclosename,
                 contact.discloseorganization,
                 contact.discloseemail,
@@ -163,6 +165,7 @@ class ContactInterface(BaseInterface):
 
             FROM object_registry oreg
                 LEFT JOIN contact ON contact.id = oreg.id
+                LEFT JOIN object ON oreg.id = object.id
 
             WHERE oreg.name = %(handle)s""", dict(handle=handle))
 
@@ -174,7 +177,8 @@ class ContactInterface(BaseInterface):
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
         contact_id = results[0][0]
-        disclose_flag_values = results[0][1:]
+        contact_auth_info = results[0][1]
+        disclose_flag_values = results[0][2:]
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
         columns = ("name", "organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
@@ -182,32 +186,39 @@ class ContactInterface(BaseInterface):
         discloses_original = Registry.DomainBrowser.ContactDiscloseFlags(**disclose_flags)
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
 
-        if not len(changes):
-            self.logger.log(self.logger.DEBUG, 'NO CHANGE of contact[%d] "%s" disclose flags (%s).' % (
-                contact_id, handle,
-                ", ".join(["%s=%s" % item for item in disclose_flags.items()]))
-            )
+        sql_auth_info, sql_flags, params = "", "", dict(contact_id=contact_id)
+
+        if contact_auth_info != auth_info:
+            sql_auth_info = "UPDATE object SET authinfopw = %(auth_info)s WHERE id = %(contact_id)d"
+            params["auth_info"] = auth_info
+
+        if len(changes):
+            sql_flags = """
+                UPDATE contact SET
+                    disclosename = %(name)s,
+                    discloseorganization = %(organization)s,
+                    discloseemail = %(email)s,
+                    discloseaddress = %(address)s,
+                    disclosetelephone = %(telephone)s,
+                    disclosefax = %(fax)s,
+                    discloseident = %(ident)s,
+                    disclosevat = %(vat)s,
+                    disclosenotifyemail = %(notify_email)s
+                WHERE id = %(contact_id)d"""
+            params.update(flags.__dict__)
+
+        if sql_auth_info == "" and sql_flags == "":
+            self.logger.log(self.logger.DEBUG, 'NO CHANGE of contact[%d] "%s" authinfopw nor disclose flags.' % (contact_id, handle))
             return
 
-        self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
-                contact_id, handle,
-                ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
-                ", ".join(["%s=%s" % item for item in changes]))
-        )
+        if sql_auth_info:
+            self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" auth info.' % (contact_id, handle))
+        if sql_flags:
+            self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
+                    contact_id, handle,
+                    ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
+                    ", ".join(["%s=%s" % item for item in changes]))
+            )
 
-        params = flags.__dict__
-        params["contact_id"] = contact_id
-
-        self.source.execute("""
-            UPDATE contact SET
-                disclosename = %(name)s,
-                discloseorganization = %(organization)s,
-                discloseemail = %(email)s,
-                discloseaddress = %(address)s,
-                disclosetelephone = %(telephone)s,
-                disclosefax = %(fax)s,
-                discloseident = %(ident)s,
-                disclosevat = %(vat)s,
-                disclosenotifyemail = %(notify_email)s
-        WHERE id = %(contact_id)d; COMMIT""", params)
-        self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" discloses changed.' % (contact_id, handle))
+        self.source.execute("BEGIN TRANSACTION; %s; %s; COMMIT" % (sql_auth_info, sql_flags), params)
+        self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, handle))

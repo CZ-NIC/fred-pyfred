@@ -42,3 +42,13 @@ def parse_array_agg(value):
     "Parse postgresql array_agg"
     # "{outzone,nssetMissing}" or "{NULL}" -> ["outzone", "nssetMissing"] or []
     return [name for name in value[1:-1].split(",") if name != "NULL"]
+
+
+def make_params_private(params):
+    "Make params private"
+    if params is None:
+        return None
+    private_params = params.copy()
+    if "auth_info" in private_params:
+        private_params["auth_info"] = "********"
+    return private_params
