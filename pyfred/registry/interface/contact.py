@@ -146,5 +146,68 @@ class ContactInterface(BaseInterface):
     @normalize_object_handle_m
     @furnish_database_cursor_m
     def setContactDiscloseFlags(self, handle, flags):
-        "Dummy setContactDiscloseFlags"
-        # TODO: ...
+        "Set contact disclose flags."
+
+        results = self.source.fetchall("""
+            SELECT
+                contact.id,
+                contact.disclosename,
+                contact.discloseorganization,
+                contact.discloseemail,
+                contact.discloseaddress,
+                contact.disclosetelephone,
+                contact.disclosefax,
+                contact.discloseident,
+                contact.disclosevat,
+                contact.disclosenotifyemail
+
+            FROM object_registry oreg
+                LEFT JOIN contact ON contact.id = oreg.id
+
+            WHERE oreg.name = %(handle)s""", dict(handle=handle))
+
+        if len(results) == 0:
+            raise Registry.DomainBrowser.USER_NOT_EXISTS
+
+        if len(results) != 1:
+            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (handle, results))
+            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
+        contact_id = results[0][0]
+        disclose_flag_values = results[0][1:]
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+
+        columns = ("name", "organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
+        disclose_flags = dict(zip(columns, disclose_flag_values))
+        discloses_original = Registry.DomainBrowser.ContactDiscloseFlags(**disclose_flags)
+        changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
+
+        if not len(changes):
+            self.logger.log(self.logger.DEBUG, 'NO CHANGE of contact[%d] "%s" disclose flags (%s).' % (
+                contact_id, handle,
+                ", ".join(["%s=%s" % item for item in disclose_flags.items()]))
+            )
+            return
+
+        self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
+                contact_id, handle,
+                ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
+                ", ".join(["%s=%s" % item for item in changes]))
+        )
+
+        params = flags.__dict__
+        params["contact_id"] = contact_id
+
+        self.source.execute("""
+            UPDATE contact SET
+                disclosename = %(name)s,
+                discloseorganization = %(organization)s,
+                discloseemail = %(email)s,
+                discloseaddress = %(address)s,
+                disclosetelephone = %(telephone)s,
+                disclosefax = %(fax)s,
+                discloseident = %(ident)s,
+                disclosevat = %(vat)s,
+                disclosenotifyemail = %(notify_email)s
+        WHERE id = %(contact_id)d; COMMIT""", params)
+        self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" discloses changed.' % (contact_id, handle))
