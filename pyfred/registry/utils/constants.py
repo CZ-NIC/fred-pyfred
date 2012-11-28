@@ -21,6 +21,9 @@ DOMAIN_ROLE = dict(admin=1, temp=2)
 # SELECT type, name FROM object_registry WHERE type = %d
 OBJECT_REGISTRY_TYPES = dict(contact=1, nsset=2, domain=3, keyset=4)
 
+OBJECT_STATES = dict(serverUpdateProhibited=4, deleteCandidate=17)
+
+
 class EnunObjectStates(object):
     server_transfer_prohibited = "serverTransferProhibited"
     server_update_prohibited = "serverUpdateProhibited"

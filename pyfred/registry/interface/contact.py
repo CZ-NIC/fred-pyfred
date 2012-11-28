@@ -6,6 +6,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m
+from pyfred.registry.utils.constants import OBJECT_STATES
 
 
 class ContactInterface(BaseInterface):
@@ -162,6 +163,20 @@ class ContactInterface(BaseInterface):
     @furnish_database_cursor_m
     def setContactAuthInfoAndDiscloseFlags(self, handle, auth_info, flags):
         "Set contact disclose flags."
+
+        results = self.source.fetchall("""
+            SELECT COUNT(*)
+            FROM object_state
+            LEFT JOIN object_registry oreg ON oreg.id = object_state.object_id
+            WHERE oreg.name = %(handle)s
+                AND state_id IN %(states)s
+                AND valid_to ISNULL""",
+            dict(handle=handle, states=(OBJECT_STATES["serverUpdateProhibited"],
+                                        OBJECT_STATES["deleteCandidate"])))
+
+        if len(results):
+            self.logger.log(self.logger.INFO, 'Can not update contact "%s" due to object state restriction.' % handle)
+            raise Registry.DomainBrowser.ACCESS_DENIED
 
         results = self.source.fetchall("""
             SELECT
