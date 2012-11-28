@@ -38,6 +38,8 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.nsset = NssetInterface(database, logger, list_nssets_limit)
         self.keyset = KeysetInterface(database, logger, list_keysets_limit)
 
+        self.contact._create_array_agg() # create array_agg if missing in posgresql.
+
         logger.log(logger.DEBUG, "Object DomainBrowser initialized.")
 
 
