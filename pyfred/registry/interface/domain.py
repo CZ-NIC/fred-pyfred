@@ -110,6 +110,7 @@ class DomainInterface(ListMetaInterface):
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
+                      AND domain_contact_map.contactid = %(contact_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
             LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
