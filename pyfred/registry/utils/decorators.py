@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from pyfred.registry.utils.cursors import DatabaseCursor
+from pyfred.registry.utils.cursors import DatabaseCursor, TransactionLevelRead
 from pyfred.registry.utils import normalize_and_check_handle, normalize_and_check_domain
 
 
@@ -17,6 +17,19 @@ def furnish_database_cursor_m(interface_function):
             retval = interface_function(self, *args, **kwargs)
             self.source = None
         #self.logger.log(self.logger.DEBUG, '@furnish_database_cursor_m END') # DEBUG ONLY
+        return retval
+
+    return wrapper
+
+
+def transaction_isolation_level_read_m(interface_function):
+    """
+    Call function inside transaction.
+    """
+    def wrapper(self, *args, **kwargs):
+        "Decorate an interface class method."
+        with TransactionLevelRead(self.source, self.logger) as transaction:
+            return interface_function(self, *args, **kwargs)
         return retval
 
     return wrapper

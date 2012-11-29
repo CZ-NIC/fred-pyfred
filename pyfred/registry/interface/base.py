@@ -80,6 +80,35 @@ class BaseInterface(object):
         return status_list
 
 
+    def _update_history(self, object_id, handle, table_name):
+        "Update object history."
+        params = dict(object_id=object_id)
+
+        # remember timestamp of update
+        self.source.execute("UPDATE object SET update = NOW() WHERE id = %(object_id)d", params)
+
+        # create new "history" record
+        params["history_id"] = history_id = self.source.getval("SELECT NEXTVAL('history_id_seq')")
+        self.logger.log(self.logger.DEBUG, 'Next history ID %d for object ID %d with handle "%s".' % (history_id, object_id, handle))
+        self.source.execute("INSERT INTO history (id, valid_from) VALUES (%(history_id)d, NOW())", params)
+
+        # read previous history ID
+        params["prev_history_id"] = prev_history_id = self.source.getval("SELECT historyid FROM object_registry WHERE id = %(object_id)d", params)
+        self.logger.log(self.logger.DEBUG, 'Previous history ID %d for object ID %d with handle "%s".' % (prev_history_id, object_id, handle))
+
+        # make backup of table "object"
+        # make backup of "$OBJECT" (contact, domain, nsset, keyset)
+        # refresh history pointer in "object_registry"
+        self.source.execute("""
+            INSERT INTO object_history SELECT %%(history_id)d, * FROM object WHERE id = %%(object_id)d;
+            INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d;
+            UPDATE object_registry SET historyid = %%(history_id)d WHERE id = %%(object_id)d
+            """ % dict(name=table_name), params)
+
+        # refresh previous record of "history"
+        self.source.execute("UPDATE history SET valid_to = NOW(), next = %(history_id)d WHERE id = %(prev_history_id)d", params)
+
+
 
 class ListMetaInterface(BaseInterface):
     "Parent of interfaces with getDomainListMeta"

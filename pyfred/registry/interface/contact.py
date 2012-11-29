@@ -5,8 +5,9 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_object_handle_m
+            normalize_object_handle_m, transaction_isolation_level_read_m
 from pyfred.registry.utils.constants import OBJECT_STATES
+from pyfred.registry.utils.cursors import TransactionLevelRead
 
 
 class ContactInterface(BaseInterface):
@@ -174,7 +175,8 @@ class ContactInterface(BaseInterface):
             dict(handle=handle, states=(OBJECT_STATES["serverUpdateProhibited"],
                                         OBJECT_STATES["deleteCandidate"])))
 
-        if len(results):
+        self.logger.log(self.logger.DEBUG, "results=%s" % results) #!!!
+        if results[0][0] != 0:
             self.logger.log(self.logger.INFO, 'Can not update contact "%s" due to object state restriction.' % handle)
             raise Registry.DomainBrowser.ACCESS_DENIED
 
@@ -240,14 +242,20 @@ class ContactInterface(BaseInterface):
             self.logger.log(self.logger.DEBUG, 'NO CHANGE of contact[%d] "%s" authinfopw nor disclose flags.' % (contact_id, handle))
             return
 
-        if sql_auth_info:
-            self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" auth info.' % (contact_id, handle))
-        if sql_flags:
-            self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
-                    contact_id, handle,
-                    ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
-                    ", ".join(["%s=%s" % item for item in changes]))
-            )
+        # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
+        with TransactionLevelRead(self.source, self.logger) as transaction:
+            if sql_auth_info:
+                self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" auth info.' % (contact_id, handle))
+                self.source.execute(sql_auth_info, params)
 
-        self.source.execute("BEGIN TRANSACTION; %s; %s; COMMIT" % (sql_auth_info, sql_flags), params)
+            if sql_flags:
+                self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
+                        contact_id, handle,
+                        ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
+                        ", ".join(["%s=%s" % item for item in changes]))
+                )
+                self.source.execute(sql_flags, params)
+
+            self._update_history(contact_id, handle, "contact")
+
         self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, handle))

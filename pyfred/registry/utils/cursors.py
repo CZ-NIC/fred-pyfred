@@ -56,3 +56,28 @@ class DatabaseCursor(object):
         for row in self.fetchall(sql, params):
             record_set.append([str(column) for column in row])
         return record_set
+
+    def getval(self, sql, params=None):
+        "Return first column of first row."
+        return self.fetchall(sql, params)[0][0] # [row][column]
+
+
+class TransactionLevelRead(object):
+    """
+    Provide TRANSACTION ISOLATION LEVEL READ COMMITTED
+    """
+    def __init__(self, source, logger):
+        self.source = source
+        self.logger = logger
+
+    def __enter__(self):
+        "Start transaction"
+        self.source.execute("START TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        "End transaction."
+        if exc_type is None:
+            self.source.execute("COMMIT TRANSACTION")
+        else:
+            self.source.execute("ROLLBACK")
