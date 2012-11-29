@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pyfred.idlstubs import Registry, Registry__POA
 # objects
 from pyfred.registry.interface import ContactInterface, DomainInterface, NssetInterface, KeysetInterface
+from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES
 
 
 
@@ -184,16 +185,27 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setContactDiscloseFlags(handle="%s", auth_info="*******", flags=%s)' % (handle, flags))
         return self.contact.setContactAuthInfoAndDiscloseFlags(handle, auth_info, flags)
 
-    def setObjectBlockStatus(self, handle, objects, block):
+    def setObjectBlockStatus(self, handle, objtype, objects, block):
         """
         void setObjectBlockStatus(
             in RegistryObject handle,
+            in RegistryObject objtype,
             in RegistryObjectSeq objects,
             in ObjectBlockType block
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
+
+        enum ObjectBlockType {
+            BLOCK_TRANSFER, UNBLOCK_TRANSFER,
+            BLOCK_UPDATE, UNBLOCK_UPDATE,
+            BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE
+        };
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setObjectBlockStatus(handle="%s", objects=%s, block=%s)' % (handle, objects, block))
-        return self.domain.setObjectBlockStatus(handle, objects, block)
+        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setObjectBlockStatus(handle="%s", objtype="%s", objects=%s, block=%s)' % (handle, objtype, objects, block))
+
+        if objtype not in OBJECT_REGISTRY_TYPES:
+            raise Registry.DomainBrowser.INCORRECT_USAGE
+
+        return getattr(self, objtype).setObjectBlockStatus(handle, objtype, objects, block)
 
 
 

@@ -6,7 +6,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, transaction_isolation_level_read_m
-from pyfred.registry.utils.constants import OBJECT_STATES
+from pyfred.registry.utils.constants import ENUM_OBJECT_STATES
 from pyfred.registry.utils.cursors import TransactionLevelRead
 
 
@@ -171,11 +171,10 @@ class ContactInterface(BaseInterface):
             LEFT JOIN object_registry oreg ON oreg.id = object_state.object_id
             WHERE oreg.name = %(handle)s
                 AND state_id IN %(states)s
-                AND valid_to ISNULL""",
-            dict(handle=handle, states=(OBJECT_STATES["serverUpdateProhibited"],
-                                        OBJECT_STATES["deleteCandidate"])))
+                AND valid_to IS NULL""",
+            dict(handle=handle, states=(ENUM_OBJECT_STATES["serverUpdateProhibited"],
+                                        ENUM_OBJECT_STATES["deleteCandidate"])))
 
-        self.logger.log(self.logger.DEBUG, "results=%s" % results) #!!!
         if results[0][0] != 0:
             self.logger.log(self.logger.INFO, 'Can not update contact "%s" due to object state restriction.' % handle)
             raise Registry.DomainBrowser.ACCESS_DENIED

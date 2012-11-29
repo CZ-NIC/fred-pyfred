@@ -342,3 +342,19 @@ class DomainInterface(ListMetaInterface):
         data = dict(zip(columns, domain_detail))
 
         return (Registry.DomainBrowser.DomainDetail(**data), data_type)
+
+
+    def setObjectBlockStatus(self, handle, objtype, selections, action):
+        "Set object block status."
+        return self._setObjectBlockStatus(handle, objtype, selections, action,
+            """
+            SELECT
+                objreg.name,
+                objreg.id
+            FROM object_registry objreg
+            LEFT JOIN domain_contact_map map ON map.domainid = objreg.id
+            LEFT JOIN domain ON objreg.id = domain.id
+            WHERE type = %(objtype)d
+                AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
+                AND name IN %(names)s
+            """)

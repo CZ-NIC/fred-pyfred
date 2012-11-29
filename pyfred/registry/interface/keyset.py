@@ -5,7 +5,7 @@ from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils import parse_array_agg
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, normalize_handles_m
-from pyfred.registry.utils.constants import EnunObjectStates, OBJECT_REGISTRY_TYPES
+from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES
 
 
 
@@ -57,8 +57,8 @@ class KeysetInterface(ListMetaInterface):
             obj_states = parse_array_agg(row[OBJ_STATES])
 
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
-            row[UPDATE_PROHIBITED] = "t" if EnunObjectStates.server_update_prohibited in obj_states else "f"
-            row.append("t" if EnunObjectStates.server_transfer_prohibited in obj_states else "f")
+            row[UPDATE_PROHIBITED] = "t" if "serverUpdateProhibited" in obj_states else "f"
+            row.append("t" if "serverTransferProhibited" in obj_states else "f")
             result.append(row)
 
         self.logger.log(self.logger.DEBUG, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (handle, len(result)))
@@ -203,3 +203,18 @@ class KeysetInterface(ListMetaInterface):
         data = dict(zip(columns, keyset_detail))
 
         return (Registry.DomainBrowser.KeysetDetail(**data), data_type)
+
+
+    def setObjectBlockStatus(self, handle, objtype, selections, action):
+        "Set object block status."
+        return self._setObjectBlockStatus(handle, objtype, selections, action,
+            """
+            SELECT
+                objreg.name,
+                objreg.id
+            FROM object_registry objreg
+            LEFT JOIN keyset_contact_map map ON map.keysetid = objreg.id
+            WHERE type = %(objtype)d
+                AND map.contactid = %(contact_id)d
+                AND name IN %(names)s
+            """)

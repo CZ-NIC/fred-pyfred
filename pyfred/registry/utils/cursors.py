@@ -61,6 +61,10 @@ class DatabaseCursor(object):
         "Return first column of first row."
         return self.fetchall(sql, params)[0][0] # [row][column]
 
+    def fetch_array(self, sql, params=None):
+        "Return first column of the result."
+        return [row[0] for row in self.fetchall(sql, params)]
+
 
 class TransactionLevelRead(object):
     """

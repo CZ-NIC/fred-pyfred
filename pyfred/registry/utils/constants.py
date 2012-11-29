@@ -21,9 +21,35 @@ DOMAIN_ROLE = dict(admin=1, temp=2)
 # SELECT type, name FROM object_registry WHERE type = %d
 OBJECT_REGISTRY_TYPES = dict(contact=1, nsset=2, domain=3, keyset=4)
 
-OBJECT_STATES = dict(serverUpdateProhibited=4, deleteCandidate=17)
 
-
-class EnunObjectStates(object):
-    server_transfer_prohibited = "serverTransferProhibited"
-    server_update_prohibited = "serverUpdateProhibited"
+ENUM_OBJECT_STATES = dict(serverTransferProhibited=3,
+                          serverUpdateProhibited=4,
+                          deleteCandidate=17)
+#fred=> SELECT * FROM enum_object_states ORDER BY id;
+# id |               name               |   types   | manual | external
+#----+----------------------------------+-----------+--------+----------
+#  1 | serverDeleteProhibited           | {1,2,3,4} | t      | t
+#  2 | serverRenewProhibited            | {3}       | t      | t
+#  3 | serverTransferProhibited         | {1,2,3,4} | t      | t
+#  4 | serverUpdateProhibited           | {1,2,3,4} | t      | t
+#  5 | serverOutzoneManual              | {3}       | t      | t
+#  6 | serverInzoneManual               | {3}       | t      | t
+#  7 | serverBlocked                    | {3}       | t      | t
+#  8 | expirationWarning                | {3}       | f      | f
+#  9 | expired                          | {3}       | f      | t
+# 10 | unguarded                        | {3}       | f      | f
+# 11 | validationWarning1               | {3}       | f      | f
+# 12 | validationWarning2               | {3}       | f      | f
+# 13 | notValidated                     | {3}       | f      | t
+# 14 | nssetMissing                     | {3}       | f      | f
+# 15 | outzone                          | {3}       | f      | t
+# 16 | linked                           | {1,2,4}   | f      | t
+# 17 | deleteCandidate                  | {1,2,3,4} | f      | t
+# 18 | serverRegistrantChangeProhibited | {3}       | t      | t
+# 19 | deleteWarning                    | {3}       | f      | f
+# 20 | outzoneUnguarded                 | {3}       | f      | f
+# 21 | conditionallyIdentifiedContact   | {1}       | t      | t
+# 22 | identifiedContact                | {1}       | t      | t
+# 23 | validatedContact                 | {1}       | t      | t
+# 24 | mojeidContact                    | {1}       | t      | t
+#(24 rows)
