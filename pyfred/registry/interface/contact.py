@@ -244,3 +244,15 @@ class ContactInterface(BaseInterface):
             self._update_history(contact_id, handle, "contact")
 
         self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, handle))
+
+
+    def setObjectBlockStatus(self, handle, objtype, selections, action):
+        "Set object block status."
+        return self._setObjectBlockStatus(handle, objtype, selections, action,
+            """
+            SELECT
+                objreg.name,
+                objreg.id
+            FROM object_registry objreg
+            WHERE objreg.id = %(contact_id)d
+            """)

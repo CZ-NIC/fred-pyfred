@@ -198,9 +198,8 @@ class BaseInterface(object):
         self.source.execute("UPDATE object SET update = NOW() WHERE id = %(object_id)d", params)
 
         # create new "history" record
-        params["history_id"] = history_id = self.source.getval("SELECT NEXTVAL('history_id_seq')")
+        params["history_id"] = history_id = self.source.getval("INSERT INTO history (valid_from) VALUES (NOW()) RETURNING id")
         self.logger.log(self.logger.DEBUG, 'Next history ID %d for object ID %d with handle "%s".' % (history_id, object_id, handle))
-        self.source.execute("INSERT INTO history (id, valid_from) VALUES (%(history_id)d, NOW())", params)
 
         # read previous history ID
         params["prev_history_id"] = prev_history_id = self.source.getval("SELECT historyid FROM object_registry WHERE id = %(object_id)d", params)
