@@ -155,6 +155,8 @@ class NssetInterface(ListMetaInterface):
             WHERE nssetid = %(obj_id)d
             """, dict(obj_id=nsset_detail[TID]))
 
+        self._create_array_agg_if_not_exists()
+
         hosts = []
         for row_host in self.source.fetchall("""
                 SELECT

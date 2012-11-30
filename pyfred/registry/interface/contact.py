@@ -13,20 +13,6 @@ from pyfred.registry.utils.cursors import TransactionLevelRead
 class ContactInterface(BaseInterface):
     "Contact corba interface."
 
-    @furnish_database_cursor_m
-    def _create_array_agg(self):
-        "Create array_agg() if missing in posgresql."
-        results = self.source.fetchall("SELECT * FROM pg_proc WHERE proname = 'array_agg'")
-        if not len(results):
-            self.source.execute("""
-                CREATE AGGREGATE array_agg(anyelement) (
-                    SFUNC=array_append,
-                    STYPE=anyarray,
-                    INITCOND='{}'
-                )""")
-            self.logger.log(self.logger.INFO, 'Create missing function array_agg().')
-
-
     @normalize_object_handle_m
     @furnish_database_cursor_m
     def getContactDetail(self, handle):
