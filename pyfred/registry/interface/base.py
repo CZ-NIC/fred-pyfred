@@ -91,7 +91,9 @@ class BaseInterface(object):
             self.source.execute("""
                 INSERT INTO object_state_request_lock
                 (state_id, object_id)
-                VALUES (%(state_id)d, %(object_id)d)""", dict(state_id=state_id, object_id=object_id))
+                VALUES (%(state_id)d, %(object_id)d);
+                SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)
+                """, dict(state_id=state_id, object_id=object_id))
 
         with_state = self.source.fetch_array("""
             SELECT
