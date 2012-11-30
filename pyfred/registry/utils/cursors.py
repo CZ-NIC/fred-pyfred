@@ -76,7 +76,7 @@ class TransactionLevelRead(object):
 
     def __enter__(self):
         "Start transaction"
-        self.source.execute("START TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        self.source.execute("START TRANSACTION") # ISOLATION LEVEL READ COMMITTED
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
