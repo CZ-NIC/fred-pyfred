@@ -41,7 +41,11 @@ def normalize_spaces(text):
 def parse_array_agg(value):
     "Parse postgresql array_agg (array_accum)"
     # "{outzone,nssetMissing}" or "{NULL}" -> ["outzone", "nssetMissing"] or []
-    return [name for name in value[1:-1].split(",") if name != "NULL"]
+    return [name for name in value[1:-1].split(",") if name not in ("NULL", "")]
+
+def parse_array_agg_int(value):
+    "Parse postgresql array_agg (array_accum). It must be integers only!"
+    return [int(item) for item in parse_array_agg(value)]
 
 
 def make_params_private(params):

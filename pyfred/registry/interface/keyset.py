@@ -2,10 +2,10 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils import parse_array_agg
+from pyfred.registry.utils import parse_array_agg_int
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, normalize_handles_m
-from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES
+from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
 
 
@@ -32,8 +32,6 @@ class KeysetInterface(ListMetaInterface):
             CREATE OR REPLACE TEMPORARY VIEW domains_by_keyset_view AS
             SELECT keyset, COUNT(keyset) AS number FROM domain GROUP BY keyset""")
 
-        self._group_object_states()
-
         KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result = []
@@ -41,10 +39,10 @@ class KeysetInterface(ListMetaInterface):
                 SELECT
                     object_registry.name,
                     domains.number,
-                    object_states_view.states
+                    keyset_states.states
                 FROM object_registry
                     LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
-                    LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+                    LEFT JOIN keyset_states ON keyset_states.object_id = object_registry.id
                     LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
                 WHERE object_registry.type = %(objtype)d
                     AND keyset_contact_map.contactid = %(contact_id)d
@@ -54,11 +52,11 @@ class KeysetInterface(ListMetaInterface):
                      limit=self.list_limit)):
 
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
-            obj_states = parse_array_agg(row[OBJ_STATES])
+            obj_states = parse_array_agg_int(row[OBJ_STATES])
 
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
-            row[UPDATE_PROHIBITED] = "t" if "serverUpdateProhibited" in obj_states else "f"
-            row.append("t" if "serverTransferProhibited" in obj_states else "f")
+            row[UPDATE_PROHIBITED] = "t" if ENUM_OBJECT_STATES["serverUpdateProhibited"] in obj_states else "f"
+            row.append("t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in obj_states else "f")
             result.append(row)
 
         self.logger.log(self.logger.DEBUG, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (handle, len(result)))

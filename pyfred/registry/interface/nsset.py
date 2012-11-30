@@ -2,10 +2,10 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils import parse_array_agg
+from pyfred.registry.utils import parse_array_agg, parse_array_agg_int
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, normalize_handles_m
-from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES
+from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
 
 
@@ -33,8 +33,6 @@ class NssetInterface(ListMetaInterface):
             CREATE OR REPLACE TEMPORARY VIEW domains_by_nsset_view AS
             SELECT nsset, COUNT(nsset) AS number FROM domain GROUP BY nsset""")
 
-        self._group_object_states()
-
         NSSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result = []
@@ -42,10 +40,10 @@ class NssetInterface(ListMetaInterface):
                 SELECT
                     object_registry.name,
                     domains.number,
-                    object_states_view.states
+                    nsset_states.states
                 FROM object_registry
                     LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
-                    LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+                    LEFT JOIN nsset_states ON nsset_states.object_id = object_registry.id
                     LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
                 WHERE object_registry.type = %(objtype)d
                     AND nsset_contact_map.contactid = %(contact_id)d
@@ -56,11 +54,11 @@ class NssetInterface(ListMetaInterface):
 
             # row: ['KONTAKT', None, '{linked}']
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
-            obj_states = parse_array_agg(row[OBJ_STATES])
+            obj_states = parse_array_agg_int(row[OBJ_STATES])
 
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
-            row[UPDATE_PROHIBITED] = "t" if "serverUpdateProhibited" in obj_states else "f"
-            row.append("t" if "serverTransferProhibited" in obj_states else "f")
+            row[UPDATE_PROHIBITED] = "t" if ENUM_OBJECT_STATES["serverUpdateProhibited"] in obj_states else "f"
+            row.append("t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in obj_states else "f")
 
             result.append(row)
 

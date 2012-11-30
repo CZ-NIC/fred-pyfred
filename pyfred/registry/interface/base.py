@@ -159,17 +159,18 @@ class BaseInterface(object):
             Registry.DomainBrowser.USER_NOT_EXISTS)
 
 
-    def _group_object_states(self):
+    def _dict_of_object_states(self):
         "Group objecst states into VIEW."
-        self.source.execute("""
-            CREATE OR REPLACE TEMPORARY VIEW object_states_view AS SELECT
-                object_registry.id, array_accum(enum_object_states.name) AS states
-            FROM object_registry
-            LEFT JOIN object_state ON object_state.object_id = object_registry.id
-                AND (object_state.valid_from < NOW()
-                AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
-            LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
-            GROUP BY object_registry.id""")
+        return dict(self.source.fetchall("SELECT id, name FROM enum_object_states"))
+
+    def _map_object_states(self, states, dictkeys=None):
+        "Map object states ID with theirs keys."
+        result = []
+        if dictkeys is None:
+            dictkeys = self._dict_of_object_states()
+        for state_id in states:
+            result.append(dictkeys[state_id])
+        return result
 
 
     def _get_status_list(self, handle):

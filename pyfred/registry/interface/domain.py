@@ -2,11 +2,11 @@
 from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
-from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES
+from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
             normalize_object_handle_m, normalize_handles_m, normalize_domain_m
-from pyfred.registry.utils import parse_array_agg
+from pyfred.registry.utils import parse_array_agg_int
 
 
 
@@ -50,12 +50,10 @@ class DomainInterface(ListMetaInterface):
         domain_list = []
         REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
-        self._group_object_states()
-
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
         for domain_row in self.source.fetchall(sql_query, sql_params):
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
-            domain_states = parse_array_agg(domain_row[DOMAIN_STATES]) ## [name for name in domain_row[DOMAIN_STATES][1:-1].split(",") if name != "NULL"]
+            domain_states = parse_array_agg_int(domain_row[DOMAIN_STATES])
 
             # expiration_dns_protection_period, expiration_registration_protection_period
             exdate = datetime.strptime(domain_row[EXDATE], '%Y-%m-%d').date()
@@ -77,14 +75,14 @@ class DomainInterface(ListMetaInterface):
 
             domain_list.append([
                 domain_row[DOMAIN_NAME], # domain_name TEXT
-                " ".join(domain_states), # domain_state TEXT
+                " ".join(self._map_object_states(domain_states)),
                 next_state,              # next_state TEXT
                 str(next_state_date),    # next_state_date DATE
                 "t" if domain_row[DNSSEC] else "f", # dnssec_available BOOL
                 "owner" if domain_row[REGISTRANT] == contact_id else "admin", # your_role TEXT
                 domain_row[REG_HANDLE],                                       # registrar_handle TEXT
-                "t" if "serverUpdateProhibited" in domain_states else "f",    # blocked_update BOOL
-                "t" if "serverTransferProhibited" in domain_states else "f",  # blocked_transfer BOOL
+                "t" if ENUM_OBJECT_STATES["serverUpdateProhibited"] in domain_states else "f",    # blocked_update BOOL
+                "t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in domain_states else "f",  # blocked_transfer BOOL
                 ])
 
         return domain_list
@@ -105,7 +103,7 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                object_states_view.states
+                domain_states.states
             FROM object_registry
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -113,7 +111,7 @@ class DomainInterface(ListMetaInterface):
                       AND domain_contact_map.contactid = %(contact_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+            LEFT JOIN domain_states ON domain_states.object_id = object_registry.id
             WHERE domain_contact_map.contactid = %(contact_id)d
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate DESC
@@ -145,12 +143,12 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                object_states_view.states
+                domain_states.states
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+            LEFT JOIN domain_states ON domain_states.object_id = object_registry.id
             WHERE object_registry.type = %(objtype)d
                 AND domain.nsset = %(nsset_id)d
             ORDER BY domain.exdate DESC
@@ -183,12 +181,12 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                object_states_view.states
+                domain_states.states
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN object_states_view ON object_states_view.id = object_registry.id
+            LEFT JOIN domain_states ON domain_states.object_id = object_registry.id
             WHERE object_registry.type = %(objtype)d
                 AND domain.keyset = %(keyset_id)d
             ORDER BY domain.exdate DESC
