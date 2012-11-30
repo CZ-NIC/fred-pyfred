@@ -157,25 +157,11 @@ class BaseInterface(object):
             Registry.DomainBrowser.USER_NOT_EXISTS)
 
 
-    def _create_array_agg_if_not_exists(self):
-        "Create array_agg() if missing in posgresql."
-        results = self.source.fetchall("SELECT * FROM pg_proc WHERE proname = 'array_agg'")
-        if not len(results):
-            self.source.execute("""
-                CREATE AGGREGATE array_agg(anyelement) (
-                    SFUNC=array_append,
-                    STYPE=anyarray,
-                    INITCOND='{}'
-                )""")
-            self.logger.log(self.logger.INFO, 'Create missing function array_agg().')
-
-
     def _group_object_states(self):
         "Group objecst states into VIEW."
-        self._create_array_agg_if_not_exists()
         self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW object_states_view AS SELECT
-                object_registry.id, array_agg(enum_object_states.name) AS states
+                object_registry.id, array_accum(enum_object_states.name) AS states
             FROM object_registry
             LEFT JOIN object_state ON object_state.object_id = object_registry.id
                 AND (object_state.valid_from < NOW()

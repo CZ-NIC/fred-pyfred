@@ -155,18 +155,16 @@ class NssetInterface(ListMetaInterface):
             WHERE nssetid = %(obj_id)d
             """, dict(obj_id=nsset_detail[TID]))
 
-        self._create_array_agg_if_not_exists()
-
         hosts = []
         for row_host in self.source.fetchall("""
                 SELECT
                     MIN(host.fqdn),
-                    array_agg(host_ipaddr_map.ipaddr)
+                    array_accum(host_ipaddr_map.ipaddr)
                 FROM host_ipaddr_map
                 LEFT JOIN host ON host_ipaddr_map.hostid = host.id
                 WHERE host_ipaddr_map.nssetid = %(nsset_id)d
                 GROUP BY host_ipaddr_map.hostid""", dict(nsset_id=nsset_detail[TID])):
-            #     min     |  array_agg
+            #     min     |  array_accum
             #-------------+--------------
             # a.ns.nic.cz | {194.0.12.1,123.4.0.1}
             # b.ns.nic.cz | {194.0.13.1}
