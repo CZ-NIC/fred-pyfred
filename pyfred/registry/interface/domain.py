@@ -311,7 +311,7 @@ class DomainInterface(ListMetaInterface):
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
             domain_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
 
-        admins = self.source.fetchall("""
+        admins = self.source.fetch_array("""
             SELECT object_registry.name
             FROM domain_contact_map
             LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
@@ -320,7 +320,7 @@ class DomainInterface(ListMetaInterface):
             """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[TID]))
 
         # OBSOLETE
-        temps = self.source.fetchall("""
+        temps = self.source.fetch_array("""
             SELECT object_registry.name
             FROM domain_contact_map
             LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
@@ -328,8 +328,8 @@ class DomainInterface(ListMetaInterface):
                 AND domainid = %(obj_id)d
             """, dict(role_id=DOMAIN_ROLE["temp"], obj_id=domain_detail[TID]))
 
-        domain_detail.append([row[0] for row in admins])
-        domain_detail.append([row[0] for row in temps]) # OBSOLETE
+        domain_detail.append(admins)
+        domain_detail.append(temps) # OBSOLETE
         domain_detail.append(status_list)
 
         # replace None by empty string

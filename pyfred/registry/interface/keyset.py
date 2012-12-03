@@ -120,13 +120,10 @@ class KeysetInterface(ListMetaInterface):
                 creator.handle AS create_registrar,
                 updator.handle AS update_registrar,
 
-                obj.authinfopw AS auth_info,
-                registrant.name AS registrant
+                obj.authinfopw AS auth_info
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
-                LEFT JOIN domain ON oreg.id = domain.keyset
-                LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
 
                 LEFT JOIN registrar creator ON creator.id = oreg.crid
                 LEFT JOIN registrar current ON current.id = obj.clid
@@ -148,22 +145,21 @@ class KeysetInterface(ListMetaInterface):
         TID, PASSWORD = 0, 9
 
         keyset_detail = results[0]
-        registrant = keyset_detail.pop()
 
-        if registrant == handle:
+        admins = self.source.fetch_array("""
+            SELECT object_registry.name
+            FROM keyset_contact_map
+            LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
+            WHERE keysetid = %(obj_id)d
+            """, dict(obj_id=keyset_detail[TID]))
+
+        if handle in admins:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
             # not owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
             keyset_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
-
-        admins = self.source.fetchall("""
-            SELECT object_registry.name
-            FROM keyset_contact_map
-            LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
-            WHERE keysetid = %(obj_id)d
-            """, dict(obj_id=keyset_detail[TID]))
 
         dsrecords = []
         columns = ("key_tag", "alg", "digest_type", "digest", "max_sig_life")
@@ -187,7 +183,7 @@ class KeysetInterface(ListMetaInterface):
             data = dict(zip(columns, row_dsrec))
             dnskeys.append(Registry.DomainBrowser.DNSKey(**data))
 
-        keyset_detail.append([row[0] for row in admins])
+        keyset_detail.append(admins)
         keyset_detail.append(dsrecords)
         keyset_detail.append(dnskeys)
         keyset_detail.append(status_list)

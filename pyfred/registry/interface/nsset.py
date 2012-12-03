@@ -106,14 +106,11 @@ class NssetInterface(ListMetaInterface):
                 updator.handle AS update_registrar,
 
                 obj.authinfopw AS auth_info,
-                registrant.name AS registrant,
                 nsset.checklevel
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
                 LEFT JOIN nsset ON nsset.id = oreg.id
-                LEFT JOIN domain ON oreg.id = domain.nsset
-                LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
 
                 LEFT JOIN registrar creator ON creator.id = oreg.crid
                 LEFT JOIN registrar current ON current.id = obj.clid
@@ -136,22 +133,21 @@ class NssetInterface(ListMetaInterface):
 
         nsset_detail = results[0]
         report_level = nsset_detail.pop()
-        registrant = nsset_detail.pop()
 
-        if registrant == handle:
+        admins = self.source.fetch_array("""
+            SELECT object_registry.name
+            FROM nsset_contact_map
+            LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+            WHERE nssetid = %(obj_id)d
+            """, dict(obj_id=nsset_detail[TID]))
+
+        if handle in admins:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
             # not owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
             nsset_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
-
-        admins = self.source.fetchall("""
-            SELECT object_registry.name
-            FROM nsset_contact_map
-            LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
-            WHERE nssetid = %(obj_id)d
-            """, dict(obj_id=nsset_detail[TID]))
 
         hosts = []
         for row_host in self.source.fetchall("""
@@ -170,7 +166,7 @@ class NssetInterface(ListMetaInterface):
             ip_address = parse_array_agg(row_host[1])
             hosts.append(Registry.DomainBrowser.DNSHost(fqdn=row_host[0], inet=", ".join(ip_address)))
 
-        nsset_detail.append([row[0] for row in admins])
+        nsset_detail.append(admins)
         nsset_detail.append(hosts)
         nsset_detail.append(status_list)
         nsset_detail.append(report_level)
