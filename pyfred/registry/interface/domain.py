@@ -262,6 +262,7 @@ class DomainInterface(ListMetaInterface):
                 registrant.erdate AS val_ex_date,
 
                 enum.publish AS publish,
+                zone.enum_zone,
 
                 regnsset.name AS nsset,
                 regkeyset.name AS keyset
@@ -270,6 +271,7 @@ class DomainInterface(ListMetaInterface):
                 LEFT JOIN object obj ON obj.id = oreg.id
 
                 LEFT JOIN domain ON oreg.id = domain.id
+                LEFT JOIN zone ON domain.zone = zone.id
                 LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
 
                 LEFT JOIN registrar creator ON creator.id = oreg.crid
@@ -335,9 +337,8 @@ class DomainInterface(ListMetaInterface):
 
         columns = ("id", "roid", "fqdn", "registrar", "create_date", "transfer_date",
                    "update_date", "create_registrar", "update_registrar", "auth_info",
-                   "registrant", "expiration_date", "val_ex_date", "publish", "nsset", "keyset",
-                   "admins", "temps", "status_list")
-
+                   "registrant", "expiration_date", "val_ex_date", "publish", "is_enum",
+                   "nsset", "keyset", "admins", "temps", "status_list")
         data = dict(zip(columns, domain_detail))
 
         return (Registry.DomainBrowser.DomainDetail(**data), data_type)
