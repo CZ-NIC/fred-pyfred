@@ -5,7 +5,8 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_object_handle_m, transaction_isolation_level_read_m
+            normalize_object_handle_m, normalize_handles_m, \
+            transaction_isolation_level_read_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES
 from pyfred.registry.utils.cursors import TransactionLevelRead
 
@@ -13,9 +14,9 @@ from pyfred.registry.utils.cursors import TransactionLevelRead
 class ContactInterface(BaseInterface):
     "Contact corba interface."
 
-    @normalize_object_handle_m
+    @normalize_handles_m(((0, "handle"), (1, "contact")))
     @furnish_database_cursor_m
-    def getContactDetail(self, handle):
+    def getContactDetail(self, handle, contact):
         """Return detail of contact."
 
         struct ContactDetail {
@@ -49,6 +50,9 @@ class ContactInterface(BaseInterface):
             ObjectStatusSeq status_list;
         };
         """
+        contact_id = self._getContactHandleId(handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -103,17 +107,17 @@ class ContactInterface(BaseInterface):
                 LEFT JOIN contact ON contact.id = oreg.id
                 LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
-            WHERE oreg.name = %(handle)s""", dict(handle=handle))
+            WHERE oreg.name = %(handle)s""", dict(handle=contact))
 
         if len(results) == 0:
-            self.logger.log(self.logger.DEBUG, 'Contact of handle "%s" does not exist.' % handle)
+            self.logger.log(self.logger.DEBUG, 'Contact of handle "%s" does not exist.' % contact)
             raise Registry.DomainBrowser.USER_NOT_EXISTS
 
         if len(results) != 1:
-            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (handle, results))
+            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(handle)
+        status_list = self._get_status_list(contact)
 
         TID, HANDLE, PASSWORD = 0, 1, 9
         contact_detail = results[0][:-9]

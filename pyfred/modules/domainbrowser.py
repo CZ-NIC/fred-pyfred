@@ -129,15 +129,16 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainsForNssetMeta()')
         return self.domain.getDomainsForNssetMeta()
 
-    def getContactDetail(self, handle):
+    def getContactDetail(self, handle, contact):
         """
         ContactDetail getContactDetail(
             in RegistryObject handle,
+            in RegistryObject contact,
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getContactDetail(handle="%s")' % handle)
-        return self.contact.getContactDetail(handle)
+        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getContactDetail(handle="%s", contact="%s")' % (handle, contact))
+        return self.contact.getContactDetail(handle, contact)
 
     def getNssetDetail(self, handle, nsset):
         """
