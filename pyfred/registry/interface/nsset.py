@@ -158,10 +158,10 @@ class NssetInterface(ListMetaInterface):
                 SELECT
                     MIN(host.fqdn),
                     array_accum(host_ipaddr_map.ipaddr)
-                FROM host_ipaddr_map
-                LEFT JOIN host ON host_ipaddr_map.hostid = host.id
-                WHERE host_ipaddr_map.nssetid = %(nsset_id)d
-                GROUP BY host_ipaddr_map.hostid""", dict(nsset_id=nsset_detail[TID])):
+                FROM host
+                LEFT JOIN host_ipaddr_map ON host_ipaddr_map.hostid = host.id
+                WHERE host.nssetid = %(nsset_id)d
+                GROUP BY host.id""", dict(nsset_id=nsset_detail[TID])):
             #     min     |  array_accum
             #-------------+--------------
             # a.ns.nic.cz | {194.0.12.1,123.4.0.1}
