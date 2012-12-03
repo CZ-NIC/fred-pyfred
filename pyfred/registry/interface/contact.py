@@ -169,7 +169,6 @@ class ContactInterface(BaseInterface):
             SELECT
                 contact.id,
                 object.authinfopw,
-                contact.disclosename,
                 contact.discloseorganization,
                 contact.discloseemail,
                 contact.discloseaddress,
@@ -197,9 +196,9 @@ class ContactInterface(BaseInterface):
         disclose_flag_values = results[0][2:]
         self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
 
-        columns = ("name", "organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
+        columns = ("organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
         disclose_flags = dict(zip(columns, disclose_flag_values))
-        discloses_original = Registry.DomainBrowser.ContactDiscloseFlags(**disclose_flags)
+        discloses_original = Registry.DomainBrowser.UpdateContactDiscloseFlags(**disclose_flags)
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
 
         sql_auth_info, sql_flags, params = "", "", dict(contact_id=contact_id)
@@ -211,7 +210,6 @@ class ContactInterface(BaseInterface):
         if len(changes):
             sql_flags = """
                 UPDATE contact SET
-                    disclosename = %(name)s,
                     discloseorganization = %(organization)s,
                     discloseemail = %(email)s,
                     discloseaddress = %(address)s,
