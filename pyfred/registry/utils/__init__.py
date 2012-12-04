@@ -51,7 +51,7 @@ def parse_array_agg_int(value):
 def make_params_private(params):
     "Make params private"
     if params is None:
-        return None
+        return ""
     private_params = params.copy()
     if "auth_info" in private_params:
         private_params["auth_info"] = "********"

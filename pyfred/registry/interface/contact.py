@@ -4,19 +4,16 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
-from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_object_handle_m, normalize_handles_m, \
-            transaction_isolation_level_read_m
-from pyfred.registry.utils.constants import ENUM_OBJECT_STATES
+from pyfred.registry.utils.decorators import furnish_database_cursor_m, transaction_isolation_level_read_m
+from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES
 from pyfred.registry.utils.cursors import TransactionLevelRead
 
 
 class ContactInterface(BaseInterface):
     "Contact corba interface."
 
-    @normalize_handles_m(((0, "handle"), (1, "contact")))
     @furnish_database_cursor_m
-    def getContactDetail(self, handle, contact):
+    def getContactDetail(self, contact_handle, contact):
         """Return detail of contact."
 
         struct ContactDetail {
@@ -50,8 +47,8 @@ class ContactInterface(BaseInterface):
             ObjectStatusSeq status_list;
         };
         """
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         results = self.source.fetchall("""
             SELECT
@@ -107,7 +104,8 @@ class ContactInterface(BaseInterface):
                 LEFT JOIN contact ON contact.id = oreg.id
                 LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
-            WHERE oreg.name = %(handle)s""", dict(handle=contact))
+            WHERE oreg.type = %(type_id)d AND oreg.name = %(handle)s""",
+            dict(handle=contact, type_id=OBJECT_REGISTRY_TYPES["contact"]))
 
         if len(results) == 0:
             self.logger.log(self.logger.DEBUG, 'Contact of handle "%s" does not exist.' % contact)
@@ -117,13 +115,13 @@ class ContactInterface(BaseInterface):
             self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(contact)
+        status_list = self._get_status_list(contact, "contact")
 
         TID, HANDLE, PASSWORD = 0, 1, 9
         contact_detail = results[0][:-9]
         disclose_flag_values = results[0][len(contact_detail):]
 
-        if contact_detail[HANDLE] == handle:
+        if contact_detail[HANDLE] == contact_handle:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
@@ -150,29 +148,15 @@ class ContactInterface(BaseInterface):
         return (Registry.DomainBrowser.ContactDetail(**data), data_type)
 
 
-    @normalize_object_handle_m
     @furnish_database_cursor_m
-    def setContactAuthInfoAndDiscloseFlags(self, handle, auth_info, flags):
+    def setContactDiscloseFlags(self, contact_handle, flags):
         "Set contact disclose flags."
-
-        results = self.source.fetchall("""
-            SELECT COUNT(*)
-            FROM object_state
-            LEFT JOIN object_registry oreg ON oreg.id = object_state.object_id
-            WHERE oreg.name = %(handle)s
-                AND state_id IN %(states)s
-                AND valid_to IS NULL""",
-            dict(handle=handle, states=(ENUM_OBJECT_STATES["serverUpdateProhibited"],
-                                        ENUM_OBJECT_STATES["deleteCandidate"])))
-
-        if results[0][0] != 0:
-            self.logger.log(self.logger.INFO, 'Can not update contact "%s" due to object state restriction.' % handle)
-            raise Registry.DomainBrowser.ACCESS_DENIED
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._object_is_editable(contact_id, contact_handle)
 
         results = self.source.fetchall("""
             SELECT
-                contact.id,
-                object.authinfopw,
                 contact.discloseorganization,
                 contact.discloseemail,
                 contact.discloseaddress,
@@ -181,38 +165,38 @@ class ContactInterface(BaseInterface):
                 contact.discloseident,
                 contact.disclosevat,
                 contact.disclosenotifyemail
-
-            FROM object_registry oreg
-                LEFT JOIN contact ON contact.id = oreg.id
-                LEFT JOIN object ON oreg.id = object.id
-
-            WHERE oreg.name = %(handle)s""", dict(handle=handle))
+            FROM contact
+            WHERE id = %(contact_id)d""", dict(contact_id=contact_id))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.USER_NOT_EXISTS
 
         if len(results) != 1:
-            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (handle, results))
+            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact_handle, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        contact_id = results[0][0]
-        contact_auth_info = results[0][1]
-        disclose_flag_values = results[0][2:]
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        disclose_flag_values = results[0]
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         columns = ("organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
         disclose_flags = dict(zip(columns, disclose_flag_values))
         discloses_original = Registry.DomainBrowser.UpdateContactDiscloseFlags(**disclose_flags)
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
 
-        sql_auth_info, sql_flags, params = "", "", dict(contact_id=contact_id)
+        if not len(changes):
+            self.logger.log(self.logger.DEBUG, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact_id, contact_handle))
+            return
 
-        if contact_auth_info != auth_info:
-            sql_auth_info = "UPDATE object SET authinfopw = %(auth_info)s WHERE id = %(contact_id)d"
-            params["auth_info"] = auth_info
-
-        if len(changes):
-            sql_flags = """
+        # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
+        with TransactionLevelRead(self.source, self.logger) as transaction:
+            self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
+                    contact_id, contact_handle,
+                    ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
+                    ", ".join(["%s=%s" % item for item in changes]))
+            )
+            params = dict(contact_id=contact_id)
+            params.update(flags.__dict__)
+            self.source.execute("""
                 UPDATE contact SET
                     discloseorganization = %(organization)s,
                     discloseemail = %(email)s,
@@ -222,35 +206,15 @@ class ContactInterface(BaseInterface):
                     discloseident = %(ident)s,
                     disclosevat = %(vat)s,
                     disclosenotifyemail = %(notify_email)s
-                WHERE id = %(contact_id)d"""
-            params.update(flags.__dict__)
+                WHERE id = %(contact_id)d""", params)
+            self._update_history(contact_id, contact_handle, "contact")
 
-        if sql_auth_info == "" and sql_flags == "":
-            self.logger.log(self.logger.DEBUG, 'NO CHANGE of contact[%d] "%s" authinfopw nor disclose flags.' % (contact_id, handle))
-            return
-
-        # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
-        with TransactionLevelRead(self.source, self.logger) as transaction:
-            if sql_auth_info:
-                self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" auth info.' % (contact_id, handle))
-                self.source.execute(sql_auth_info, params)
-
-            if sql_flags:
-                self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
-                        contact_id, handle,
-                        ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
-                        ", ".join(["%s=%s" % item for item in changes]))
-                )
-                self.source.execute(sql_flags, params)
-
-            self._update_history(contact_id, handle, "contact")
-
-        self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, handle))
+        self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, contact_handle))
 
 
-    def setObjectBlockStatus(self, handle, objtype, selections, action):
+    def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
         "Set object block status."
-        return self._setObjectBlockStatus(handle, objtype, selections, action,
+        return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
                 objreg.name,
@@ -258,3 +222,10 @@ class ContactInterface(BaseInterface):
             FROM object_registry objreg
             WHERE objreg.id = %(contact_id)d
             """)
+
+
+    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+        "Check if object belongs to the contact."
+        if contact_id != object_id:
+            self.logger.log(self.logger.DEBUG, "Contact ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
+            raise Registry.DomainBrowser.ACCESS_DENIED

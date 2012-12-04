@@ -3,8 +3,7 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils import parse_array_agg, parse_array_agg_int
-from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_object_handle_m, normalize_handles_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
 
@@ -22,12 +21,11 @@ class NssetInterface(ListMetaInterface):
                         ))
 
 
-    @normalize_object_handle_m
     @furnish_database_cursor_m
-    def getNssetList(self, handle):
+    def getNssetList(self, contact_handle):
         "List of nssets"
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_nsset_view AS
@@ -62,13 +60,12 @@ class NssetInterface(ListMetaInterface):
 
             result.append(row)
 
-        self.logger.log(self.logger.DEBUG, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (handle, len(result)))
+        self.logger.log(self.logger.DEBUG, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
         return result
 
 
-    @normalize_handles_m(((0, "handle"), (1, "nsset")))
     @furnish_database_cursor_m
-    def getNssetDetail(self, handle, nsset):
+    def getNssetDetail(self, contact_handle, nsset):
         """
         struct NSSetDetail {
             TID id;
@@ -87,8 +84,8 @@ class NssetInterface(ListMetaInterface):
             short report_level;
         };
         """
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         results = self.source.fetchall("""
             SELECT
@@ -116,8 +113,8 @@ class NssetInterface(ListMetaInterface):
                 LEFT JOIN registrar current ON current.id = obj.clid
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
-            WHERE oreg.name = %(nsset)s
-        """, dict(nsset=nsset))
+            WHERE oreg.type = %(type_id)d AND oreg.name = %(nsset)s
+        """, dict(nsset=nsset, type_id=OBJECT_REGISTRY_TYPES["nsset"]))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -126,7 +123,7 @@ class NssetInterface(ListMetaInterface):
             self.logger.log(self.logger.CRITICAL, "Nsset detail of '%s' does not have one record: %s" % (nsset, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(nsset)
+        status_list = self._get_status_list(nsset, "nsset")
         self.logger.log(self.logger.DEBUG, "Nsset '%s' has states: %s." % (nsset, status_list))
 
         TID, PASSWORD = 0, 9
@@ -141,7 +138,7 @@ class NssetInterface(ListMetaInterface):
             WHERE nssetid = %(obj_id)d
             """, dict(obj_id=nsset_detail[TID]))
 
-        if handle in admins:
+        if contact_handle in admins:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
@@ -182,9 +179,9 @@ class NssetInterface(ListMetaInterface):
         return (Registry.DomainBrowser.NSSetDetail(**data), data_type)
 
 
-    def setObjectBlockStatus(self, handle, objtype, selections, action):
+    def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
         "Set object block status."
-        return self._setObjectBlockStatus(handle, objtype, selections, action,
+        return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
                 objreg.name,
@@ -195,3 +192,17 @@ class NssetInterface(ListMetaInterface):
                 AND map.contactid = %(contact_id)d
                 AND name IN %(names)s
             """)
+
+
+    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+        "Check if object belongs to the contact."
+        admins = self.source.fetch_array("""
+            SELECT object_registry.name
+            FROM nsset_contact_map
+            LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+            WHERE nssetid = %(object_id)d
+            """, dict(object_id=object_id))
+
+        if contact_handle not in admins:
+            self.logger.log(self.logger.DEBUG, "Nsset ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
+            raise Registry.DomainBrowser.ACCESS_DENIED

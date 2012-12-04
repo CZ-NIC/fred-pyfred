@@ -73,6 +73,7 @@ class TransactionLevelRead(object):
     def __init__(self, source, logger):
         self.source = source
         self.logger = logger
+        self.success = False
 
     def __enter__(self):
         "Start transaction"
@@ -83,5 +84,6 @@ class TransactionLevelRead(object):
         "End transaction."
         if exc_type is None:
             self.source.execute("COMMIT TRANSACTION")
+            self.success = True
         else:
             self.source.execute("ROLLBACK")

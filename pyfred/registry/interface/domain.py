@@ -4,8 +4,7 @@ from datetime import datetime, timedelta
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_object_handle_m, normalize_handles_m, normalize_domain_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils import parse_array_agg_int
 
 
@@ -88,12 +87,11 @@ class DomainInterface(ListMetaInterface):
         return domain_list
 
 
-    @normalize_object_handle_m
     @furnish_database_cursor_m
-    def getDomainList(self, handle):
+    def getDomainList(self, contact_handle):
         "Return list of domains."
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         sql_query = """
             SELECT
@@ -121,18 +119,13 @@ class DomainInterface(ListMetaInterface):
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
 
-    @normalize_handles_m(((0, "handle"), (1, "nsset")))
     @furnish_database_cursor_m
-    def getDomainsForNsset(self, handle, nsset):
+    def getDomainsForNsset(self, contact_handle, nsset):
         "Domains for nsset"
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
-        nsset_id = self._getHandleId(nsset, """
-            SELECT object_registry.id, object_registry.name
-            FROM object_registry
-            LEFT JOIN nsset ON object_registry.id = nsset.id
-            WHERE object_registry.name = %(handle)s""")
+        nsset_id = self._get_handle_id(nsset, "nsset")
         self.logger.log(self.logger.DEBUG, "Found NSSET ID %d of the handle '%s'." % (nsset_id, nsset))
 
         sql_query = """
@@ -159,18 +152,13 @@ class DomainInterface(ListMetaInterface):
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
 
-    @normalize_handles_m(((0, "handle"), (1, "keyset")))
     @furnish_database_cursor_m
-    def getDomainsForKeyset(self, handle, keyset):
+    def getDomainsForKeyset(self, contact_handle, keyset):
         "Domains for keyset"
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
-        keyset_id = self._getHandleId(keyset, """
-            SELECT object_registry.id, object_registry.name
-            FROM object_registry
-            LEFT JOIN keyset ON object_registry.id = keyset.id
-            WHERE object_registry.name = %(handle)s""")
+        keyset_id = self._get_handle_id(keyset, "keyset")
         self.logger.log(self.logger.DEBUG, "Found KEYSET ID %d of the handle '%s'." % (keyset_id, keyset))
 
         sql_query = """
@@ -197,10 +185,8 @@ class DomainInterface(ListMetaInterface):
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
 
-    @normalize_domain_m
-    @normalize_object_handle_m
     @furnish_database_cursor_m
-    def getDomainDetail(self, handle, domain):
+    def getDomainDetail(self, contact_handle, domain):
         """
         struct DomainDetail {
             TID id;
@@ -236,8 +222,8 @@ class DomainInterface(ListMetaInterface):
             3 - domain
             4 - keyset
         """
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         results = self.source.fetchall("""
             SELECT
@@ -283,8 +269,8 @@ class DomainInterface(ListMetaInterface):
 
                 LEFT JOIN enumval enum ON enum.domainid = oreg.id
 
-            WHERE oreg.name = %(domain)s
-        """, dict(domain=domain))
+            WHERE oreg.type = %(type_id)d AND oreg.name = %(domain)s
+        """, dict(domain=domain, type_id=OBJECT_REGISTRY_TYPES["domain"]))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -293,7 +279,7 @@ class DomainInterface(ListMetaInterface):
             self.logger.log(self.logger.CRITICAL, "Domain detail of '%s' does not have one record: %s" % (domain, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(domain)
+        status_list = self._get_status_list(domain, "domain")
         self.logger.log(self.logger.DEBUG, "Domain '%s' has states: %s." % (domain, status_list))
 
         TID, PASSWORD, REGISTRANT, PUBLISH = 0, 9, 10, 13
@@ -303,7 +289,7 @@ class DomainInterface(ListMetaInterface):
         if domain_detail[PUBLISH] is None:
             domain_detail[PUBLISH] = False
 
-        if domain_detail[REGISTRANT] == handle:
+        if domain_detail[REGISTRANT] == contact_handle:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
@@ -344,9 +330,9 @@ class DomainInterface(ListMetaInterface):
         return (Registry.DomainBrowser.DomainDetail(**data), data_type)
 
 
-    def setObjectBlockStatus(self, handle, objtype, selections, action):
+    def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
         "Set object block status."
-        return self._setObjectBlockStatus(handle, objtype, selections, action,
+        return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
                 objreg.name,
@@ -358,3 +344,30 @@ class DomainInterface(ListMetaInterface):
                 AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
                 AND name IN %(names)s
             """)
+
+
+    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+        "Check if object belongs to the contact."
+        registrant_handle = self.source.getval("""
+            SELECT
+                registrant.name
+            FROM object_registry oreg
+                LEFT JOIN domain ON oreg.id = domain.id
+                LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
+            WHERE oreg.id = %(object_id)d
+        """, dict(object_id=object_id))
+
+        if registrant_handle != contact_handle:
+            self.logger.log(self.logger.DEBUG, "Domain ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
+            raise Registry.DomainBrowser.ACCESS_DENIED
+
+
+    def _copy_into_history_query(self, objtype):
+        "Prepare query for copy object into history."
+        # The order of columns in tables 'domain_history' and 'domain' are different.
+        # So we need list them in the query.
+        return """
+            INSERT INTO domain_history
+                       (historyid, id, zone, registrant, nsset, exdate, keyset)
+            SELECT %(history_id)d, id, zone, registrant, nsset, exdate, keyset
+            FROM domain WHERE id = %(object_id)d"""

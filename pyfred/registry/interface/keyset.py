@@ -3,8 +3,7 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils import parse_array_agg_int
-from pyfred.registry.utils.decorators import furnish_database_cursor_m, \
-            normalize_object_handle_m, normalize_handles_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
 
@@ -21,12 +20,11 @@ class KeysetInterface(ListMetaInterface):
                             ("blocked_transfer", "BOOL"),
                         ))
 
-    @normalize_object_handle_m
     @furnish_database_cursor_m
-    def getKeysetList(self, handle):
+    def getKeysetList(self, contact_handle):
         "List of keysets"
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_keyset_view AS
@@ -59,14 +57,13 @@ class KeysetInterface(ListMetaInterface):
             row.append("t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in obj_states else "f")
             result.append(row)
 
-        self.logger.log(self.logger.DEBUG, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (handle, len(result)))
+        self.logger.log(self.logger.DEBUG, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
         return result
 
         return []
 
-    @normalize_handles_m(((0, "handle"), (1, "keyset")))
     @furnish_database_cursor_m
-    def getKeysetDetail(self, handle, keyset):
+    def getKeysetDetail(self, contact_handle, keyset):
         """
         struct KeysetDetail {
             TID id;
@@ -102,8 +99,8 @@ class KeysetInterface(ListMetaInterface):
             string         key;
         };
         """
-        contact_id = self._getContactHandleId(handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, handle))
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         results = self.source.fetchall("""
             SELECT
@@ -129,8 +126,8 @@ class KeysetInterface(ListMetaInterface):
                 LEFT JOIN registrar current ON current.id = obj.clid
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
-            WHERE oreg.name = %(keyset)s
-        """, dict(keyset=keyset))
+            WHERE oreg.type = %(type_id)d AND oreg.name = %(keyset)s
+        """, dict(keyset=keyset, type_id=OBJECT_REGISTRY_TYPES["keyset"]))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -139,7 +136,7 @@ class KeysetInterface(ListMetaInterface):
             self.logger.log(self.logger.CRITICAL, "Keyset detail of '%s' does not have one record: %s" % (keyset, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(keyset)
+        status_list = self._get_status_list(keyset, "keyset")
         self.logger.log(self.logger.DEBUG, "Keyset '%s' has states: %s." % (keyset, status_list))
 
         TID, PASSWORD = 0, 9
@@ -153,7 +150,7 @@ class KeysetInterface(ListMetaInterface):
             WHERE keysetid = %(obj_id)d
             """, dict(obj_id=keyset_detail[TID]))
 
-        if handle in admins:
+        if contact_handle in admins:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
@@ -199,9 +196,9 @@ class KeysetInterface(ListMetaInterface):
         return (Registry.DomainBrowser.KeysetDetail(**data), data_type)
 
 
-    def setObjectBlockStatus(self, handle, objtype, selections, action):
+    def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
         "Set object block status."
-        return self._setObjectBlockStatus(handle, objtype, selections, action,
+        return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
                 objreg.name,
@@ -212,3 +209,17 @@ class KeysetInterface(ListMetaInterface):
                 AND map.contactid = %(contact_id)d
                 AND name IN %(names)s
             """)
+
+
+    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+        "Check if object belongs to the contact."
+        admins = self.source.fetch_array("""
+            SELECT object_registry.name
+            FROM keyset_contact_map
+            LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
+            WHERE keysetid = %(object_id)d
+            """, dict(object_id=object_id))
+
+        if contact_handle not in admins:
+            self.logger.log(self.logger.DEBUG, "Keyset ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
+            raise Registry.DomainBrowser.ACCESS_DENIED
