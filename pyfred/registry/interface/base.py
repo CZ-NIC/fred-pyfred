@@ -61,10 +61,10 @@ class BaseInterface(object):
             raise Registry.DomainBrowser.INCORRECT_USAGE
 
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         object_id = self._get_handle_id(object_handle, objtype)
-        self.logger.log(self.logger.DEBUG, "Found object ID %d of the handle '%s'." % (object_id, object_handle))
+        self.logger.log(self.logger.INFO, "Found object ID %d of the handle '%s'." % (object_id, object_handle))
 
         # ACCESS_DENIED:
         self._object_is_editable(object_id, object_handle)
@@ -79,7 +79,7 @@ class BaseInterface(object):
             """, dict(object_id=object_id))
 
         if auth_info == authinfopw:
-            self.logger.log(self.logger.DEBUG, 'No change of auth info at object[%d] "%s".' % (object_id, object_handle))
+            self.logger.log(self.logger.INFO, 'No change of auth info at object[%d] "%s".' % (object_id, object_handle))
             return
 
         self.logger.log(self.logger.INFO, 'Change object[%d] "%s" auth info.' % (object_id, object_handle))
@@ -94,20 +94,14 @@ class BaseInterface(object):
     def _setObjectBlockStatus(self, contact_handle, objtype, selections, action, query_object_registry):
         "Set objects block status."
         if not len(selections):
-            self.logger.log(self.logger.DEBUG, "SetObjectBlockStatus without selection for handle '%s'." % contact_handle)
+            self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle '%s'." % contact_handle)
             return
 
         if objtype not in OBJECT_REGISTRY_TYPES:
             raise Registry.DomainBrowser.INCORRECT_USAGE
 
-        ##normalize = normalize_and_check_domain if objtype == "domain" else normalize_and_check_handle
-        ##names = []
-        ##for name in selections:
-        ##    names.append(normalize(self.logger, name))
-        ##self.logger.log(self.logger.DEBUG, "Normalized names: %s" % names)
-
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         # find all object belongs to contact
         result = self.source.fetchall(query_object_registry,
@@ -139,19 +133,19 @@ class BaseInterface(object):
 
             BLOCK, UNBLOCK = True, False
             if action._v in (self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.DEBUG, "BLOCK TRANSFER of %s" % selections)
+                self.logger.log(self.logger.INFO, "BLOCK TRANSFER of %s" % selections)
                 self._blockUnblockObject(BLOCK, object_ids, "serverTransferProhibited")
 
             elif action._v in (self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.DEBUG, "UNBLOCK TRANSFER of %s" % selections)
+                self.logger.log(self.logger.INFO, "UNBLOCK TRANSFER of %s" % selections)
                 self._blockUnblockObject(UNBLOCK, object_ids, "serverTransferProhibited")
 
             if action._v in (self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.DEBUG, "BLOCK UPDATE of %s" % selections)
+                self.logger.log(self.logger.INFO, "BLOCK UPDATE of %s" % selections)
                 self._blockUnblockObject(BLOCK, object_ids, "serverUpdateProhibited")
 
             elif action._v in (self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.DEBUG, "UNBLOCK UPDATE of %s" % selections)
+                self.logger.log(self.logger.INFO, "UNBLOCK UPDATE of %s" % selections)
                 self._blockUnblockObject(UNBLOCK, object_ids, "serverUpdateProhibited")
 
 
@@ -277,11 +271,11 @@ class BaseInterface(object):
 
         # create new "history" record
         params["history_id"] = history_id = self.source.getval("INSERT INTO history (valid_from) VALUES (NOW()) RETURNING id")
-        self.logger.log(self.logger.DEBUG, 'Next history ID %d for object ID %d with handle "%s".' % (history_id, object_id, handle))
+        self.logger.log(self.logger.INFO, 'Next history ID %d for object ID %d with handle "%s".' % (history_id, object_id, handle))
 
         # read previous history ID
         params["prev_history_id"] = prev_history_id = self.source.getval("SELECT historyid FROM object_registry WHERE id = %(object_id)d", params)
-        self.logger.log(self.logger.DEBUG, 'Previous history ID %d for object ID %d with handle "%s".' % (prev_history_id, object_id, handle))
+        self.logger.log(self.logger.INFO, 'Previous history ID %d for object ID %d with handle "%s".' % (prev_history_id, object_id, handle))
 
         # make backup of talbe $OBJECT (contact, domain, nsset, keyset)
         # INSERT INTO object_history ...

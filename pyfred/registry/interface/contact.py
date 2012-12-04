@@ -48,7 +48,7 @@ class ContactInterface(BaseInterface):
         };
         """
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         results = self.source.fetchall("""
             SELECT
@@ -108,7 +108,7 @@ class ContactInterface(BaseInterface):
             dict(handle=contact, type_id=OBJECT_REGISTRY_TYPES["contact"]))
 
         if len(results) == 0:
-            self.logger.log(self.logger.DEBUG, 'Contact of handle "%s" does not exist.' % contact)
+            self.logger.log(self.logger.INFO, 'Contact of handle "%s" does not exist.' % contact)
             raise Registry.DomainBrowser.USER_NOT_EXISTS
 
         if len(results) != 1:
@@ -152,7 +152,7 @@ class ContactInterface(BaseInterface):
     def setContactDiscloseFlags(self, contact_handle, flags):
         "Set contact disclose flags."
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
         self._object_is_editable(contact_id, contact_handle)
 
         results = self.source.fetchall("""
@@ -176,7 +176,7 @@ class ContactInterface(BaseInterface):
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
         disclose_flag_values = results[0]
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         columns = ("organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
         disclose_flags = dict(zip(columns, disclose_flag_values))
@@ -184,7 +184,7 @@ class ContactInterface(BaseInterface):
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
 
         if not len(changes):
-            self.logger.log(self.logger.DEBUG, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact_id, contact_handle))
+            self.logger.log(self.logger.INFO, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact_id, contact_handle))
             return
 
         # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
@@ -209,7 +209,7 @@ class ContactInterface(BaseInterface):
                 WHERE id = %(contact_id)d""", params)
             self._update_history(contact_id, contact_handle, "contact")
 
-        self.logger.log(self.logger.DEBUG, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, contact_handle))
 
 
     def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
@@ -227,5 +227,5 @@ class ContactInterface(BaseInterface):
     def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
         if contact_id != object_id:
-            self.logger.log(self.logger.DEBUG, "Contact ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
+            self.logger.log(self.logger.INFO, "Contact ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
             raise Registry.DomainBrowser.ACCESS_DENIED

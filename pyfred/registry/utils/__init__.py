@@ -17,7 +17,7 @@ def normalize_and_check_handle(logger, handle):
     handle = handle.upper()
     match = CONTACT_REGEX_PATT.match(handle)
     if match is None:
-        logger.log(logger.DEBUG, 'Invalid format of handle "%s".' % handle)
+        logger.log(logger.INFO, 'Invalid format of handle "%s".' % handle)
         raise Registry.DomainBrowser.INCORRECT_USAGE
     return handle
 
@@ -28,7 +28,7 @@ def normalize_and_check_domain(logger, domain_name):
     domain_name = domain_name.lower()
     match = DOMAIN_NAME_REGEX_PATT.match(domain_name)
     if match is None:
-        logger.log(logger.DEBUG, 'Invalid format of domain name "%s".' % domain_name)
+        logger.log(logger.INFO, 'Invalid format of domain name "%s".' % domain_name)
         raise Registry.DomainBrowser.INCORRECT_USAGE
     return domain_name
 

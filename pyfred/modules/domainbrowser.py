@@ -58,7 +58,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainList(contact_handle="%s")' % contact_handle)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainList(contact_handle="%s")' % contact_handle)
         return self.domain.getDomainList(self._norm(contact_handle))
 
     def getDomainListMeta(self):
@@ -66,7 +66,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         RecordSetMeta getDomainListMeta()
             raises (INTERNAL_SERVER_ERROR);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainListMeta()')
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainListMeta()')
         return self.domain.getDomainListMeta()
 
     def getNssetList(self, contact_handle):
@@ -75,7 +75,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getNssetList(contact_handle="%s")' % contact_handle)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetList(contact_handle="%s")' % contact_handle)
         return self.nsset.getNssetList(self._norm(contact_handle))
 
     def getNssetListMeta(self):
@@ -83,7 +83,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         RecordSetMeta getNssetListMeta()
             raises (INTERNAL_SERVER_ERROR);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getNssetListMeta()')
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetListMeta()')
         return self.nsset.getNssetListMeta()
 
     def getKeysetList(self, contact_handle):
@@ -92,7 +92,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getKeysetList(contact_handle="%s")' % contact_handle)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetList(contact_handle="%s")' % contact_handle)
         return self.keyset.getKeysetList(self._norm(contact_handle))
 
     def getKeysetListMeta(self):
@@ -100,7 +100,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         RecordSetMeta getKeysetListMeta()
             raises (INTERNAL_SERVER_ERROR);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getKeysetListMeta()')
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetListMeta()')
         return self.keyset.getKeysetListMeta()
 
     def getDomainsForKeyset(self, contact_handle, keyset):
@@ -110,7 +110,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject keyset
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset))
 
     def getDomainsForKeysetMeta(self):
@@ -118,7 +118,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         RecordSetMeta getDomainsForKeysetMeta()
             raises (INTERNAL_SERVER_ERROR);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainsForKeysetMeta()')
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeysetMeta()')
         return self.domain.getDomainsForKeysetMeta()
 
     def getDomainsForNsset(self, contact_handle, nsset):
@@ -128,7 +128,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject nsset
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset))
 
     def getDomainsForNssetMeta(self):
@@ -136,7 +136,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         RecordSetMeta getDomainsForNssetMeta()
             raises (INTERNAL_SERVER_ERROR);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainsForNssetMeta()')
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNssetMeta()')
         return self.domain.getDomainsForNssetMeta()
 
     def getContactDetail(self, contact_handle, contact_handle_detail):
@@ -147,7 +147,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getContactDetail(contact_handle="%s", contact_for_detail="%s")' % (contact_handle, contact_handle_detail))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getContactDetail(contact_handle="%s", contact_for_detail="%s")' % (contact_handle, contact_handle_detail))
         return self.contact.getContactDetail(self._norm(contact_handle), self._norm(contact_handle_detail))
 
     def getNssetDetail(self, contact_handle, nsset):
@@ -158,7 +158,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getNssetDetail(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetDetail(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.nsset.getNssetDetail(self._norm(contact_handle), self._norm(nsset))
 
     def getDomainDetail(self, contact_handle, domain):
@@ -169,7 +169,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getDomainDetail(contact_handle="%s", domain="%s")' % (contact_handle, domain))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainDetail(contact_handle="%s", domain="%s")' % (contact_handle, domain))
         return self.domain.getDomainDetail(self._norm(contact_handle), self._dom(domain))
 
     def getKeysetDetail(self, contact_handle, keyset):
@@ -180,7 +180,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.getKeysetDetail(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetDetail(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.keyset.getKeysetDetail(self._norm(contact_handle), self._norm(keyset))
 
     def setContactDiscloseFlags(self, contact_handle, flags):
@@ -190,7 +190,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                 in ContactDiscloseFlags flags
             ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, ACCESS_DENIED);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setContactDiscloseFlags(contact_handle="%s", flags=%s)' % (contact_handle, flags))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setContactDiscloseFlags(contact_handle="%s", flags=%s)' % (contact_handle, flags))
         return self.contact.setContactDiscloseFlags(self._norm(contact_handle), flags)
 
     def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info):
@@ -202,7 +202,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                 in RegistryObject auth_info,
             ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, ACCESS_DENIED);
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setAuthInfo(contact_handle="%s", object_handle="%s", objtype="%s", auth_info="*******")' % (contact_handle, object_handle, objtype))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setAuthInfo(contact_handle="%s", object_handle="%s", objtype="%s", auth_info="*******")' % (contact_handle, object_handle, objtype))
 
         if objtype not in OBJECT_REGISTRY_TYPES:
             raise Registry.DomainBrowser.INCORRECT_USAGE
@@ -226,7 +226,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE
         };
         """
-        self.logger.log(self.logger.DEBUG, 'Call DomainBrowser.setObjectBlockStatus(contact_handle="%s", objtype="%s", objects=%s, block=%s)' % (contact_handle, objtype, objects, block))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setObjectBlockStatus(contact_handle="%s", objtype="%s", objects=%s, block=%s)' % (contact_handle, objtype, objects, block))
 
         if objtype not in OBJECT_REGISTRY_TYPES:
             raise Registry.DomainBrowser.INCORRECT_USAGE

@@ -25,7 +25,7 @@ class NssetInterface(ListMetaInterface):
     def getNssetList(self, contact_handle):
         "List of nssets"
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_nsset_view AS
@@ -60,7 +60,7 @@ class NssetInterface(ListMetaInterface):
 
             result.append(row)
 
-        self.logger.log(self.logger.DEBUG, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
+        self.logger.log(self.logger.INFO, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
         return result
 
 
@@ -85,7 +85,7 @@ class NssetInterface(ListMetaInterface):
         };
         """
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         results = self.source.fetchall("""
             SELECT
@@ -124,7 +124,7 @@ class NssetInterface(ListMetaInterface):
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
         status_list = self._get_status_list(nsset, "nsset")
-        self.logger.log(self.logger.DEBUG, "Nsset '%s' has states: %s." % (nsset, status_list))
+        self.logger.log(self.logger.INFO, "Nsset '%s' has states: %s." % (nsset, status_list))
 
         TID, PASSWORD = 0, 9
 
@@ -204,5 +204,5 @@ class NssetInterface(ListMetaInterface):
             """, dict(object_id=object_id))
 
         if contact_handle not in admins:
-            self.logger.log(self.logger.DEBUG, "Nsset ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
+            self.logger.log(self.logger.INFO, "Nsset ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
             raise Registry.DomainBrowser.ACCESS_DENIED

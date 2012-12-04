@@ -91,7 +91,7 @@ class DomainInterface(ListMetaInterface):
     def getDomainList(self, contact_handle):
         "Return list of domains."
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         sql_query = """
             SELECT
@@ -123,10 +123,10 @@ class DomainInterface(ListMetaInterface):
     def getDomainsForNsset(self, contact_handle, nsset):
         "Domains for nsset"
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         nsset_id = self._get_handle_id(nsset, "nsset")
-        self.logger.log(self.logger.DEBUG, "Found NSSET ID %d of the handle '%s'." % (nsset_id, nsset))
+        self.logger.log(self.logger.INFO, "Found NSSET ID %d of the handle '%s'." % (nsset_id, nsset))
 
         sql_query = """
             SELECT
@@ -156,10 +156,10 @@ class DomainInterface(ListMetaInterface):
     def getDomainsForKeyset(self, contact_handle, keyset):
         "Domains for keyset"
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         keyset_id = self._get_handle_id(keyset, "keyset")
-        self.logger.log(self.logger.DEBUG, "Found KEYSET ID %d of the handle '%s'." % (keyset_id, keyset))
+        self.logger.log(self.logger.INFO, "Found KEYSET ID %d of the handle '%s'." % (keyset_id, keyset))
 
         sql_query = """
             SELECT
@@ -223,7 +223,7 @@ class DomainInterface(ListMetaInterface):
             4 - keyset
         """
         contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.DEBUG, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         results = self.source.fetchall("""
             SELECT
@@ -280,7 +280,7 @@ class DomainInterface(ListMetaInterface):
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
         status_list = self._get_status_list(domain, "domain")
-        self.logger.log(self.logger.DEBUG, "Domain '%s' has states: %s." % (domain, status_list))
+        self.logger.log(self.logger.INFO, "Domain '%s' has states: %s." % (domain, status_list))
 
         TID, PASSWORD, REGISTRANT, PUBLISH = 0, 9, 10, 13
 
@@ -358,7 +358,7 @@ class DomainInterface(ListMetaInterface):
         """, dict(object_id=object_id))
 
         if registrant_handle != contact_handle:
-            self.logger.log(self.logger.DEBUG, "Domain ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
+            self.logger.log(self.logger.INFO, "Domain ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
             raise Registry.DomainBrowser.ACCESS_DENIED
 
 
