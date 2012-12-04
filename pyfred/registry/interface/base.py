@@ -53,6 +53,10 @@ class BaseInterface(object):
         # List column names is required in this case. (e.g. \d domain and \d domain_history)
         return "INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d" % dict(name=objtype)
 
+    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+        "Check if object belongs to the contact."
+        raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
     @furnish_database_cursor_m
     def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info):
         "Set objects auth info."
@@ -90,6 +94,18 @@ class BaseInterface(object):
             self._update_history(contact_id, object_handle, objtype)
 
 
+    def _filter_status(self, object_ids, statuses, valid_to=""):
+        "Return objects only with given status."
+        return self.source.fetch_array("""
+            SELECT
+                object_id
+            FROM object_state
+            WHERE valid_to IS %s NULL
+                AND state_id IN %%(stats_id)s
+                AND object_id IN %%(objects)s
+            """ % valid_to, dict(objects=object_ids, stats_id=[ENUM_OBJECT_STATES[name] for name in statuses]))
+
+
     @furnish_database_cursor_m
     def _setObjectBlockStatus(self, contact_handle, objtype, selections, action, query_object_registry):
         "Set objects block status."
@@ -114,16 +130,34 @@ class BaseInterface(object):
             self.logger.log(self.logger.INFO, "Contact ID %d of the handle '%s' missing objects: %s" % (contact_id, contact_handle, missing))
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
+        status_names = ("serverTransferProhibited", "serverUpdateProhibited")
+        block_ids, unblock_ids = object_ids, object_ids
+
+        if action._v in (self.BLOCK_TRANSFER, self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
+            remains = set(object_ids) - set(self._filter_status(object_ids, status_names, "NOT"))
+            block_ids = [oid for oid in remains]
+            self.logger.log(self.logger.INFO, "Required IDs to block %s." % block_ids)
+
+        if action._v in (self.UNBLOCK_TRANSFER, self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
+            remains = set(object_ids) & set(self._filter_status(object_ids, status_names))
+            unblock_ids = [oid for oid in remains]
+            self.logger.log(self.logger.INFO, "Required IDs to unblock %s." % unblock_ids)
+
+        if not (len(block_ids) and len(unblock_ids)):
+            self.logger.log(self.logger.INFO, "None of the objects %s %s has required set/unset status %s "
+                    "for the contact ID %d of the handle '%s'." % (object_ids, selections, status_names, contact_id, contact_handle))
+            return
+
         # Create request lock in the separate transaction
         with TransactionLevelRead(self.source, self.logger) as transaction:
 
-            if action._v in (self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE,
-                             self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self._create_request_lock(object_ids, "serverTransferProhibited")
+            if len(block_ids) and action._v in (self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE,
+                                                self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
+                self._create_request_lock(block_ids, "serverTransferProhibited")
 
-            if action._v in (self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE,
-                             self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self._create_request_lock(object_ids, "serverUpdateProhibited")
+            if len(unblock_ids) and action._v in (self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE,
+                                                  self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
+                self._create_request_lock(unblock_ids, "serverUpdateProhibited")
 
         if not transaction.success:
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
@@ -134,19 +168,19 @@ class BaseInterface(object):
             BLOCK, UNBLOCK = True, False
             if action._v in (self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE):
                 self.logger.log(self.logger.INFO, "BLOCK TRANSFER of %s" % selections)
-                self._blockUnblockObject(BLOCK, object_ids, "serverTransferProhibited")
+                self._blockUnblockObject(BLOCK, block_ids, "serverTransferProhibited")
 
             elif action._v in (self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
                 self.logger.log(self.logger.INFO, "UNBLOCK TRANSFER of %s" % selections)
-                self._blockUnblockObject(UNBLOCK, object_ids, "serverTransferProhibited")
+                self._blockUnblockObject(UNBLOCK, unblock_ids, "serverTransferProhibited")
 
             if action._v in (self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
                 self.logger.log(self.logger.INFO, "BLOCK UPDATE of %s" % selections)
-                self._blockUnblockObject(BLOCK, object_ids, "serverUpdateProhibited")
+                self._blockUnblockObject(BLOCK, block_ids, "serverUpdateProhibited")
 
             elif action._v in (self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
                 self.logger.log(self.logger.INFO, "UNBLOCK UPDATE of %s" % selections)
-                self._blockUnblockObject(UNBLOCK, object_ids, "serverUpdateProhibited")
+                self._blockUnblockObject(UNBLOCK, unblock_ids, "serverUpdateProhibited")
 
 
     def _create_request_lock(self, object_ids, state):
@@ -166,22 +200,10 @@ class BaseInterface(object):
         state: "serverTransferProhibited", "serverUpdateProhibited"
         """
         state_id = ENUM_OBJECT_STATES[state]
-        with_state = self.source.fetch_array("""
-            SELECT
-                object_id
-            FROM object_state
-            WHERE valid_to IS NULL
-                AND state_id = %(state_id)d
-                AND object_id IN %(objects)s
-            """, dict(objects=object_ids, state_id=state_id))
-
-        # remains to change:
         if block:
-            # difference
-            self._blockState(state_id, set(object_ids) - set(with_state))
+            self._blockState(state_id, object_ids)
         else:
-            # intersection
-            self._unblockState(state_id, set(object_ids) & set(with_state))
+            self._unblockState(state_id, object_ids)
 
 
     def _blockState(self, state_id, remains_to_change):
