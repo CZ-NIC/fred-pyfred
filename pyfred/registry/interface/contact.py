@@ -109,7 +109,7 @@ class ContactInterface(BaseInterface):
 
         if len(results) == 0:
             self.logger.log(self.logger.INFO, 'Contact of handle "%s" does not exist.' % contact)
-            raise Registry.DomainBrowser.USER_NOT_EXISTS
+            raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
         if len(results) != 1:
             self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact, results))

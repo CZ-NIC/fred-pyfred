@@ -108,7 +108,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         RecordSet getDomainsForKeyset(
             in RegistryObject contact_handle,
             in RegistryObject keyset
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset))
@@ -126,7 +126,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         RecordSet getDomainsForNsset(
             in RegistryObject contact_handle,
             in RegistryObject nsset
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset))
@@ -145,7 +145,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle,
             in RegistryObject contact_handle_detail,
             out DataAccessLevel auth_result
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getContactDetail(contact_handle="%s", contact_for_detail="%s")' % (contact_handle, contact_handle_detail))
         return self.contact.getContactDetail(self._norm(contact_handle), self._norm(contact_handle_detail))
@@ -156,7 +156,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle,
             in RegistryObject nsset,
             out DataAccessLevel auth_result
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetDetail(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.nsset.getNssetDetail(self._norm(contact_handle), self._norm(nsset))
@@ -167,7 +167,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle,
             in RegistryObject domain,
             out DataAccessLevel auth_result
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainDetail(contact_handle="%s", domain="%s")' % (contact_handle, domain))
         return self.domain.getDomainDetail(self._norm(contact_handle), self._dom(domain))
@@ -178,7 +178,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle,
             in RegistryObject keyset,
             out DataAccessLevel auth_result
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, USER_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetDetail(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.keyset.getKeysetDetail(self._norm(contact_handle), self._norm(keyset))
@@ -188,7 +188,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         void setDiscloseFlags(
                 in RegistryObject contact_handle,
                 in ContactDiscloseFlags flags
-            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, ACCESS_DENIED);
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setContactDiscloseFlags(contact_handle="%s", flags=%s)' % (contact_handle, flags))
         return self.contact.setContactDiscloseFlags(self._norm(contact_handle), flags)
@@ -200,7 +200,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                 in RegistryObject object_handle,
                 in RegistryObject objtype,
                 in RegistryObject auth_info,
-            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, OBJECT_NOT_EXISTS, ACCESS_DENIED);
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setAuthInfo(contact_handle="%s", object_handle="%s", objtype="%s", auth_info="*******")' % (contact_handle, object_handle, objtype))
 
