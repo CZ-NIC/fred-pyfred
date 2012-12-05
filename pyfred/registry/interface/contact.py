@@ -13,7 +13,7 @@ class ContactInterface(BaseInterface):
     "Contact corba interface."
 
     @furnish_database_cursor_m
-    def getContactDetail(self, contact_handle, contact):
+    def getContactDetail(self, contact_handle, contact_handle_detail):
         """Return detail of contact."
 
         struct ContactDetail {
@@ -105,17 +105,17 @@ class ContactInterface(BaseInterface):
                 LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
             WHERE oreg.type = %(type_id)d AND oreg.name = %(handle)s""",
-            dict(handle=contact, type_id=OBJECT_REGISTRY_TYPES["contact"]))
+            dict(handle=contact_handle_detail, type_id=OBJECT_REGISTRY_TYPES["contact"]))
 
         if len(results) == 0:
-            self.logger.log(self.logger.INFO, 'Contact of handle "%s" does not exist.' % contact)
+            self.logger.log(self.logger.INFO, 'Contact of handle "%s" does not exist.' % contact_handle_detail)
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
         if len(results) != 1:
-            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact, results))
+            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact_handle_detail, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(contact, "contact")
+        status_list = self._get_status_list(contact_handle_detail, "contact")
 
         TID, HANDLE, PASSWORD = 0, 1, 9
         contact_detail = results[0][:-9]
