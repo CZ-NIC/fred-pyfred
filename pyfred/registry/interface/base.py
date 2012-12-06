@@ -84,7 +84,7 @@ class BaseInterface(object):
 
         if auth_info == authinfopw:
             self.logger.log(self.logger.INFO, 'No change of auth info at object[%d] "%s".' % (object_id, object_handle))
-            return
+            return False
 
         self.logger.log(self.logger.INFO, 'Change object[%d] "%s" auth info.' % (object_id, object_handle))
         with TransactionLevelRead(self.source, self.logger) as transaction:
@@ -92,6 +92,7 @@ class BaseInterface(object):
                 UPDATE object SET authinfopw = %(auth_info)s
                 WHERE id = %(object_id)d""", dict(auth_info=auth_info, object_id=object_id))
             self._update_history(contact_id, object_handle, objtype)
+        return True
 
 
     def _objects_with_state(self, object_ids, state_name):
@@ -111,7 +112,7 @@ class BaseInterface(object):
         "Set objects block status."
         if not len(selections):
             self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle '%s'." % contact_handle)
-            return
+            return False
 
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -157,7 +158,7 @@ class BaseInterface(object):
         if not (block_transfer_ids or block_update_ids or unblock_transfer_ids or unblock_update_ids):
             self.logger.log(self.logger.INFO, "None of the objects %s %s has required set/unset statuses "
                     "for the contact ID %d of the handle '%s'." % (object_ids, selections, contact_id, contact_handle))
-            return
+            return False
 
         # Create request lock in the separate transaction
         with TransactionLevelRead(self.source, self.logger) as transaction:
@@ -194,6 +195,7 @@ class BaseInterface(object):
                 self.logger.log(self.logger.INFO, "Unblock Update of %s" % unblock_update_ids)
                 self._unBlockState(unblock_update_ids, "serverUpdateProhibited")
 
+        return True
 
 
     def _create_request_lock(self, object_ids, state_name):

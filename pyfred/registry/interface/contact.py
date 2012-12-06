@@ -185,7 +185,7 @@ class ContactInterface(BaseInterface):
 
         if not len(changes):
             self.logger.log(self.logger.INFO, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact_id, contact_handle))
-            return
+            return False
 
         # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
         with TransactionLevelRead(self.source, self.logger) as transaction:
@@ -210,6 +210,7 @@ class ContactInterface(BaseInterface):
             self._update_history(contact_id, contact_handle, "contact")
 
         self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, contact_handle))
+        return True
 
 
     def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
