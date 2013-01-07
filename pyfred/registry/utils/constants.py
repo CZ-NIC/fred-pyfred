@@ -31,7 +31,9 @@ AUTH_INFO_LENGTH = 300
 
 ENUM_OBJECT_STATES = dict(serverTransferProhibited=3,
                           serverUpdateProhibited=4,
-                          deleteCandidate=17)
+                          deleteCandidate=17,
+                          identifiedContact=22,
+                          validatedContact=23)
 #fred=> SELECT * FROM enum_object_states ORDER BY id;
 # id |               name               |   types   | manual | external
 #----+----------------------------------+-----------+--------+----------

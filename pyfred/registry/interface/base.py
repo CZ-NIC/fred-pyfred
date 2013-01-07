@@ -47,6 +47,22 @@ class BaseInterface(object):
             raise Registry.DomainBrowser.ACCESS_DENIED
 
 
+    def owner_has_required_status(self, contact_id):
+        "Check if contact has a required status."
+        results = self.source.fetchall("""
+            SELECT COUNT(*)
+            FROM object_state
+            WHERE object_state.object_id = %(object_id)d
+                AND state_id IN %(states)s
+                AND valid_to IS NULL""",
+            dict(object_id=contact_id, states=(ENUM_OBJECT_STATES["validatedContact"],
+                                               ENUM_OBJECT_STATES["identifiedContact"])))
+
+        if results[0][0] == 0:
+            self.logger.log(self.logger.INFO, "Contact ID %d has not a required status (validatedContact, identifiedContact)." % contact_id)
+            raise Registry.DomainBrowser.ACCESS_DENIED
+
+
     def _copy_into_history_query(self, objtype):
         "Prepare query for copy object into history."
         # This function is here for case when columns in tables ${object} and ${object}_history do not have the same order.
@@ -56,6 +72,7 @@ class BaseInterface(object):
     def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
         raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
 
     @furnish_database_cursor_m
     def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info):
@@ -73,6 +90,7 @@ class BaseInterface(object):
         # ACCESS_DENIED:
         self._object_is_editable(object_id, object_handle)
         self._object_belongs_to_contact(contact_id, contact_handle, object_id)
+        self.owner_has_required_status(contact_id)
 
         authinfopw = self.source.getval("""
             SELECT
@@ -116,6 +134,7 @@ class BaseInterface(object):
 
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.owner_has_required_status(contact_id)
 
         # find all object belongs to contact
         result = self.source.fetchall(query_object_registry,
