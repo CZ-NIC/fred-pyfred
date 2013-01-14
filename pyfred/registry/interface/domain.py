@@ -60,7 +60,7 @@ class DomainInterface(ListMetaInterface):
             delete_date  = exdate + timedelta(days=int(enum_parameters["object_registration_protection_period"]))
             #self.logger.log(self.logger.DEBUG, 'Contact %d "%s": exdate=%s; outzone_date=%s; delete_date=%s' % (contact_id, handle, exdate, outzone_date, delete_date))
 
-            # resolve doamin state
+            # resolve domain state
             next_state, next_state_date = "", ""
             today = datetime.today().date()
             if today < exdate:

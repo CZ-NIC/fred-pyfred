@@ -298,7 +298,7 @@ class BaseInterface(object):
                     enum_object_states.name
                 FROM object_registry
                 LEFT JOIN object_state ON object_state.object_id = object_registry.id
-                    AND (object_state.valid_from < NOW()
+                    AND (object_state.valid_from <= NOW()
                     AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
                 LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
                 WHERE object_registry.type = %(type_id)d AND object_registry.name = %(name)s""",
