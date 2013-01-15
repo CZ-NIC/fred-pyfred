@@ -56,21 +56,37 @@ class DomainInterface(ListMetaInterface):
 
             # expiration_dns_protection_period, expiration_registration_protection_period
             exdate = datetime.strptime(domain_row[EXDATE], '%Y-%m-%d').date()
-            outzone_date = exdate + timedelta(days=int(enum_parameters["expiration_dns_protection_period"]))
-            delete_date  = exdate + timedelta(days=int(enum_parameters["object_registration_protection_period"]))
+            outzone_date = exdate + timedelta(days=int(enum_parameters["expiration_dns_protection_period"])) # 30
+            delete_date  = exdate + timedelta(days=int(enum_parameters["expiration_registration_protection_period"])) # 61
             #self.logger.log(self.logger.DEBUG, 'Contact %d "%s": exdate=%s; outzone_date=%s; delete_date=%s' % (contact_id, handle, exdate, outzone_date, delete_date))
 
-            # resolve domain state
-            next_state, next_state_date = "", ""
+            # resolve next domain state:
+            #    today   exdate         protected period
+            #      |       |<- - - - - - - - - - - - - - - - - - ->|
+            # |------------|-------------------|-------------------|------------>
+            #             0|                +30|                +61|
+            #          expiration           outzone              delete
+            next_state, next_state_date = "N/A", ""
             today = datetime.today().date()
             if today < exdate:
+                # domain still has not been expired, so next state will be 'expired'
                 next_state, next_state_date = "expired", exdate
-            elif exdate <= today and today < outzone_date:
-                next_state, next_state_date = "outzone", outzone_date
-            elif outzone_date <= today and today < delete_date:
-                next_state, next_state_date = "deleteCandidate", delete_date
-            elif delete_date <= today:
-                next_state, next_state_date = "N/A", ""
+            else:
+                # domain is over an expiration date...
+                if today < delete_date or today < outzone_date:
+                    # ...but still inside of "Protected period":
+                    if outzone_date < delete_date:
+                        # outzone date is always less than delete date
+                        if today < outzone_date:
+                            next_state, next_state_date = "outzone", outzone_date
+                        else:
+                            next_state, next_state_date = "deleteCandidate", delete_date
+                    else:
+                        # this situation should not never occur
+                        if today < delete_date:
+                            next_state, next_state_date = "deleteCandidate", delete_date
+                        else:
+                            next_state, next_state_date = "outzone", outzone_date
 
             domain_list.append([
                 domain_row[DOMAIN_NAME], # domain_name TEXT
