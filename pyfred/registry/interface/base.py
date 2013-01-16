@@ -44,7 +44,7 @@ class BaseInterface(object):
 
         if results[0][0] != 0:
             self.logger.log(self.logger.INFO, 'Can not update object "%s" due to state restriction.' % handle)
-            raise Registry.DomainBrowser.ACCESS_DENIED
+            raise Registry.DomainBrowser.OBJECT_BLOCKED
 
 
     def owner_has_required_status(self, contact_id):

@@ -188,7 +188,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         void setDiscloseFlags(
                 in RegistryObject contact_handle,
                 in ContactDiscloseFlags flags
-            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setContactDiscloseFlags(contact_handle="%s", flags=%s)' % (contact_handle, flags))
         return self.contact.setContactDiscloseFlags(self._norm(contact_handle), flags)
@@ -200,7 +200,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                 in RegistryObject object_handle,
                 in RegistryObject objtype,
                 in RegistryObject auth_info,
-            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setAuthInfo(contact_handle="%s", object_handle="%s", objtype="%s", auth_info="*******")' % (contact_handle, object_handle, objtype))
 
@@ -218,7 +218,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject objtype,
             in RegistryObjectSeq objects,
             in ObjectBlockType block
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
 
         enum ObjectBlockType {
             BLOCK_TRANSFER, UNBLOCK_TRANSFER,
