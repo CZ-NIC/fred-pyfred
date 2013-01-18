@@ -94,7 +94,7 @@ class DomainInterface(ListMetaInterface):
                 next_state,              # next_state TEXT
                 str(next_state_date),    # next_state_date DATE
                 "t" if domain_row[DNSSEC] else "f", # dnssec_available BOOL
-                "owner" if domain_row[REGISTRANT] == contact_id else "admin", # your_role TEXT
+                "holder" if domain_row[REGISTRANT] == contact_id else "admin", # your_role TEXT
                 domain_row[REG_HANDLE],                                       # registrar_handle TEXT
                 "t" if ENUM_OBJECT_STATES["serverUpdateProhibited"] in domain_states else "f",    # blocked_update BOOL
                 "t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in domain_states else "f",  # blocked_transfer BOOL
