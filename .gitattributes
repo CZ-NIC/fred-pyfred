@@ -1,1 +1,1 @@
-unittests/zone-file-check -whitespace
+/pyfred/unittests/zone-file-check -whitespace

@@ -4,11 +4,3 @@ include MANIFEST.in
 
 include misc/*
 include misc/mailer_examples/*
-include tc_scripts/*.py
-include freddist/*.py
-include freddist/README
-include freddist/command/*.py
-
-include conf/*.install
-
-include unittests/*
