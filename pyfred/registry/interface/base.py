@@ -25,6 +25,7 @@ class BaseInterface(object):
         self.logger = logger
         self.list_limit = list_limit
         self.source = None
+        self.enum_object_states = None # cache
 
     def setObjectBlockStatus(self, handle, objtype, selections, action):
         "Set object block status."
@@ -278,7 +279,9 @@ class BaseInterface(object):
 
     def _dict_of_object_states(self):
         "Group objecst states into VIEW."
-        return dict(self.source.fetchall("SELECT id, name FROM enum_object_states"))
+        if self.enum_object_states is None:
+            self.enum_object_states = dict(self.source.fetchall("SELECT id, name FROM enum_object_states"))
+        return self.enum_object_states
 
     def _map_object_states(self, states, dictkeys=None):
         "Map object states ID with theirs keys."
