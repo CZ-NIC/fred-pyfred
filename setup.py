@@ -82,7 +82,7 @@ class Install(install):
         ("omniidl=", "i",
          "omniidl program used to build stubs [omniidl]"),
         ("idldir=", "d",
-         "directory where IDL files reside [$data/share/idl/fred/]"),
+         "directory where IDL files reside [$data/share/idl/fred]"),
         ("sendmail=", None,
          "sendmail path"),
         ("drill=", None,
@@ -239,7 +239,7 @@ class BuildPy(build_py):
         ('omniidl=', 'i',
          "omniidl program used to build stubs [omniidl]"),
         ('idldir=', 'd',
-         "directory where IDL files reside [PREFIX/share/idl/fred/]"),
+         "directory where IDL files reside [/usr/share/idl/fred]"),
     ]
 
     def initialize_options(self):
@@ -249,9 +249,18 @@ class BuildPy(build_py):
 
     def finalize_options(self):
         build_py.finalize_options(self)
-        self.set_undefined_options('install',
+        # Get data from install command if it is finalized.
+        # This is not the way `set_undefined_options` should be used :-/
+        install_obj = self.distribution.get_command_obj('install')
+        if install_obj.finalized:
+            self.set_undefined_options('install',
                 ('omniidl', 'omniidl'),
                 ('idldir', 'idldir'))
+        else:
+            if not self.omniidl:
+                self.omniidl = 'omniidl'
+            if not self.idldir:
+                self.idldir = '/usr/share/idl/fred'
 
     def run(self):
         # Run buidl itself
