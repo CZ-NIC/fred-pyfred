@@ -91,7 +91,6 @@ class BaseInterface(object):
         # ACCESS_DENIED:
         self._object_is_editable(object_id, object_handle)
         self._object_belongs_to_contact(contact_id, contact_handle, object_id)
-        self.owner_has_required_status(contact_id)
 
         authinfopw = self.source.getval("""
             SELECT
