@@ -1,9 +1,8 @@
 #!/usr/bin/python
 from pyfred.idlstubs import Registry
-from pyfred.registry.utils import normalize_and_check_handle, normalize_and_check_domain
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES, AUTH_INFO_LENGTH
-from pyfred.registry.utils.cursors import TransactionLevelRead
+from pyfred.registry.utils.cursors import TransactionLevelRead, DatabaseCursor
 
 
 
@@ -180,78 +179,65 @@ class BaseInterface(object):
                     "for the contact ID %d of the handle '%s'." % (object_ids, selections, contact_id, contact_handle))
             return False
 
-        # Create request lock in the separate transaction
-        with TransactionLevelRead(self.source, self.logger) as transaction:
+        # prepare updates: ((state_id, object_id), ...)
+        update_status = []
 
-            if (block_transfer_ids or unblock_transfer_ids) and action in (
-                    self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE,
-                    self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self._create_request_lock(block_transfer_ids + unblock_transfer_ids, "serverTransferProhibited")
+        if (block_transfer_ids or unblock_transfer_ids) and action in (
+                self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE,
+                self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
+            state_id = ENUM_OBJECT_STATES["serverTransferProhibited"]
+            update_status.extend([(state_id, object_id) for object_id in block_transfer_ids + unblock_transfer_ids])
 
-            if (block_update_ids or unblock_update_ids) and action in (
-                    self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE,
-                    self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self._create_request_lock(block_update_ids + unblock_update_ids, "serverUpdateProhibited")
+        if (block_update_ids or unblock_update_ids) and action in (
+                self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE,
+                self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
+            state_id = ENUM_OBJECT_STATES["serverUpdateProhibited"]
+            update_status.extend([(state_id, object_id) for object_id in block_update_ids + unblock_update_ids])
 
-        if not transaction.success:
-            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
-
-        # Update object history in next transaction
-        with TransactionLevelRead(self.source, self.logger) as transaction:
-
-            if block_transfer_ids and action in (self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.INFO, "Block Transfer of %s" % block_transfer_ids)
-                self._blockState(block_transfer_ids, "serverTransferProhibited")
-
-            if unblock_transfer_ids and action in (self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.INFO, "Unblock Transfer of %s" % unblock_transfer_ids)
-                self._unBlockState(unblock_transfer_ids, "serverTransferProhibited")
-
-            if block_update_ids and action in (self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.INFO, "Block Update of %s" % block_update_ids)
-                self._blockState(block_update_ids, "serverUpdateProhibited")
-
-            if unblock_update_ids and action in (self.UNBLOCK_UPDATE, self.UNBLOCK_TRANSFER_AND_UPDATE):
-                self.logger.log(self.logger.INFO, "Unblock Update of %s" % unblock_update_ids)
-                self._unBlockState(unblock_update_ids, "serverUpdateProhibited")
+        # run updates from here:
+        for state_id, object_id in update_status:
+            if action in (self.BLOCK_TRANSFER, self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
+                self._set_status_to_object(state_id, object_id)
+            else:
+                self._remove_status_from_object(state_id, object_id)
 
         return True
 
 
-    def _create_request_lock(self, object_ids, state_name):
-        "Create request lock for state and objects."
-        for object_id in object_ids:
-            self.source.execute("""
-                INSERT INTO object_state_request_lock
-                (state_id, object_id)
-                VALUES (%(state_id)d, %(object_id)d);
-                SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)
-                """, dict(state_id=ENUM_OBJECT_STATES[state_name], object_id=object_id))
+    def _apply_status_to_object(self, state_id, object_id, query):
+        "Set status to object"
+        params = dict(state_id=state_id, object_id=object_id)
+
+        # Create request lock in the separate transaction
+        with DatabaseCursor(self.database, self.logger, self.INTERNAL_SERVER_ERROR) as other_connection:
+            with TransactionLevelRead(other_connection, self.logger) as transaction:
+                other_connection.execute("""
+                    INSERT INTO object_state_request_lock (state_id, object_id) VALUES
+                    (%(state_id)d, %(object_id)d)""", params)
+
+        self.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", params)
+
+        with TransactionLevelRead(self.source, self.logger) as transaction:
+            self.source.execute(query, params)
+
+        self.source.execute("SELECT update_object_states(%(object_id)d)", params)
 
 
-    def _blockState(self, remains_to_change, state_name):
-        "Block state"
-        params = dict(state_id=ENUM_OBJECT_STATES[state_name])
-        for object_id in remains_to_change:
-            params["object_id"] = object_id
-            self.source.execute("""
+    def _set_status_to_object(self, state_id, object_id):
+        "Set status to object"
+        self._apply_status_to_object(state_id, object_id, """
                 INSERT INTO object_state_request
                 (object_id, state_id, valid_from) VALUES
-                (%(object_id)d, %(state_id)d, NOW())""", params)
-            self.source.execute("SELECT update_object_states(%(object_id)d)", params)
+                (%(object_id)d, %(state_id)d, CURRENT_TIMESTAMP)""")
 
-    def _unBlockState(self, remains_to_change, state_name):
-        "Block state"
-        params = dict(state_id=ENUM_OBJECT_STATES[state_name])
-        for object_id in remains_to_change:
-            params["object_id"] = object_id
-            self.source.execute("""
+    def _remove_status_from_object(self, state_id, object_id):
+        "Remove status from object"
+        self._apply_status_to_object(state_id, object_id, """
                 UPDATE object_state_request
                 SET valid_to = NOW() - INTERVAL '1 sec'
                 WHERE valid_to IS NULL
                     AND object_id = %(object_id)d
-                    AND state_id = %(state_id)d""", params)
-            self.source.execute("SELECT update_object_states(%(object_id)d)", params)
+                    AND state_id = %(state_id)d""")
 
 
     def _get_handle_id(self, object_handle, type_name):
