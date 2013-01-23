@@ -261,8 +261,8 @@ class DomainInterface(ListMetaInterface):
                 registrant.name AS registrant,
 
                 domain.exdate AS expiration_date,
-                registrant.erdate AS val_ex_date,
 
+                enum.exdate AS val_ex_date,
                 enum.publish AS publish,
                 zone.enum_zone,
 
