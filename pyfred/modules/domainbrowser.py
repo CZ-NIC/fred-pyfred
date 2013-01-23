@@ -204,8 +204,13 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setAuthInfo(contact_handle="%s", object_handle="%s", objtype="%s", auth_info="*******")' % (contact_handle, object_handle, objtype))
 
-        if objtype not in OBJECT_REGISTRY_TYPES:
+        # only contact type can update auth info
+        if objtype != "contact":
             raise Registry.DomainBrowser.INCORRECT_USAGE
+
+        # update auth info only for user's contact
+        if contact_handle != object_handle:
+            raise Registry.DomainBrowser.ACCESS_DENIED
 
         normalize = normalize_and_check_domain if objtype == "domain" else normalize_and_check_handle
         return getattr(self, objtype).setAuthInfo(self._norm(contact_handle), normalize(self.logger, object_handle), objtype, auth_info)
