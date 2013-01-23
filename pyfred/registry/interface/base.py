@@ -13,6 +13,7 @@ class BaseInterface(object):
     BLOCK_TRANSFER, UNBLOCK_TRANSFER, \
     BLOCK_UPDATE, UNBLOCK_UPDATE, \
     BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE = range(6)
+    SET_STATUS_MAX_ITEMS = 500
 
     PASSWORD_SUBSTITUTION = "********"
 
@@ -131,6 +132,9 @@ class BaseInterface(object):
         if not len(selections):
             self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle '%s'." % contact_handle)
             return False
+
+        if len(selections) > self.SET_STATUS_MAX_ITEMS:
+            raise Registry.DomainBrowser.INCORRECT_USAGE
 
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
