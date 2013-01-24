@@ -32,22 +32,6 @@ class BaseInterface(object):
         raise Registry.DomainBrowser.INCORRECT_USAGE
 
 
-    def _object_is_editable(self, object_id, handle):
-        "Check if is possible to update object."
-        results = self.source.fetchall("""
-            SELECT COUNT(*)
-            FROM object_state
-            WHERE object_state.object_id = %(object_id)d
-                AND state_id IN %(states)s
-                AND valid_to IS NULL""",
-            dict(object_id=object_id, states=(ENUM_OBJECT_STATES["serverUpdateProhibited"],
-                                              ENUM_OBJECT_STATES["deleteCandidate"])))
-
-        if results[0][0] != 0:
-            self.logger.log(self.logger.INFO, 'Can not update object "%s" due to state restriction.' % handle)
-            raise Registry.DomainBrowser.OBJECT_BLOCKED
-
-
     def owner_has_required_status(self, contact_id):
         "Check if contact has a required status."
         results = self.source.fetchall("""
@@ -89,7 +73,6 @@ class BaseInterface(object):
         self.logger.log(self.logger.INFO, "Found object ID %d of the handle '%s'." % (object_id, object_handle))
 
         # ACCESS_DENIED:
-        self._object_is_editable(object_id, object_handle)
         self._object_belongs_to_contact(contact_id, contact_handle, object_id)
 
         authinfopw = self.source.getval("""

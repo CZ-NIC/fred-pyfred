@@ -153,7 +153,6 @@ class ContactInterface(BaseInterface):
         "Set contact disclose flags."
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
-        self._object_is_editable(contact_id, contact_handle)
 
         results = self.source.fetchall("""
             SELECT
