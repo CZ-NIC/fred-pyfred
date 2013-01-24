@@ -2,7 +2,7 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES, AUTH_INFO_LENGTH
-from pyfred.registry.utils.cursors import TransactionLevelRead, DatabaseCursor
+from pyfred.registry.utils.cursors import TransactionLevelRead
 
 
 
@@ -195,11 +195,10 @@ class BaseInterface(object):
         params = dict(state_id=state_id, object_id=object_id)
 
         # Create request lock in the separate transaction
-        with DatabaseCursor(self.database, self.logger, self.INTERNAL_SERVER_ERROR) as other_connection:
-            with TransactionLevelRead(other_connection, self.logger) as transaction:
-                other_connection.execute("""
-                    INSERT INTO object_state_request_lock (state_id, object_id) VALUES
-                    (%(state_id)d, %(object_id)d)""", params)
+        with TransactionLevelRead(self.source, self.logger) as transaction:
+            self.source.execute("""
+                INSERT INTO object_state_request_lock (state_id, object_id) VALUES
+                (%(state_id)d, %(object_id)d)""", params)
 
         self.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", params)
 
