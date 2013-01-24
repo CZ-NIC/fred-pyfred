@@ -47,15 +47,16 @@ class DomainInterface(ListMetaInterface):
         #self.logger.log(self.logger.DEBUG, "enum_parameters = %s" % enum_parameters) # TEST
 
         domain_list = []
-        REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
+        class Col(object):
+            REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
         for domain_row in self.source.fetchall(sql_query, sql_params):
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
-            domain_states = parse_array_agg_int(domain_row[DOMAIN_STATES])
+            domain_states = parse_array_agg_int(domain_row[Col.DOMAIN_STATES])
 
             # expiration_dns_protection_period, expiration_registration_protection_period
-            exdate = datetime.strptime(domain_row[EXDATE], '%Y-%m-%d').date()
+            exdate = datetime.strptime(domain_row[Col.EXDATE], '%Y-%m-%d').date()
             outzone_date = exdate + timedelta(days=int(enum_parameters["expiration_dns_protection_period"])) # 30
             delete_date  = exdate + timedelta(days=int(enum_parameters["expiration_registration_protection_period"])) # 61
             #self.logger.log(self.logger.DEBUG, 'Contact %d "%s": exdate=%s; outzone_date=%s; delete_date=%s' % (contact_id, handle, exdate, outzone_date, delete_date))
@@ -89,13 +90,13 @@ class DomainInterface(ListMetaInterface):
                             next_state, next_state_date = "outzone", outzone_date
 
             domain_list.append([
-                domain_row[DOMAIN_NAME], # domain_name TEXT
+                domain_row[Col.DOMAIN_NAME], # domain_name TEXT
                 " ".join(self._map_object_states(domain_states)),
                 next_state,              # next_state TEXT
                 str(next_state_date),    # next_state_date DATE
-                "t" if domain_row[DNSSEC] else "f", # dnssec_available BOOL
-                "holder" if domain_row[REGISTRANT] == contact_id else "admin", # your_role TEXT
-                domain_row[REG_HANDLE],                                       # registrar_handle TEXT
+                "t" if domain_row[Col.DNSSEC] else "f", # dnssec_available BOOL
+                "holder" if domain_row[Col.REGISTRANT] == contact_id else "admin", # your_role TEXT
+                domain_row[Col.REG_HANDLE],                                        # registrar_handle TEXT
                 "t" if ENUM_OBJECT_STATES["serverUpdateProhibited"] in domain_states else "f",    # blocked_update BOOL
                 "t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in domain_states else "f",  # blocked_transfer BOOL
                 ])
@@ -208,28 +209,18 @@ class DomainInterface(ListMetaInterface):
             TID id;
             string fqdn;
             string roid;
-
-            string registrar;
-
+            HandleName registrar;
             string create_date;
-            string transfer_date;
             string update_date;
-
-            string create_registrar;
-            string update_registrar;
-
             string auth_info;
-
             string registrant;
-
             string expiration_date;
             string val_ex_date;
             boolean publish;
+            boolean is_enum;
             string nsset;
             string keyset;
-
-            ContactHandleSeq admins;
-            ContactHandleSeq temps;
+            HandleNameSeq admins;
             ObjectStatusSeq status_list;
         };
         SELECT type, name FROM object_registry;
@@ -247,15 +238,8 @@ class DomainInterface(ListMetaInterface):
                 oreg.roid AS roid,
                 oreg.name AS fqdn,
 
-                current.handle AS registrar,
-
                 oreg.crdate AS create_date,
-                obj.trdate AS transfer_date,
                 obj.update AS update_date,
-
-                creator.handle AS create_registrar,
-                updator.handle AS update_registrar,
-
                 obj.authinfopw AS auth_info,
 
                 registrant.name AS registrant,
@@ -267,7 +251,10 @@ class DomainInterface(ListMetaInterface):
                 zone.enum_zone,
 
                 regnsset.name AS nsset,
-                regkeyset.name AS keyset
+                regkeyset.name AS keyset,
+
+                current.handle AS registrar_handle,
+                current.name AS registrar_name
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
@@ -276,9 +263,7 @@ class DomainInterface(ListMetaInterface):
                 LEFT JOIN zone ON domain.zone = zone.id
                 LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
 
-                LEFT JOIN registrar creator ON creator.id = oreg.crid
                 LEFT JOIN registrar current ON current.id = obj.clid
-                LEFT JOIN registrar updator ON updator.id = obj.upid
 
                 LEFT JOIN object_registry regnsset ON regnsset.id = domain.nsset
                 LEFT JOIN object_registry regkeyset ON regkeyset.id = domain.keyset
@@ -298,51 +283,84 @@ class DomainInterface(ListMetaInterface):
         status_list = self._get_status_list(domain, "domain")
         self.logger.log(self.logger.INFO, "Domain '%s' has states: %s." % (domain, status_list))
 
-        TID, PASSWORD, REGISTRANT, PUBLISH = 0, 9, 10, 13
+        # -[ RECORD 1 ]----+---------------------------
+        # id               | 1191
+        # roid             | D0000001191-CZ
+        # fqdn             | nova-sada-jmen-990.cz
+        # create_date      | 2013-01-22 08:56:22.089884
+        # update_date      |
+        # auth_info        | heslo
+        # registrant       | BOB
+        # expiration_date  | 2016-01-22
+        # val_ex_date      |
+        # publish          |
+        # enum_zone        | f
+        # nsset            | NSSID03
+        # keyset           | KEYID03
+        # registrar_handle | REG-FRED_A
+        # registrar_name   | Company A l.t.d
+
+        class Col(object):
+            TID, PASSWORD, REGISTRANT, PUBLISH = 0, 5, 6, 9
+
+        columns = (
+            "id",
+            "roid",
+            "fqdn",
+            "create_date",
+            "update_date",
+            "auth_info",
+            "registrant",
+            "expiration_date",
+            "val_ex_date",
+            "publish",
+            "is_enum",
+            "nsset",
+            "keyset",
+            # create from registrar_handle + registrar_name
+            "registrar",
+            "admins",
+            "status_list"
+        )
 
         domain_detail = results[0]
 
-        if domain_detail[PUBLISH] is None:
-            domain_detail[PUBLISH] = False
+        registrar_name = domain_detail.pop()
+        registrar_handle = domain_detail.pop()
+        domain_detail.append(Registry.DomainBrowser.HandleName(registrar_handle, registrar_name))
 
-        if domain_detail[REGISTRANT] == contact_handle:
+        if domain_detail[Col.PUBLISH] is None:
+            domain_detail[Col.PUBLISH] = False
+
+        if domain_detail[Col.REGISTRANT] == contact_handle:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
             # not owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
-            domain_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
+            domain_detail[Col.PASSWORD] = self.PASSWORD_SUBSTITUTION
 
-        admins = self.source.fetch_array("""
-            SELECT object_registry.name
-            FROM domain_contact_map
-            LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
-            WHERE domain_contact_map.role = %(role_id)d
-                AND domainid = %(obj_id)d
-            """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[TID]))
-
-        # OBSOLETE
-        temps = self.source.fetch_array("""
-            SELECT object_registry.name
-            FROM domain_contact_map
-            LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
-            WHERE domain_contact_map.role = %(role_id)d
-                AND domainid = %(obj_id)d
-            """, dict(role_id=DOMAIN_ROLE["temp"], obj_id=domain_detail[TID]))
+        admins = [] # Registry.DomainBrowser.HandleNameSeq
+        for row in self.source.fetchall("""
+                SELECT object_registry.name,
+                    CASE WHEN contact.organization IS NOT NULL THEN contact.organization
+                    ELSE contact.name
+                    END AS contact_name
+                FROM domain_contact_map
+                LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
+                LEFT JOIN contact ON contact.id = object_registry.id
+                WHERE domain_contact_map.role = %(role_id)d
+                    AND domainid = %(obj_id)d
+                """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[Col.TID])):
+            admins.append(Registry.DomainBrowser.HandleName(row[0], row[1]))
 
         domain_detail.append(admins)
-        domain_detail.append(temps) # OBSOLETE
         domain_detail.append(status_list)
 
         # replace None by empty string
         domain_detail = ['' if value is None else value for value in domain_detail]
 
-        columns = ("id", "roid", "fqdn", "registrar", "create_date", "transfer_date",
-                   "update_date", "create_registrar", "update_registrar", "auth_info",
-                   "registrant", "expiration_date", "val_ex_date", "publish", "is_enum",
-                   "nsset", "keyset", "admins", "temps", "status_list")
         data = dict(zip(columns, domain_detail))
-
         return (Registry.DomainBrowser.DomainDetail(**data), data_type)
 
 
