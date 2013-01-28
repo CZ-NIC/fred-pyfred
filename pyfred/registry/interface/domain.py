@@ -373,6 +373,39 @@ class DomainInterface(ListMetaInterface):
         return (Registry.DomainBrowser.DomainDetail(**data), data_type)
 
 
+    @furnish_database_cursor_m
+    def getRegistrarDetail(self, contact_handle, handle):
+        """
+        struct RegistrarDetail {
+            string handle;
+            string name;
+            string phone;
+            string fax;
+            string url;
+            string address;
+        };
+        """
+        contact_id = self._get_user_handle_id(contact_handle)
+        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+
+        columns = ("handle", "name", "phone", "fax", "url", "address")
+        results = self.source.fetchall("""
+            SELECT
+                handle, name, telephone, fax, url,
+                CONCAT_WS(', ', street1, street2, street3, postalcode, city, stateorprovince) AS address
+            FROM registrar
+            WHERE handle = %(handle)s""", dict(handle=handle))
+
+        if len(results) == 0:
+            raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
+
+        if len(results) != 1:
+            self.logger.log(self.logger.CRITICAL, "Registrar detail of '%s' does not have one record: %s" % (handle, results))
+            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
+
+        return (Registry.DomainBrowser.RegistrarDetail(**dict(zip(columns, results[0]))))
+
+
     def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
         "Set object block status."
         return self._setObjectBlockStatus(contact_handle, objtype, selections, action,

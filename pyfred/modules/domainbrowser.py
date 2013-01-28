@@ -172,6 +172,16 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainDetail(contact_handle="%s", domain="%s")' % (contact_handle, domain))
         return self.domain.getDomainDetail(self._norm(contact_handle), self._dom(domain))
 
+    def getRegistrarDetail(self, contact_handle, handle):
+        """
+        RegistrarDetail getRegistrarDetail(
+                in RegistryObject contact_handle,
+                in RegistryObject handle
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
+        """
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getRegistrarDetail(contact_handle="%s", handle="%s")' % (contact_handle, handle))
+        return self.domain.getRegistrarDetail(self._norm(contact_handle), self._norm(handle))
+
     def getKeysetDetail(self, contact_handle, keyset):
         """
         KeysetDetail getKeysetDetail(
