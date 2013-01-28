@@ -403,7 +403,9 @@ class DomainInterface(ListMetaInterface):
             self.logger.log(self.logger.CRITICAL, "Registrar detail of '%s' does not have one record: %s" % (handle, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        return (Registry.DomainBrowser.RegistrarDetail(**dict(zip(columns, results[0]))))
+        # replace None by empty string
+        registry_detail = ['' if value is None else value for value in results[0]]
+        return (Registry.DomainBrowser.RegistrarDetail(**dict(zip(columns, registry_detail))))
 
 
     def setObjectBlockStatus(self, contact_handle, objtype, selections, action):
