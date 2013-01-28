@@ -56,3 +56,7 @@ def make_params_private(params):
     if "auth_info" in private_params:
         private_params["auth_info"] = "********"
     return private_params
+
+def none2str(value):
+    "Convert None (NULL) to the empty string."
+    return "" if value is None else value

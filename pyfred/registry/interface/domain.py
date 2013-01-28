@@ -5,7 +5,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
-from pyfred.registry.utils import parse_array_agg_int
+from pyfred.registry.utils import parse_array_agg_int, none2str
 
 
 
@@ -330,11 +330,11 @@ class DomainInterface(ListMetaInterface):
 
         domain_detail = results[0]
 
-        registrar_name = domain_detail.pop()
-        registrar_handle = domain_detail.pop()
+        registrar_name = none2str(domain_detail.pop())
+        registrar_handle = none2str(domain_detail.pop())
 
-        registrant_name = domain_detail.pop()
-        registrant_handle = domain_detail.pop()
+        registrant_name = none2str(domain_detail.pop())
+        registrant_handle = none2str(domain_detail.pop())
 
         if domain_detail[Col.PUBLISH] is None:
             domain_detail[Col.PUBLISH] = False

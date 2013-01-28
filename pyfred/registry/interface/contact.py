@@ -4,6 +4,7 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
+from pyfred.registry.utils import none2str
 from pyfred.registry.utils.decorators import furnish_database_cursor_m, transaction_isolation_level_read_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES
 from pyfred.registry.utils.cursors import TransactionLevelRead
@@ -112,8 +113,8 @@ class ContactInterface(BaseInterface):
         status_list = self._get_status_list(contact_handle_detail, "contact")
 
         row = results[0]
-        registrar_name = row.pop()
-        registrar_handle = row.pop()
+        registrar_name = none2str(row.pop())
+        registrar_handle = none2str(row.pop())
 
         TID, HANDLE, PASSWORD = 0, 1, 6
         contact_detail = row[:-9]
