@@ -392,7 +392,7 @@ class DomainInterface(ListMetaInterface):
         results = self.source.fetchall("""
             SELECT
                 handle, name, telephone, fax, url,
-                CONCAT_WS(', ', street1, street2, street3, postalcode, city, stateorprovince) AS address
+                ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
             FROM registrar
             WHERE handle = %(handle)s""", dict(handle=handle))
 
