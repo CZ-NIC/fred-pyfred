@@ -209,18 +209,18 @@ class DomainInterface(ListMetaInterface):
             TID id;
             string fqdn;
             string roid;
-            HandleName registrar;
+            Couple registrar;
             string create_date;
             string update_date;
             string auth_info;
-            string registrant;
+            Couple registrant;
             string expiration_date;
             string val_ex_date;
             boolean publish;
             boolean is_enum;
             string nsset;
             string keyset;
-            HandleNameSeq admins;
+            CoupleSeq admins;
             ObjectStatusSeq status_list;
         };
         SELECT type, name FROM object_registry;
@@ -242,8 +242,6 @@ class DomainInterface(ListMetaInterface):
                 obj.update AS update_date,
                 obj.authinfopw AS auth_info,
 
-                registrant.name AS registrant,
-
                 domain.exdate AS expiration_date,
 
                 enum.exdate AS val_ex_date,
@@ -252,6 +250,11 @@ class DomainInterface(ListMetaInterface):
 
                 regnsset.name AS nsset,
                 regkeyset.name AS keyset,
+
+                registrant.name AS registrant_handle,
+                CASE WHEN contact.organization IS NOT NULL THEN
+                    contact.organization ELSE contact.name
+                END AS registrant_name,
 
                 current.handle AS registrar_handle,
                 current.name AS registrar_name
@@ -262,6 +265,7 @@ class DomainInterface(ListMetaInterface):
                 LEFT JOIN domain ON oreg.id = domain.id
                 LEFT JOIN zone ON domain.zone = zone.id
                 LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
+                LEFT JOIN contact ON contact.id = registrant.id
 
                 LEFT JOIN registrar current ON current.id = obj.clid
 
@@ -283,25 +287,26 @@ class DomainInterface(ListMetaInterface):
         status_list = self._get_status_list(domain, "domain")
         self.logger.log(self.logger.INFO, "Domain '%s' has states: %s." % (domain, status_list))
 
-        # -[ RECORD 1 ]----+---------------------------
-        # id               | 1191
-        # roid             | D0000001191-CZ
-        # fqdn             | nova-sada-jmen-990.cz
-        # create_date      | 2013-01-22 08:56:22.089884
-        # update_date      |
-        # auth_info        | heslo
-        # registrant       | BOB
-        # expiration_date  | 2016-01-22
-        # val_ex_date      |
-        # publish          |
-        # enum_zone        | f
-        # nsset            | NSSID03
-        # keyset           | KEYID03
-        # registrar_handle | REG-FRED_A
-        # registrar_name   | Company A l.t.d
+        # -[ RECORD 1 ]-----+---------------------------
+        # id                | 1191
+        # roid              | D0000001191-CZ
+        # fqdn              | nova-sada-jmen-990.cz
+        # create_date       | 2013-01-22 08:56:22.089884
+        # update_date       |
+        # auth_info         | heslo
+        # expiration_date   | 2016-01-22
+        # val_ex_date       |
+        # publish           |
+        # enum_zone         | f
+        # nsset             | NSSID03
+        # keyset            | KEYID03
+        # registrant_handle | BOB
+        # registrant_name   | Bedrich Hrebicek
+        # registrar_handle  | REG-FRED_A
+        # registrar_name    | Company A l.t.d
 
         class Col(object):
-            TID, PASSWORD, REGISTRANT, PUBLISH = 0, 5, 6, 9
+            TID, PASSWORD, PUBLISH = 0, 5, 8
 
         columns = (
             "id",
@@ -310,7 +315,6 @@ class DomainInterface(ListMetaInterface):
             "create_date",
             "update_date",
             "auth_info",
-            "registrant",
             "expiration_date",
             "val_ex_date",
             "publish",
@@ -318,6 +322,7 @@ class DomainInterface(ListMetaInterface):
             "nsset",
             "keyset",
             # create from registrar_handle + registrar_name
+            "registrant",
             "registrar",
             "admins",
             "status_list"
@@ -327,12 +332,14 @@ class DomainInterface(ListMetaInterface):
 
         registrar_name = domain_detail.pop()
         registrar_handle = domain_detail.pop()
-        domain_detail.append(Registry.DomainBrowser.HandleName(registrar_handle, registrar_name))
+
+        registrant_name = domain_detail.pop()
+        registrant_handle = domain_detail.pop()
 
         if domain_detail[Col.PUBLISH] is None:
             domain_detail[Col.PUBLISH] = False
 
-        if domain_detail[Col.REGISTRANT] == contact_handle:
+        if registrant_handle == contact_handle:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
@@ -340,11 +347,11 @@ class DomainInterface(ListMetaInterface):
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
             domain_detail[Col.PASSWORD] = self.PASSWORD_SUBSTITUTION
 
-        admins = [] # Registry.DomainBrowser.HandleNameSeq
+        admins = [] # Registry.DomainBrowser.CoupleSeq
         for row in self.source.fetchall("""
                 SELECT object_registry.name,
-                    CASE WHEN contact.organization IS NOT NULL THEN contact.organization
-                    ELSE contact.name
+                    CASE WHEN contact.organization IS NOT NULL THEN
+                        contact.organization ELSE contact.name
                     END AS contact_name
                 FROM domain_contact_map
                 LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
@@ -352,8 +359,10 @@ class DomainInterface(ListMetaInterface):
                 WHERE domain_contact_map.role = %(role_id)d
                     AND domainid = %(obj_id)d
                 """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[Col.TID])):
-            admins.append(Registry.DomainBrowser.HandleName(row[0], row[1]))
+            admins.append(Registry.DomainBrowser.Couple(row[0], row[1]))
 
+        domain_detail.append(Registry.DomainBrowser.Couple(registrant_handle, registrant_name))
+        domain_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
         domain_detail.append(admins)
         domain_detail.append(status_list)
 
