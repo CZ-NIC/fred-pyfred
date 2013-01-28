@@ -359,7 +359,7 @@ class DomainInterface(ListMetaInterface):
                 WHERE domain_contact_map.role = %(role_id)d
                     AND domainid = %(obj_id)d
                 """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[Col.TID])):
-            admins.append(Registry.DomainBrowser.Couple(row[0], row[1]))
+            admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
 
         domain_detail.append(Registry.DomainBrowser.Couple(registrant_handle, registrant_name))
         domain_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))

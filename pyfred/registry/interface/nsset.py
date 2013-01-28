@@ -2,7 +2,7 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils import parse_array_agg, parse_array_agg_int
+from pyfred.registry.utils import parse_array_agg, parse_array_agg_int, none2str
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
@@ -93,17 +93,21 @@ class NssetInterface(ListMetaInterface):
                 oreg.name AS handle,
                 oreg.roid AS roid,
 
-                current.handle AS registrar,
-
                 oreg.crdate AS create_date,
                 obj.trdate AS transfer_date,
                 obj.update AS update_date,
 
-                creator.handle AS create_registrar,
-                updator.handle AS update_registrar,
-
                 obj.authinfopw AS auth_info,
-                nsset.checklevel
+                nsset.checklevel,
+
+                current.handle AS registrar_handle,
+                current.name AS registrar_name,
+
+                creator.handle AS create_registrar_handle,
+                creator.name AS create_registrar_name,
+
+                updator.handle AS update_registrar_handle,
+                updator.name AS update_registrar_name
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
@@ -126,17 +130,38 @@ class NssetInterface(ListMetaInterface):
         status_list = self._get_status_list(nsset, "nsset")
         self.logger.log(self.logger.INFO, "Nsset '%s' has states: %s." % (nsset, status_list))
 
-        TID, PASSWORD = 0, 9
+        TID, PASSWORD = 0, 6
 
         nsset_detail = results[0]
+
+        registrar = {
+            "updator": {
+                "name": none2str(nsset_detail.pop()),
+                "handle": none2str(nsset_detail.pop()),
+            },
+            "creator": {
+                "name": none2str(nsset_detail.pop()),
+                "handle": none2str(nsset_detail.pop()),
+            },
+            "current": {
+                "name": none2str(nsset_detail.pop()),
+                "handle": none2str(nsset_detail.pop()),
+            },
+        }
         report_level = nsset_detail.pop()
 
-        admins = self.source.fetch_array("""
-            SELECT object_registry.name
+        admins = [] # Registry.DomainBrowser.CoupleSeq
+        for row in self.source.fetchall("""
+            SELECT object_registry.name,
+                CASE WHEN contact.organization IS NOT NULL THEN
+                    contact.organization ELSE contact.name
+                END
             FROM nsset_contact_map
             LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+            LEFT JOIN contact ON contact.id = nsset_contact_map.contactid
             WHERE nssetid = %(obj_id)d
-            """, dict(obj_id=nsset_detail[TID]))
+            """, dict(obj_id=nsset_detail[TID])):
+            admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
 
         if contact_handle in admins:
             # owner
@@ -163,6 +188,8 @@ class NssetInterface(ListMetaInterface):
             ip_address = parse_array_agg(row_host[1])
             hosts.append(Registry.DomainBrowser.DNSHost(fqdn=row_host[0], inet=", ".join(ip_address)))
 
+        for key in ("current", "creator", "updator"):
+            nsset_detail.append(Registry.DomainBrowser.Couple(registrar[key]["handle"], registrar[key]["name"]))
         nsset_detail.append(admins)
         nsset_detail.append(hosts)
         nsset_detail.append(status_list)
@@ -171,8 +198,8 @@ class NssetInterface(ListMetaInterface):
         # replace None by empty string
         nsset_detail = ['' if value is None else value for value in nsset_detail]
 
-        columns = ("id", "handle", "roid", "registrar", "create_date", "transfer_date",
-                   "update_date", "create_registrar", "update_registrar", "auth_info",
+        columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
+                   "auth_info", "registrar", "create_registrar", "update_registrar",
                    "admins", "hosts", "status_list", "report_level")
         data = dict(zip(columns, nsset_detail))
 

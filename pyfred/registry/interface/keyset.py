@@ -2,7 +2,7 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils import parse_array_agg_int
+from pyfred.registry.utils import parse_array_agg_int, none2str
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
@@ -108,16 +108,20 @@ class KeysetInterface(ListMetaInterface):
                 oreg.name AS handle,
                 oreg.roid AS roid,
 
-                current.handle AS registrar,
-
                 oreg.crdate AS create_date,
                 obj.trdate AS transfer_date,
                 obj.update AS update_date,
 
-                creator.handle AS create_registrar,
-                updator.handle AS update_registrar,
+                obj.authinfopw AS auth_info,
 
-                obj.authinfopw AS auth_info
+                current.handle AS registrar_handle,
+                current.name AS registrar_name,
+
+                creator.handle AS create_registrar_handle,
+                creator.name AS create_registrar_name,
+
+                updator.handle AS update_registrar_handle,
+                updator.name AS update_registrar_name
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
@@ -139,16 +143,36 @@ class KeysetInterface(ListMetaInterface):
         status_list = self._get_status_list(keyset, "keyset")
         self.logger.log(self.logger.INFO, "Keyset '%s' has states: %s." % (keyset, status_list))
 
-        TID, PASSWORD = 0, 9
+        TID, PASSWORD = 0, 6
 
         keyset_detail = results[0]
+        registrar = {
+            "updator": {
+                "name": none2str(keyset_detail.pop()),
+                "handle": none2str(keyset_detail.pop()),
+            },
+            "creator": {
+                "name": none2str(keyset_detail.pop()),
+                "handle": none2str(keyset_detail.pop()),
+            },
+            "current": {
+                "name": none2str(keyset_detail.pop()),
+                "handle": none2str(keyset_detail.pop()),
+            },
+        }
 
-        admins = self.source.fetch_array("""
-            SELECT object_registry.name
+        admins = [] # Registry.DomainBrowser.CoupleSeq
+        for row in self.source.fetchall("""
+            SELECT object_registry.name,
+                CASE WHEN contact.organization IS NOT NULL THEN
+                    contact.organization ELSE contact.name
+                END
             FROM keyset_contact_map
             LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
+            LEFT JOIN contact ON contact.id = keyset_contact_map.contactid
             WHERE keysetid = %(obj_id)d
-            """, dict(obj_id=keyset_detail[TID]))
+            """, dict(obj_id=keyset_detail[TID])):
+            admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
 
         if contact_handle in admins:
             # owner
@@ -180,6 +204,8 @@ class KeysetInterface(ListMetaInterface):
             data = dict(zip(columns, row_dsrec))
             dnskeys.append(Registry.DomainBrowser.DNSKey(**data))
 
+        for key in ("current", "creator", "updator"):
+            keyset_detail.append(Registry.DomainBrowser.Couple(registrar[key]["handle"], registrar[key]["name"]))
         keyset_detail.append(admins)
         keyset_detail.append(dsrecords)
         keyset_detail.append(dnskeys)
@@ -188,8 +214,8 @@ class KeysetInterface(ListMetaInterface):
         # replace None by empty string
         keyset_detail = ['' if value is None else value for value in keyset_detail]
 
-        columns = ("id", "handle", "roid", "registrar", "create_date", "transfer_date",
-                   "update_date", "create_registrar", "update_registrar", "auth_info",
+        columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
+                   "auth_info", "registrar", "create_registrar", "update_registrar",
                    "admins", "dsrecords", "dnskeys", "status_list")
         data = dict(zip(columns, keyset_detail))
 
