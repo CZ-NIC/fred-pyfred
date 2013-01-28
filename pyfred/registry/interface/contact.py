@@ -56,14 +56,9 @@ class ContactInterface(BaseInterface):
                 oreg.name AS handle,
                 oreg.roid AS roid,
 
-                current.handle AS registrar,
-
                 oreg.crdate AS create_date,
                 obj.trdate AS transfer_date,
                 obj.update AS update_date,
-
-                creator.handle AS create_registrar,
-                updator.handle AS update_registrar,
 
                 obj.authinfopw AS auth_info,
 
@@ -92,15 +87,14 @@ class ContactInterface(BaseInterface):
                 contact.disclosefax,
                 contact.discloseident,
                 contact.disclosevat,
-                contact.disclosenotifyemail
+                contact.disclosenotifyemail,
+
+                current.handle AS registrar_handle,
+                current.name AS registrar_name
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
-
-                LEFT JOIN registrar creator ON creator.id = oreg.crid
                 LEFT JOIN registrar current ON current.id = obj.clid
-                LEFT JOIN registrar updator ON updator.id = obj.upid
-
                 LEFT JOIN contact ON contact.id = oreg.id
                 LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
@@ -117,8 +111,12 @@ class ContactInterface(BaseInterface):
 
         status_list = self._get_status_list(contact_handle_detail, "contact")
 
-        TID, HANDLE, PASSWORD = 0, 1, 9
-        contact_detail = results[0][:-9]
+        row = results[0]
+        registrar_name = row.pop()
+        registrar_handle = row.pop()
+
+        TID, HANDLE, PASSWORD = 0, 1, 6
+        contact_detail = row[:-9]
         disclose_flag_values = results[0][len(contact_detail):]
 
         if contact_detail[HANDLE] == contact_handle:
@@ -132,17 +130,18 @@ class ContactInterface(BaseInterface):
         columns = ("name", "organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
         disclose_flags = Registry.DomainBrowser.ContactDiscloseFlags(**dict(zip(columns, disclose_flag_values)))
 
+        contact_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
         contact_detail.append(disclose_flags)
         contact_detail.append(status_list)
 
         # replace None by empty string
         contact_detail = ['' if value is None else value for value in contact_detail]
 
-        columns = ("id", "handle", "roid", "registrar", "create_date", "transfer_date", "update_date",
-                   "create_registrar", "update_registrar", "auth_info", "name", "organization",
+        columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
+                   "auth_info", "name", "organization",
                    "street1", "street2", "street3", "province", "postalcode", "city", "country",
                    "telephone", "fax", "email", "notify_email", "ssn", "ssn_type", "vat",
-                   "disclose_flags", "status_list")
+                   "registrar", "disclose_flags", "status_list")
         data = dict(zip(columns, contact_detail))
 
         return (Registry.DomainBrowser.ContactDetail(**data), data_type)
