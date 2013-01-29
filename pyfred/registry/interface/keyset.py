@@ -161,6 +161,7 @@ class KeysetInterface(ListMetaInterface):
             },
         }
 
+        owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
         for row in self.source.fetchall("""
             SELECT object_registry.name,
@@ -173,12 +174,13 @@ class KeysetInterface(ListMetaInterface):
             WHERE keysetid = %(obj_id)d
             """, dict(obj_id=keyset_detail[TID])):
             admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
+            if contact_handle == row[0]:
+                owner = True
 
-        if contact_handle in admins:
-            # owner
+        if owner:
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
-            # not owner
+            # public version
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
             keyset_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
 
