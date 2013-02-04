@@ -40,8 +40,7 @@ class BaseInterface(object):
             WHERE object_state.object_id = %(object_id)d
                 AND state_id IN %(states)s
                 AND valid_to IS NULL""",
-            dict(object_id=contact_id, states=(ENUM_OBJECT_STATES["validatedContact"],
-                                               ENUM_OBJECT_STATES["identifiedContact"])))
+            dict(object_id=contact_id, states=(ENUM_OBJECT_STATES["validatedContact"],)))
 
         if results[0][0] == 0:
             self.logger.log(self.logger.INFO, "Contact ID %d has not a required status (validatedContact, identifiedContact)." % contact_id)
