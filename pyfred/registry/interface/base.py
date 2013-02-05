@@ -32,18 +32,19 @@ class BaseInterface(object):
         raise Registry.DomainBrowser.INCORRECT_USAGE
 
 
-    def owner_has_required_status(self, contact_id):
+    def owner_has_required_status(self, contact_id, names):
         "Check if contact has a required status."
+        states = [ENUM_OBJECT_STATES[key] for key in names]
         results = self.source.fetchall("""
             SELECT COUNT(*)
             FROM object_state
             WHERE object_state.object_id = %(object_id)d
                 AND state_id IN %(states)s
                 AND valid_to IS NULL""",
-            dict(object_id=contact_id, states=(ENUM_OBJECT_STATES["validatedContact"],)))
+            dict(object_id=contact_id, states=states))
 
         if results[0][0] == 0:
-            self.logger.log(self.logger.INFO, "Contact ID %d has not a required status (validatedContact, identifiedContact)." % contact_id)
+            self.logger.log(self.logger.INFO, "Contact ID %d has not required status %s." % (contact_id, names))
             raise Registry.DomainBrowser.ACCESS_DENIED
 
 
@@ -67,6 +68,7 @@ class BaseInterface(object):
 
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self.owner_has_required_status(contact_id, ["validatedContact", "identifiedContact"])
 
         object_id = self._get_handle_id(object_handle, objtype)
         self.logger.log(self.logger.INFO, "Found object ID %d of the handle '%s'." % (object_id, object_handle))
@@ -119,7 +121,7 @@ class BaseInterface(object):
 
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
-        self.owner_has_required_status(contact_id)
+        self.owner_has_required_status(contact_id, ["validatedContact"])
 
         # find all object belongs to contact
         result = self.source.fetchall(query_object_registry,
