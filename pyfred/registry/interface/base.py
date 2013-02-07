@@ -26,6 +26,7 @@ class BaseInterface(object):
         self.list_limit = list_limit
         self.source = None
         self.enum_object_states = None # cache
+        self.ignore_server_blocked = False
 
     def setObjectBlockStatus(self, handle, objtype, selections, action):
         "Set object block status."
@@ -98,23 +99,24 @@ class BaseInterface(object):
 
 
     def _objects_with_state(self, object_ids, state_name):
-        "Return objects only with given statuses."
+        "Return objects only with given states."
         return self.source.fetch_array("""
             SELECT
                 object_id
             FROM object_state
-            WHERE valid_to IS NULL
-                AND state_id = %(state_id)s
+            WHERE state_id = %(state_id)s
                 AND object_id IN %(objects)s
+                AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
             """, dict(objects=object_ids, state_id=ENUM_OBJECT_STATES[state_name]))
 
 
     @furnish_database_cursor_m
     def _setObjectBlockStatus(self, contact_handle, objtype, selections, action_obj, query_object_registry):
         "Set objects block status."
+        # selections: ("domain.cz", "fred.cz", ...)
         if not len(selections):
             self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle '%s'." % contact_handle)
-            return False
+            return False, []
 
         if len(selections) > self.SET_STATUS_MAX_ITEMS:
             raise Registry.DomainBrowser.INCORRECT_USAGE
@@ -126,9 +128,12 @@ class BaseInterface(object):
         # find all object belongs to contact
         result = self.source.fetchall(query_object_registry,
                         dict(objtype=OBJECT_REGISTRY_TYPES[objtype], contact_id=contact_id, names=selections))
+        # result: (("domain.cz", 11256), ("fred.cz", 4566), ...), ..)
 
         object_dict = dict(result)
+        # object_dict: {"domain.cz": 11256, "fred.cz": 4566, ...}
         object_ids = object_dict.values()
+        # object_ids: (11256, 4866, ...)
         missing = set(selections) - set(object_dict.keys())
         if len(missing):
             self.logger.log(self.logger.INFO, "Contact ID %d of the handle '%s' missing objects: %s" % (contact_id, contact_handle, missing))
@@ -164,7 +169,7 @@ class BaseInterface(object):
         if not (block_transfer_ids or block_update_ids or unblock_transfer_ids or unblock_update_ids):
             self.logger.log(self.logger.INFO, "None of the objects %s %s has required set/unset statuses "
                     "for the contact ID %d of the handle '%s'." % (object_ids, selections, contact_id, contact_handle))
-            return False
+            return False, []
 
         # prepare updates: ((state_id, object_id), ...)
         update_status = []
@@ -182,48 +187,78 @@ class BaseInterface(object):
             update_status.extend([(state_id, object_id) for object_id in block_update_ids + unblock_update_ids])
 
         # run updates from here:
+        blocked = []
+        retval = False
         for state_id, object_id in update_status:
             if action in (self.BLOCK_TRANSFER, self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
-                self._set_status_to_object(state_id, object_id)
+                if self._set_status_to_object(state_id, object_id):
+                    retval = True
+                else:
+                    blocked.append(object_id)
             else:
-                self._remove_status_from_object(state_id, object_id)
+                if self._remove_status_from_object(state_id, object_id):
+                    retval = True
+                else:
+                    blocked.append(object_id)
 
-        return True
+        blocked_names = set()
+        if len(blocked):
+            for name, obect_id in result:
+                if obect_id in blocked:
+                    blocked_names.add(name)
+
+        return retval, tuple(blocked_names)
 
 
     def _apply_status_to_object(self, state_id, object_id, query):
         "Set status to object"
         params = dict(state_id=state_id, object_id=object_id)
-
-        # Create request lock in the separate transaction
-        with TransactionLevelRead(self.source, self.logger) as transaction:
-            self.source.execute("""
-                INSERT INTO object_state_request_lock (state_id, object_id) VALUES
-                (%(state_id)d, %(object_id)d)""", params)
-
-        self.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", params)
+        attrs = dict(state_id=ENUM_OBJECT_STATES["serverBlocked"], object_id=object_id)
 
         with TransactionLevelRead(self.source, self.logger) as transaction:
+            self.source.execute("INSERT INTO object_state_request_lock (state_id, object_id) VALUES %s" %
+                                ", ".join(("(%(state_id)d, %(object_id)d)" % attrs,
+                                           "(%(state_id)d, %(object_id)d)" % params)))
+
+        # run the change of object in the transaction
+        with TransactionLevelRead(self.source, self.logger) as transaction:
+
+            # lock add/remove state 'serverBlocked' for object state_id
+            self.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", attrs)
+            object_with_server_blocked = self._objects_with_state([object_id], "serverBlocked")
+            if len(object_with_server_blocked):
+                self.logger.log(self.logger.INFO, "Change state ID %(state_id)d canceled. Object ID %(object_id)d has state 'serverBlocked'." % params)
+                if not self.ignore_server_blocked:
+                    return False # object is blocked
+
+            # activate lock for the object and state
+            self.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", params)
+            # insert request for change object state
             self.source.execute(query, params)
+            # execute the change
+            self.source.execute("SELECT update_object_states(%(object_id)d)", params)
 
-        self.source.execute("SELECT update_object_states(%(object_id)d)", params)
+        return True # object is NOT blocked
+
 
 
     def _set_status_to_object(self, state_id, object_id):
         "Set status to object"
-        self._apply_status_to_object(state_id, object_id, """
+        return self._apply_status_to_object(state_id, object_id, """
                 INSERT INTO object_state_request
                 (object_id, state_id, valid_from) VALUES
                 (%(object_id)d, %(state_id)d, CURRENT_TIMESTAMP)""")
 
     def _remove_status_from_object(self, state_id, object_id):
         "Remove status from object"
-        self._apply_status_to_object(state_id, object_id, """
+        return self._apply_status_to_object(state_id, object_id, """
                 UPDATE object_state_request
-                SET valid_to = NOW() - INTERVAL '1 sec'
-                WHERE valid_to IS NULL
-                    AND object_id = %(object_id)d
-                    AND state_id = %(state_id)d""")
+                    SET canceled = CURRENT_TIMESTAMP
+                WHERE object_id = %(object_id)d
+                    AND state_id = %(state_id)d
+                    AND  valid_from <= CURRENT_TIMESTAMP
+                    AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
+                """)
 
 
     def _get_handle_id(self, object_handle, type_name):

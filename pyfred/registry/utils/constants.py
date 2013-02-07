@@ -31,6 +31,7 @@ AUTH_INFO_LENGTH = 300
 
 ENUM_OBJECT_STATES = dict(serverTransferProhibited=3,
                           serverUpdateProhibited=4,
+                          serverBlocked=7,
                           deleteCandidate=17,
                           identifiedContact=22,
                           validatedContact=23)
