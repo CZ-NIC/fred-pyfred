@@ -71,11 +71,16 @@ class BaseInterface(object):
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
         self.owner_has_required_status(contact_id, ["validatedContact", "identifiedContact"])
 
-        object_id = self._get_handle_id(object_handle, objtype)
-        self.logger.log(self.logger.INFO, "Found object ID %d of the handle '%s'." % (object_id, object_handle))
+        if contact_handle == object_handle:
+            object_id = contact_id
+        else:
+            object_id = self._get_handle_id(object_handle, objtype)
+            self.logger.log(self.logger.INFO, "Found object ID %d of the handle '%s'." % (object_id, object_handle))
 
         # ACCESS_DENIED:
         self._object_belongs_to_contact(contact_id, contact_handle, object_id)
+        # OBJECT_BLOCKED:
+        self.check_if_object_is_blocked(object_id)
 
         authinfopw = self.source.getval("""
             SELECT
@@ -108,6 +113,12 @@ class BaseInterface(object):
                 AND object_id IN %(objects)s
                 AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
             """, dict(objects=object_ids, state_id=ENUM_OBJECT_STATES[state_name]))
+
+
+    def check_if_object_is_blocked(self, object_id):
+        "Raise OBJECT_BLOCKED is object is it."
+        if len(self._objects_with_state([object_id], "serverBlocked")):
+            raise Registry.DomainBrowser.OBJECT_BLOCKED
 
 
     @furnish_database_cursor_m
