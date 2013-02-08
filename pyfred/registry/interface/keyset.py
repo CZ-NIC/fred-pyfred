@@ -165,7 +165,7 @@ class KeysetInterface(ListMetaInterface):
         admins = [] # Registry.DomainBrowser.CoupleSeq
         for row in self.source.fetchall("""
             SELECT object_registry.name,
-                CASE WHEN contact.organization IS NOT NULL THEN
+                CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
                     contact.organization ELSE contact.name
                 END
             FROM keyset_contact_map

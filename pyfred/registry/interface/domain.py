@@ -252,7 +252,7 @@ class DomainInterface(ListMetaInterface):
                 regkeyset.name AS keyset,
 
                 registrant.name AS registrant_handle,
-                CASE WHEN contact.organization IS NOT NULL THEN
+                CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
                     contact.organization ELSE contact.name
                 END AS registrant_name,
 
@@ -350,7 +350,7 @@ class DomainInterface(ListMetaInterface):
         admins = [] # Registry.DomainBrowser.CoupleSeq
         for row in self.source.fetchall("""
                 SELECT object_registry.name,
-                    CASE WHEN contact.organization IS NOT NULL THEN
+                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
                         contact.organization ELSE contact.name
                     END AS contact_name
                 FROM domain_contact_map
