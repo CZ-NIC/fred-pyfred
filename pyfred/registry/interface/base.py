@@ -99,7 +99,7 @@ class BaseInterface(object):
             self.source.execute("""
                 UPDATE object SET authinfopw = %(auth_info)s
                 WHERE id = %(object_id)d""", dict(auth_info=auth_info, object_id=object_id))
-            self._update_history(contact_id, object_handle, objtype)
+            self._update_history(contact_id, object_handle, "object")
         return True
 
 
