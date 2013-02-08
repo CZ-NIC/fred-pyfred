@@ -49,12 +49,6 @@ class BaseInterface(object):
             raise Registry.DomainBrowser.ACCESS_DENIED
 
 
-    def _copy_into_history_query(self, objtype):
-        "Prepare query for copy object into history."
-        # This function is here for case when columns in tables ${object} and ${object}_history do not have the same order.
-        # List column names is required in this case. (e.g. \d domain and \d domain_history)
-        return "INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d" % dict(name=objtype)
-
     def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
         raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
@@ -99,7 +93,7 @@ class BaseInterface(object):
             self.source.execute("""
                 UPDATE object SET authinfopw = %(auth_info)s
                 WHERE id = %(object_id)d""", dict(auth_info=auth_info, object_id=object_id))
-            self._update_history(contact_id, object_handle, "object")
+            self._update_history(contact_id, object_handle, objtype)
         return True
 
 
@@ -344,7 +338,10 @@ class BaseInterface(object):
         params["prev_history_id"] = prev_history_id = self.source.getval("SELECT historyid FROM object_registry WHERE id = %(object_id)d", params)
         self.logger.log(self.logger.INFO, 'Previous history ID %d for object ID %d with handle "%s".' % (prev_history_id, object_id, handle))
 
-        # make backup of talbe $OBJECT (contact, domain, nsset, keyset)
+        # make backup of table 'object' (authinfopw)
+        self.source.execute("INSERT INTO object_history SELECT %(history_id)d, * FROM object WHERE id = %(object_id)d", params)
+
+        # make backup of table $OBJECT (contact, domain, nsset, keyset)
         # INSERT INTO object_history ...
         self.source.execute(self._copy_into_history_query(objtype), params)
 
@@ -352,7 +349,21 @@ class BaseInterface(object):
         self.source.execute("UPDATE object_registry SET historyid = %(history_id)d WHERE id = %(object_id)d", params)
 
         # refresh previous record of "history"
-        self.source.execute("UPDATE history SET valid_to = NOW(), next = %(history_id)d WHERE id = %(prev_history_id)d", params)
+        ##self.source.execute("UPDATE history SET valid_to = NOW(), next = %(history_id)d WHERE id = %(prev_history_id)d", params)
+        # db/sql/ccreg.sql:
+        # FUNCTION object_registry_update_history_rec TRIGGER object_registry AFTER UPDATE:
+        #   -- when updation object, set valid_to and next of previous history record
+        #       IF OLD.historyid != NEW.historyid THEN
+        #       UPDATE history SET valid_to = NOW(), next = NEW.historyid WHERE id = OLD.historyid;
+        #   -- when deleting object (setting object_registry.erdate), set valid_to of current history record
+        #       IF OLD.erdate IS NULL and NEW.erdate IS NOT NULL THEN
+        #       UPDATE history SET valid_to = NEW.erdate WHERE id = OLD.historyid;
+
+    def _copy_into_history_query(self, objtype):
+        "Prepare query for copy object into history."
+        # This function is here for case when columns in tables ${object} and ${object}_history do not have the same order.
+        # List column names is required in this case. (e.g. \d domain and \d domain_history)
+        return "INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d" % dict(name=objtype)
 
 
 
