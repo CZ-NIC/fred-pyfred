@@ -179,7 +179,8 @@ class ContactInterface(BaseInterface):
         disclose_flag_values = results[0]
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
-        columns = ("organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
+        # "name" and "organization" cannot change
+        columns = ("email", "address", "telephone", "fax", "ident", "vat", "notify_email")
         disclose_flags = dict(zip(columns, disclose_flag_values))
         discloses_original = Registry.DomainBrowser.UpdateContactDiscloseFlags(**disclose_flags)
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
@@ -197,9 +198,11 @@ class ContactInterface(BaseInterface):
             )
             params = dict(contact_id=contact_id)
             params.update(flags.__dict__)
+            # "name" and "organization" cannot change:
+            # disclosename = %(name)s,
+            # discloseorganization = %(organization)s,
             self.source.execute("""
                 UPDATE contact SET
-                    discloseorganization = %(organization)s,
                     discloseemail = %(email)s,
                     discloseaddress = %(address)s,
                     disclosetelephone = %(telephone)s,
