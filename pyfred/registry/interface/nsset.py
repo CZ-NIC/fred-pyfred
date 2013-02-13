@@ -4,7 +4,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils import parse_array_agg, parse_array_agg_int, none2str
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
-from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
+from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
 
 
@@ -29,7 +29,15 @@ class NssetInterface(ListMetaInterface):
 
         self.source.execute("""
             CREATE OR REPLACE TEMPORARY VIEW domains_by_nsset_view AS
-            SELECT nsset, COUNT(nsset) AS number FROM domain GROUP BY nsset""")
+            SELECT nsset, COUNT(nsset) AS number
+            FROM domain
+            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                      AND domain_contact_map.role = %(role_id)d
+                      AND domain_contact_map.contactid = %(contact_id)d
+            WHERE domain_contact_map.contactid = %(contact_id)d
+                OR domain.registrant = %(contact_id)d
+            GROUP BY nsset
+            """, dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"]))
 
         NSSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3

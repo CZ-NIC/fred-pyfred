@@ -141,7 +141,7 @@ class BaseInterface(object):
         # object_ids: (11256, 4866, ...)
         missing = set(selections) - set(object_dict.keys())
         if len(missing):
-            self.logger.log(self.logger.INFO, "Contact ID %d of the handle '%s' missing objects: %s" % (contact_id, contact_handle, missing))
+            self.logger.log(self.logger.INFO, "Contact ID %d of the handle '%s' missing objects: %s" % (contact_id, contact_handle, list(missing)))
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
         action = action_obj._v # action value
