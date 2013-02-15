@@ -129,7 +129,7 @@ class DomainInterface(ListMetaInterface):
             LEFT JOIN domain_states ON domain_states.object_id = object_registry.id
             WHERE domain_contact_map.contactid = %(contact_id)d
                 OR domain.registrant = %(contact_id)d
-            ORDER BY domain.exdate DESC
+            ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.list_limit)
 
@@ -165,7 +165,7 @@ class DomainInterface(ListMetaInterface):
             WHERE object_registry.type = %(objtype)d
                 AND domain.nsset = %(nsset_id)d
                 AND (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
-            ORDER BY domain.exdate DESC
+            ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], limit=self.list_limit)
@@ -202,7 +202,7 @@ class DomainInterface(ListMetaInterface):
             WHERE object_registry.type = %(objtype)d
                 AND domain.keyset = %(keyset_id)d
                 AND (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
-            ORDER BY domain.exdate DESC
+            ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], limit=self.list_limit)
