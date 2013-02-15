@@ -14,6 +14,9 @@ class DatabaseCursor(object):
         self.connection = None
         self.cursor = None
         self.INTERNAL_SERVER_ERROR = internal_server_error
+        self.logging_level = self.logger.DEBUG
+        self.DUMP = self.logger.INFO # login level higher than threshold for write log messages
+        # Usage: self.execute("SELECT * FROM table WHERE id = %(id)d", dict(id=10), self.DUMP)
 
     def __enter__(self):
         "Open database connection."
@@ -30,10 +33,11 @@ class DatabaseCursor(object):
         self.cursor.close()
         self.database.releaseConn(self.connection)
 
-    def execute(self, sql, params=None):
+
+    def execute(self, sql, params=None, logging_level=None):
         "Execute SQL query."
         private_params = make_params_private(params)
-        self.logger.log(self.logger.DEBUG, 'Execute "%s"; %s' % (normalize_spaces(sql), private_params))
+        self.logger.log(self.logging_level if logging_level is None else logging_level, 'Execute "%s"; %s' % (normalize_spaces(sql), private_params))
         # InterfaceError (quote), OperationalError, DatabaseError (executemany)
         try:
             self.cursor.execute(sql, params)
@@ -41,29 +45,29 @@ class DatabaseCursor(object):
             self.logger.log(self.logger.ERROR, 'cursor.excecute("%s", %s) %s' % (normalize_spaces(sql), private_params, msg))
             raise self.INTERNAL_SERVER_ERROR
 
-    def fetchall(self, sql, params=None):
+    def fetchall(self, sql, params=None, logging_level=None):
         "Return result of SQL query."
-        self.execute(sql, params)
+        self.execute(sql, params, logging_level)
         try:
             return self.cursor.fetchall()
         except pgdb.DatabaseError, msg:
             self.logger.log(self.logger.ERROR, 'cursor.fetchall("%s", %s) %s' % (normalize_spaces(sql), make_params_private(params), msg))
             raise self.INTERNAL_SERVER_ERROR
 
-    def fetchallstr(self, sql, params=None):
+    def fetchallstr(self, sql, params=None, logging_level=None):
         "Return result of SQL query. All values are strings."
         record_set = []
-        for row in self.fetchall(sql, params):
+        for row in self.fetchall(sql, params, logging_level):
             record_set.append([str(column) for column in row])
         return record_set
 
-    def getval(self, sql, params=None):
+    def getval(self, sql, params=None, logging_level=None):
         "Return first column of first row."
-        return self.fetchall(sql, params)[0][0] # [row][column]
+        return self.fetchall(sql, params, logging_level)[0][0] # [row][column]
 
-    def fetch_array(self, sql, params=None):
+    def fetch_array(self, sql, params=None, logging_level=None):
         "Return first column of the result."
-        return [row[0] for row in self.fetchall(sql, params)]
+        return [row[0] for row in self.fetchall(sql, params, logging_level)]
 
 
 class TransactionLevelRead(object):

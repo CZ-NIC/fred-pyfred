@@ -1,4 +1,13 @@
 #!/usr/bin/python
+"""
+from datetime import datetime, timedelta
+
+today = datetime.today().date()
+print "N/A: < ", today - timedelta(days=61-1)
+print "deleted: ", today - timedelta(days=61-1), "-", today - timedelta(days=30)
+print "outzone: ", today - timedelta(days=30-1), "-", today
+print "expired: ", today + timedelta(days=1), ">"
+"""
 from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
@@ -51,7 +60,7 @@ class DomainInterface(ListMetaInterface):
             REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
-        for domain_row in self.source.fetchall(sql_query, sql_params):
+        for domain_row in self.source.fetchall(sql_query, sql_params): #, self.source.DUMP
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
             domain_states = parse_array_agg_int(domain_row[Col.DOMAIN_STATES])
 
@@ -67,6 +76,7 @@ class DomainInterface(ListMetaInterface):
             # |------------|-------------------|-------------------|------------>
             #             0|                +30|                +61|
             #          expiration           outzone              delete
+
             next_state, next_state_date = "N/A", ""
             today = datetime.today().date()
             if today < exdate:
@@ -88,6 +98,10 @@ class DomainInterface(ListMetaInterface):
                             next_state, next_state_date = "deleteCandidate", delete_date
                         else:
                             next_state, next_state_date = "outzone", outzone_date
+            ## TEST
+            #self.logger.log(self.logger.INFO, "regid=%s exdate=%s outzone_date=%s delete_date=%s; " \
+            #        "next_state=%s next_state_date=%s" % (domain_row[Col.REGID], exdate, outzone_date, delete_date,
+            #        next_state, next_state_date))
 
             domain_list.append([
                 domain_row[Col.DOMAIN_NAME], # domain_name TEXT
