@@ -361,15 +361,8 @@ class DomainInterface(ListMetaInterface):
         if domain_detail[Col.PUBLISH] is None:
             domain_detail[Col.PUBLISH] = False
 
-        if registrant_handle == contact_handle:
-            # owner
-            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
-        else:
-            # not owner
-            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
-            domain_detail[Col.PASSWORD] = self.PASSWORD_SUBSTITUTION
-
         admins = [] # Registry.DomainBrowser.CoupleSeq
+        admin_handles = []
         for row in self.source.fetchall("""
                 SELECT object_registry.name,
                     CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
@@ -382,6 +375,15 @@ class DomainInterface(ListMetaInterface):
                     AND domainid = %(obj_id)d
                 """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[Col.TID])):
             admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
+            admin_handles.append(row[0])
+
+        if contact_handle == registrant_handle or contact_handle in admin_handles:
+            # owner or contact in admins list
+            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
+        else:
+            # not owner
+            data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
+            domain_detail[Col.PASSWORD] = self.PASSWORD_SUBSTITUTION
 
         domain_detail.append(Registry.DomainBrowser.Couple(registrant_handle, registrant_name))
         domain_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
