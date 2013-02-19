@@ -55,7 +55,7 @@ class KeysetInterface(ListMetaInterface):
                 LIMIT %(limit)d
                 """,
                 dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact_id,
-                     limit=self.list_limit)):
+                     limit=self.list_limit + 1)):
 
             counter += 1
             if counter > self.list_limit:

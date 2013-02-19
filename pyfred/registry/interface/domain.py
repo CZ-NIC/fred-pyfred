@@ -59,9 +59,15 @@ class DomainInterface(ListMetaInterface):
         class Col(object):
             REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
-        limit_exceeded = 0
+        counter, limit_exceeded = 0, 0
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
         for domain_row in self.source.fetchall(sql_query, sql_params): #, self.source.DUMP
+
+            counter += 1
+            if counter > self.list_limit:
+                limit_exceeded = self.list_limit
+                break
+
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
             domain_states = parse_array_agg_int(domain_row[Col.DOMAIN_STATES])
 
@@ -146,7 +152,7 @@ class DomainInterface(ListMetaInterface):
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
-        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.list_limit)
+        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
@@ -183,7 +189,7 @@ class DomainInterface(ListMetaInterface):
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit)
+                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
@@ -220,7 +226,7 @@ class DomainInterface(ListMetaInterface):
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit)
+                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
