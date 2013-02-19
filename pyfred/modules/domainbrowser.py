@@ -23,22 +23,24 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger = logger # syslog functionality
 
         # Defaults of limits when they missing in config:
-        list_domains_limit, list_nssets_limit, list_keysets_limit = 1000, 1000, 1000
+        limits = dict(domains=1000, nssets=1000, keysets=1000)
 
         # config
         section = "DomainBrowser"
         if conf.has_section(section):
-            for key in ("domains", "nssets", "keysets"):
+            for name in ("domains", "nssets", "keysets"):
                 try:
-                    setattr(self, key, conf.getint(section, key))
+                    value = conf.getint(section, "list_%s_limit" % name)
+                    if value:
+                        limits[name] = value
                 except ConfigParser.NoOptionError, msg:
                     pass # use default defined above when the limit is not in the config
 
         # Object interfaces
         self.contact = ContactInterface(database, logger)
-        self.domain = DomainInterface(database, logger, list_domains_limit)
-        self.nsset = NssetInterface(database, logger, list_nssets_limit)
-        self.keyset = KeysetInterface(database, logger, list_keysets_limit)
+        self.domain = DomainInterface(database, logger, limits["domains"])
+        self.nsset = NssetInterface(database, logger, limits["nssets"])
+        self.keyset = KeysetInterface(database, logger, limits["keysets"])
 
         logger.log(logger.DEBUG, "Object DomainBrowser initialized.")
 
