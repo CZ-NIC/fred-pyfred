@@ -59,13 +59,13 @@ class DomainInterface(ListMetaInterface):
         class Col(object):
             REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
-        counter, limit_exceeded = 0, 0
+        counter, limit_exceeded = 0, False
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
         for domain_row in self.source.fetchall(sql_query, sql_params): #, self.source.DUMP
 
             counter += 1
             if counter > self.list_limit:
-                limit_exceeded = self.list_limit
+                limit_exceeded = True
                 break
 
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":

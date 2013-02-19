@@ -40,7 +40,7 @@ class KeysetInterface(ListMetaInterface):
 
         KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
-        result, limit_exceeded = [], 0
+        result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
@@ -59,7 +59,7 @@ class KeysetInterface(ListMetaInterface):
 
             counter += 1
             if counter > self.list_limit:
-                limit_exceeded = self.list_limit
+                limit_exceeded = True
                 break
 
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
