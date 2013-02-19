@@ -41,7 +41,7 @@ class NssetInterface(ListMetaInterface):
 
         NSSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
-        result = []
+        result, limit_exceeded, counter = [], 0, 0
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
@@ -56,7 +56,12 @@ class NssetInterface(ListMetaInterface):
                 LIMIT %(limit)d
                 """,
                 dict(objtype=OBJECT_REGISTRY_TYPES['nsset'], contact_id=contact_id,
-                     limit=self.list_limit)):
+                     limit=self.list_limit + 1)):
+
+            counter += 1
+            if counter > self.list_limit:
+                limit_exceeded = self.list_limit
+                break
 
             # row: ['KONTAKT', None, '{linked}']
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
@@ -69,7 +74,7 @@ class NssetInterface(ListMetaInterface):
             result.append(row)
 
         self.logger.log(self.logger.INFO, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
-        return result
+        return result, limit_exceeded
 
 
     @furnish_database_cursor_m

@@ -40,7 +40,7 @@ class KeysetInterface(ListMetaInterface):
 
         KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
-        result = []
+        result, limit_exceeded = [], 0
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
@@ -57,6 +57,11 @@ class KeysetInterface(ListMetaInterface):
                 dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact_id,
                      limit=self.list_limit)):
 
+            counter += 1
+            if counter > self.list_limit:
+                limit_exceeded = self.list_limit
+                break
+
             # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
             obj_states = parse_array_agg_int(row[OBJ_STATES])
 
@@ -66,7 +71,7 @@ class KeysetInterface(ListMetaInterface):
             result.append(row)
 
         self.logger.log(self.logger.INFO, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
-        return result
+        return result, limit_exceeded
 
         return []
 

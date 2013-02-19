@@ -59,6 +59,7 @@ class DomainInterface(ListMetaInterface):
         class Col(object):
             REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
 
+        limit_exceeded = 0
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
         for domain_row in self.source.fetchall(sql_query, sql_params): #, self.source.DUMP
             # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
@@ -115,7 +116,7 @@ class DomainInterface(ListMetaInterface):
                 "t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in domain_states else "f",  # blocked_transfer BOOL
                 ])
 
-        return domain_list
+        return domain_list, limit_exceeded
 
 
     @furnish_database_cursor_m
