@@ -126,6 +126,7 @@ class KeysetInterface(ListMetaInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
+                external_state_description(oreg.id, %(lang)s) AS status_list,
 
                 current.handle AS registrar_handle,
                 current.name AS registrar_name,
@@ -144,7 +145,7 @@ class KeysetInterface(ListMetaInterface):
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
             WHERE oreg.type = %(type_id)d AND oreg.name = %(keyset)s
-        """, dict(keyset=keyset, type_id=OBJECT_REGISTRY_TYPES["keyset"]))
+        """, dict(keyset=keyset, type_id=OBJECT_REGISTRY_TYPES["keyset"], lang=lang))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -153,11 +154,7 @@ class KeysetInterface(ListMetaInterface):
             self.logger.log(self.logger.CRITICAL, "Keyset detail of '%s' does not have one record: %s" % (keyset, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(keyset, "keyset")
-        self.logger.log(self.logger.INFO, "Keyset '%s' has states: %s." % (keyset, status_list))
-
         TID, PASSWORD = 0, 6
-
         keyset_detail = results[0]
         registrar = {
             "updator": {
@@ -224,14 +221,13 @@ class KeysetInterface(ListMetaInterface):
         keyset_detail.append(admins)
         keyset_detail.append(dsrecords)
         keyset_detail.append(dnskeys)
-        keyset_detail.append(status_list)
 
         # replace None by empty string
         keyset_detail = ['' if value is None else value for value in keyset_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "registrar", "create_registrar", "update_registrar",
-                   "admins", "dsrecords", "dnskeys", "status_list")
+                   "auth_info", "status_list", "registrar", "create_registrar", "update_registrar",
+                   "admins", "dsrecords", "dnskeys")
         data = dict(zip(columns, keyset_detail))
 
         return (Registry.DomainBrowser.KeysetDetail(**data), data_type)

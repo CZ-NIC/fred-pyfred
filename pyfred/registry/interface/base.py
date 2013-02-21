@@ -305,24 +305,6 @@ class BaseInterface(object):
         return result
 
 
-    def _get_status_list(self, object_handle, objtype):
-        "Returns the list of status."
-        status_list = []
-        for row_states in self.source.fetchall("""
-                SELECT
-                    enum_object_states.name
-                FROM object_registry
-                LEFT JOIN object_state ON object_state.object_id = object_registry.id
-                    AND (object_state.valid_from <= NOW()
-                    AND (object_state.valid_to IS NULL OR object_state.valid_to > NOW()))
-                LEFT JOIN enum_object_states ON enum_object_states.id = object_state.state_id
-                WHERE object_registry.type = %(type_id)d AND object_registry.name = %(name)s""",
-                dict(name=object_handle, type_id=OBJECT_REGISTRY_TYPES[objtype])):
-            if row_states[0]:
-                status_list.append(row_states[0])
-        return status_list
-
-
     def _update_history(self, object_id, handle, objtype):
         "Update object history."
         params = dict(object_id=object_id)

@@ -111,6 +111,7 @@ class NssetInterface(ListMetaInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
+                external_state_description(oreg.id, %(lang)s) AS status_list,
                 nsset.checklevel,
 
                 current.handle AS registrar_handle,
@@ -131,7 +132,7 @@ class NssetInterface(ListMetaInterface):
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
             WHERE oreg.type = %(type_id)d AND oreg.name = %(nsset)s
-        """, dict(nsset=nsset, type_id=OBJECT_REGISTRY_TYPES["nsset"]))
+        """, dict(nsset=nsset, type_id=OBJECT_REGISTRY_TYPES["nsset"], lang=lang))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -140,13 +141,8 @@ class NssetInterface(ListMetaInterface):
             self.logger.log(self.logger.CRITICAL, "Nsset detail of '%s' does not have one record: %s" % (nsset, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        status_list = self._get_status_list(nsset, "nsset")
-        self.logger.log(self.logger.INFO, "Nsset '%s' has states: %s." % (nsset, status_list))
-
         TID, PASSWORD = 0, 6
-
         nsset_detail = results[0]
-
         registrar = {
             "updator": {
                 "name": none2str(nsset_detail.pop()),
@@ -207,15 +203,14 @@ class NssetInterface(ListMetaInterface):
             nsset_detail.append(Registry.DomainBrowser.Couple(registrar[key]["handle"], registrar[key]["name"]))
         nsset_detail.append(admins)
         nsset_detail.append(hosts)
-        nsset_detail.append(status_list)
         nsset_detail.append(report_level)
 
         # replace None by empty string
         nsset_detail = ['' if value is None else value for value in nsset_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "registrar", "create_registrar", "update_registrar",
-                   "admins", "hosts", "status_list", "report_level")
+                   "auth_info", "status_list", "registrar", "create_registrar", "update_registrar",
+                   "admins", "hosts", "report_level")
         data = dict(zip(columns, nsset_detail))
 
         return (Registry.DomainBrowser.NSSetDetail(**data), data_type)

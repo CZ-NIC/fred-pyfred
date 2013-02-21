@@ -270,6 +270,7 @@ class DomainInterface(ListMetaInterface):
                 oreg.crdate AS create_date,
                 obj.update AS update_date,
                 obj.authinfopw AS auth_info,
+                external_state_description(oreg.id, %(lang)s) AS status_list,
 
                 domain.exdate AS expiration_date,
 
@@ -304,7 +305,7 @@ class DomainInterface(ListMetaInterface):
                 LEFT JOIN enumval enum ON enum.domainid = oreg.id
 
             WHERE oreg.type = %(type_id)d AND oreg.name = %(domain)s
-        """, dict(domain=domain, type_id=OBJECT_REGISTRY_TYPES["domain"]))
+        """, dict(domain=domain, type_id=OBJECT_REGISTRY_TYPES["domain"], lang=lang))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -312,9 +313,6 @@ class DomainInterface(ListMetaInterface):
         if len(results) != 1:
             self.logger.log(self.logger.CRITICAL, "Domain detail of '%s' does not have one record: %s" % (domain, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
-
-        status_list = self._get_status_list(domain, "domain")
-        self.logger.log(self.logger.INFO, "Domain '%s' has states: %s." % (domain, status_list))
 
         # -[ RECORD 1 ]-----+---------------------------
         # id                | 1191
@@ -335,7 +333,7 @@ class DomainInterface(ListMetaInterface):
         # registrar_name    | Company A l.t.d
 
         class Col(object):
-            TID, PASSWORD, PUBLISH = 0, 5, 8
+            TID, PASSWORD, PUBLISH = 0, 5, 9
 
         columns = (
             "id",
@@ -344,6 +342,7 @@ class DomainInterface(ListMetaInterface):
             "create_date",
             "update_date",
             "auth_info",
+            "status_list",
             "expiration_date",
             "val_ex_date",
             "publish",
@@ -354,7 +353,6 @@ class DomainInterface(ListMetaInterface):
             "registrant",
             "registrar",
             "admins",
-            "status_list"
         )
 
         domain_detail = results[0]
@@ -395,7 +393,6 @@ class DomainInterface(ListMetaInterface):
         domain_detail.append(Registry.DomainBrowser.Couple(registrant_handle, registrant_name))
         domain_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
         domain_detail.append(admins)
-        domain_detail.append(status_list)
 
         # replace None by empty string
         domain_detail = ['' if value is None else value for value in domain_detail]
