@@ -126,7 +126,7 @@ class DomainInterface(ListMetaInterface):
 
 
     @furnish_database_cursor_m
-    def getDomainList(self, contact_handle):
+    def getDomainList(self, contact_handle, lang):
         "Return list of domains."
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -158,7 +158,7 @@ class DomainInterface(ListMetaInterface):
 
 
     @furnish_database_cursor_m
-    def getDomainsForNsset(self, contact_handle, nsset):
+    def getDomainsForNsset(self, contact_handle, nsset, lang):
         "Domains for nsset"
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -195,7 +195,7 @@ class DomainInterface(ListMetaInterface):
 
 
     @furnish_database_cursor_m
-    def getDomainsForKeyset(self, contact_handle, keyset):
+    def getDomainsForKeyset(self, contact_handle, keyset, lang):
         "Domains for keyset"
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -232,7 +232,7 @@ class DomainInterface(ListMetaInterface):
 
 
     @furnish_database_cursor_m
-    def getDomainDetail(self, contact_handle, domain):
+    def getDomainDetail(self, contact_handle, domain, lang):
         """
         struct DomainDetail {
             TID id;

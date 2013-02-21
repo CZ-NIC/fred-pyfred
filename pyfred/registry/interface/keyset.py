@@ -21,7 +21,7 @@ class KeysetInterface(ListMetaInterface):
                         ))
 
     @furnish_database_cursor_m
-    def getKeysetList(self, contact_handle):
+    def getKeysetList(self, contact_handle, lang):
         "List of keysets"
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -76,7 +76,7 @@ class KeysetInterface(ListMetaInterface):
         return []
 
     @furnish_database_cursor_m
-    def getKeysetDetail(self, contact_handle, keyset):
+    def getKeysetDetail(self, contact_handle, keyset, lang):
         """
         struct KeysetDetail {
             TID id;

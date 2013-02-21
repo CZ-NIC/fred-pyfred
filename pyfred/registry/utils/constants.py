@@ -1,6 +1,9 @@
 #!/usr/bin/python
 "Fred constants."
 
+# available languages; used for state descriptions
+LANGUAGES = ("EN", "CS")
+
 # DUPLICITY: server/src/fredlib/contact.cc
 CONTACT_REGEX_RESTRICTED = "[cC][iI][dD]:[a-zA-Z0-9_:.-]{1,59}"
 

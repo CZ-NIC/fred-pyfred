@@ -14,7 +14,7 @@ class ContactInterface(BaseInterface):
     "Contact corba interface."
 
     @furnish_database_cursor_m
-    def getContactDetail(self, contact_handle, contact_handle_detail):
+    def getContactDetail(self, contact_handle, contact_handle_detail, lang):
         """Return detail of contact."
 
         struct ContactDetail {

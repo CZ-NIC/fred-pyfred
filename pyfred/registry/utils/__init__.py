@@ -2,7 +2,8 @@
 "Registry utils."
 import re
 # pyfred
-from pyfred.registry.utils.constants import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED, DOMAIN_NAME_REGEX
+from pyfred.registry.utils.constants import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED, \
+                                            DOMAIN_NAME_REGEX, LANGUAGES
 from pyfred.idlstubs import Registry
 
 
@@ -31,6 +32,14 @@ def normalize_and_check_domain(logger, domain_name):
         logger.log(logger.INFO, 'Invalid format of domain name "%s".' % domain_name)
         raise Registry.DomainBrowser.INCORRECT_USAGE
     return domain_name
+
+
+def normalize_and_check_langcode(logger, lang_code):
+    "Normalize language code."
+    lang_code = lang_code.upper()
+    if lang_code not in LANGUAGES:
+        raise Registry.DomainBrowser.INCORRECT_USAGE
+    return lang_code
 
 
 def normalize_spaces(text):

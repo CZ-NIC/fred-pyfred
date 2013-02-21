@@ -22,7 +22,7 @@ class NssetInterface(ListMetaInterface):
 
 
     @furnish_database_cursor_m
-    def getNssetList(self, contact_handle):
+    def getNssetList(self, contact_handle, lang):
         "List of nssets"
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -78,7 +78,7 @@ class NssetInterface(ListMetaInterface):
 
 
     @furnish_database_cursor_m
-    def getNssetDetail(self, contact_handle, nsset):
+    def getNssetDetail(self, contact_handle, nsset, lang):
         """
         struct NSSetDetail {
             TID id;
