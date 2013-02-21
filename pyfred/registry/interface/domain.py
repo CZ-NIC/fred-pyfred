@@ -11,10 +11,10 @@ print "expired: ", today + timedelta(days=1), ">"
 from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
-from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
+from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES
 from pyfred.registry.interface.base import ListMetaInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
-from pyfred.registry.utils import parse_array_agg_int, none2str
+from pyfred.registry.utils import none2str
 
 
 
@@ -68,9 +68,6 @@ class DomainInterface(ListMetaInterface):
                 limit_exceeded = True
                 break
 
-            # Parse 'domain states' from "{outzone,nssetMissing}" or "{NULL}":
-            domain_states = parse_array_agg_int(domain_row[Col.DOMAIN_STATES])
-
             # expiration_dns_protection_period, expiration_registration_protection_period
             exdate = datetime.strptime(domain_row[Col.EXDATE], '%Y-%m-%d').date()
             outzone_date = exdate + timedelta(days=int(enum_parameters["expiration_dns_protection_period"])) # 30
@@ -112,14 +109,12 @@ class DomainInterface(ListMetaInterface):
 
             domain_list.append([
                 domain_row[Col.DOMAIN_NAME], # domain_name TEXT
-                " ".join(self._map_object_states(domain_states)),
+                domain_row[Col.DOMAIN_STATES],
                 next_state,              # next_state TEXT
                 str(next_state_date),    # next_state_date DATE
                 "t" if domain_row[Col.DNSSEC] else "f", # dnssec_available BOOL
                 "holder" if domain_row[Col.REGISTRANT] == contact_id else "admin", # your_role TEXT
                 domain_row[Col.REG_HANDLE],                                        # registrar_handle TEXT
-                "t" if ENUM_OBJECT_STATES["serverUpdateProhibited"] in domain_states else "f",    # blocked_update BOOL
-                "t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in domain_states else "f",  # blocked_transfer BOOL
                 ])
 
         return domain_list, limit_exceeded
@@ -139,7 +134,7 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                domain_states.states
+                external_state_description(object_registry.id, %(lang)s) AS status_list
             FROM object_registry
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -147,12 +142,11 @@ class DomainInterface(ListMetaInterface):
                       AND domain_contact_map.contactid = %(contact_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN domain_states ON domain_states.object_id = object_registry.id
             WHERE domain_contact_map.contactid = %(contact_id)d
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
-        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1)
+        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
@@ -174,7 +168,7 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                domain_states.states
+                external_state_description(object_registry.id, %(lang)s) AS status_list
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -182,14 +176,13 @@ class DomainInterface(ListMetaInterface):
                       AND domain_contact_map.contactid = %(contact_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN domain_states ON domain_states.object_id = object_registry.id
             WHERE object_registry.type = %(objtype)d
                 AND domain.nsset = %(nsset_id)d
                 AND (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1)
+                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
@@ -211,7 +204,7 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                domain_states.states
+                external_state_description(object_registry.id, %(lang)s) AS status_list
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -219,14 +212,13 @@ class DomainInterface(ListMetaInterface):
                       AND domain_contact_map.contactid = %(contact_id)d
             LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
             LEFT JOIN registrar ON registrar.id = object_history.clid
-            LEFT JOIN domain_states ON domain_states.object_id = object_registry.id
             WHERE object_registry.type = %(objtype)d
                 AND domain.keyset = %(keyset_id)d
                 AND (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1)
+                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 

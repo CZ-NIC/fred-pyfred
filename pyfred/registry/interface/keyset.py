@@ -2,7 +2,7 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import ListMetaInterface
-from pyfred.registry.utils import parse_array_agg_int, none2str
+from pyfred.registry.utils import none2str
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
@@ -38,36 +38,30 @@ class KeysetInterface(ListMetaInterface):
             GROUP BY keyset
             """, dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"]))
 
-        KEYSET_HANDLE, NUM_OF_DOMAINS, OBJ_STATES = range(3)
+        KEYSET_HANDLE, NUM_OF_DOMAINS = range(2)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
                     domains.number,
-                    keyset_states.states
+                    external_state_description(keyset_contact_map.keysetid, %(lang)s) AS status_list
                 FROM object_registry
                     LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
-                    LEFT JOIN keyset_states ON keyset_states.object_id = object_registry.id
                     LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
                 WHERE object_registry.type = %(objtype)d
                     AND keyset_contact_map.contactid = %(contact_id)d
                 LIMIT %(limit)d
                 """,
                 dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact_id,
-                     limit=self.list_limit + 1)):
+                     lang=lang, limit=self.list_limit + 1)):
 
             counter += 1
             if counter > self.list_limit:
                 limit_exceeded = True
                 break
 
-            # Parse 'states' from "{serverTransferProhibited,serverUpdateProhibited}" or "{NULL}":
-            obj_states = parse_array_agg_int(row[OBJ_STATES])
-
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
-            row[UPDATE_PROHIBITED] = "t" if ENUM_OBJECT_STATES["serverUpdateProhibited"] in obj_states else "f"
-            row.append("t" if ENUM_OBJECT_STATES["serverTransferProhibited"] in obj_states else "f")
             result.append(row)
 
         self.logger.log(self.logger.INFO, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
