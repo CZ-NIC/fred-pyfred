@@ -45,7 +45,7 @@ class ContactInterface(BaseInterface):
             string ssn_type;
             string vat;
             ContactDiscloseFlags disclose_flags;
-            ObjectStatusSeq status_list;
+            string status_list;
         };
         """
         contact_id = self._get_user_handle_id(contact_handle)
@@ -62,6 +62,7 @@ class ContactInterface(BaseInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
+                external_state_description(oreg.id, %(lang)s) AS status_list,
 
                 contact.name,
                 contact.organization,
@@ -100,7 +101,7 @@ class ContactInterface(BaseInterface):
                 LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
             WHERE oreg.type = %(type_id)d AND oreg.name = %(handle)s""",
-            dict(handle=contact_handle_detail, type_id=OBJECT_REGISTRY_TYPES["contact"]))
+            dict(handle=contact_handle_detail, type_id=OBJECT_REGISTRY_TYPES["contact"], lang=lang))
 
         if len(results) == 0:
             self.logger.log(self.logger.INFO, 'Contact of handle "%s" does not exist.' % contact_handle_detail)
@@ -109,8 +110,6 @@ class ContactInterface(BaseInterface):
         if len(results) != 1:
             self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact_handle_detail, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
-
-        status_list = self._get_status_list(contact_handle_detail, "contact")
 
         row = results[0]
         registrar_name = none2str(row.pop())
@@ -133,16 +132,15 @@ class ContactInterface(BaseInterface):
 
         contact_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
         contact_detail.append(disclose_flags)
-        contact_detail.append(status_list)
 
         # replace None by empty string
         contact_detail = ['' if value is None else value for value in contact_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "name", "organization",
+                   "auth_info", "status_list", "name", "organization",
                    "street1", "street2", "street3", "province", "postalcode", "city", "country",
                    "telephone", "fax", "email", "notify_email", "ssn", "ssn_type", "vat",
-                   "registrar", "disclose_flags", "status_list")
+                   "registrar", "disclose_flags")
         data = dict(zip(columns, contact_detail))
 
         return (Registry.DomainBrowser.ContactDetail(**data), data_type)
