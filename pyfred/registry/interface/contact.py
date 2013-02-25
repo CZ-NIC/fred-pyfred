@@ -21,12 +21,10 @@ class ContactInterface(BaseInterface):
             TID id;
             string handle;
             string roid;
-            string registrar;
+            Couple registrar;
             string create_date;
             string transfer_date;
             string update_date;
-            string create_registrar;
-            string update_registrar;
             string auth_info;
             string name;
             string organization;
@@ -45,7 +43,8 @@ class ContactInterface(BaseInterface):
             string ssn_type;
             string vat;
             ContactDiscloseFlags disclose_flags;
-            string status_list;
+            string states;
+            string state_codes;
         };
         """
         contact_id = self._get_user_handle_id(contact_handle)
@@ -62,7 +61,8 @@ class ContactInterface(BaseInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
-                external_state_description(oreg.id, %(lang)s) AS status_list,
+                external_state_description(oreg.id, %(lang)s) AS states,
+                get_object_states(oreg.id) AS state_codes,
 
                 contact.name,
                 contact.organization,
@@ -137,7 +137,7 @@ class ContactInterface(BaseInterface):
         contact_detail = ['' if value is None else value for value in contact_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "status_list", "name", "organization",
+                   "auth_info", "states", "state_codes", "name", "organization",
                    "street1", "street2", "street3", "province", "postalcode", "city", "country",
                    "telephone", "fax", "email", "notify_email", "ssn", "ssn_type", "vat",
                    "registrar", "disclose_flags")

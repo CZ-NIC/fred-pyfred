@@ -76,17 +76,18 @@ class KeysetInterface(ListMetaInterface):
             TID id;
             string handle;
             string roid;
-            string registrar;
+            Couple registrar;
             string create_date;
             string transfer_date;
             string update_date;
-            string create_registrar;
-            string update_registrar;
+            Couple create_registrar;
+            Couple update_registrar;
             string auth_info;
-            ContactHandleSeq admins;
+            CoupleSeq admins;
             sequence<DSRecord> dsrecords;
             sequence<DNSKey> dnskeys;
-            ObjectStatusSeq  status_list;
+            string states;
+            string state_codes;
         };
 
         struct DSRecord
@@ -120,7 +121,8 @@ class KeysetInterface(ListMetaInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
-                external_state_description(oreg.id, %(lang)s) AS status_list,
+                external_state_description(oreg.id, %(lang)s) AS states,
+                get_object_states(oreg.id) AS state_codes,
 
                 current.handle AS registrar_handle,
                 current.name AS registrar_name,
@@ -220,7 +222,7 @@ class KeysetInterface(ListMetaInterface):
         keyset_detail = ['' if value is None else value for value in keyset_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "status_list", "registrar", "create_registrar", "update_registrar",
+                   "auth_info", "states", "state_codes", "registrar", "create_registrar", "update_registrar",
                    "admins", "dsrecords", "dnskeys")
         data = dict(zip(columns, keyset_detail))
 

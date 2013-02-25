@@ -242,7 +242,8 @@ class DomainInterface(ListMetaInterface):
             string nsset;
             string keyset;
             CoupleSeq admins;
-            ObjectStatusSeq status_list;
+            string states;
+            string state_codes;
         };
         SELECT type, name FROM object_registry;
             1 - contact
@@ -262,7 +263,8 @@ class DomainInterface(ListMetaInterface):
                 oreg.crdate AS create_date,
                 obj.update AS update_date,
                 obj.authinfopw AS auth_info,
-                external_state_description(oreg.id, %(lang)s) AS status_list,
+                external_state_description(oreg.id, %(lang)s) AS states,
+                get_object_states(oreg.id) AS state_codes,
 
                 domain.exdate AS expiration_date,
 
@@ -325,7 +327,7 @@ class DomainInterface(ListMetaInterface):
         # registrar_name    | Company A l.t.d
 
         class Col(object):
-            TID, PASSWORD, PUBLISH = 0, 5, 9
+            TID, PASSWORD, PUBLISH = 0, 5, 10
 
         columns = (
             "id",
@@ -334,7 +336,8 @@ class DomainInterface(ListMetaInterface):
             "create_date",
             "update_date",
             "auth_info",
-            "status_list",
+            "states",
+            "state_codes",
             "expiration_date",
             "val_ex_date",
             "publish",
