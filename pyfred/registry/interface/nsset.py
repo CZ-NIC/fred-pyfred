@@ -39,13 +39,13 @@ class NssetInterface(ListMetaInterface):
             GROUP BY nsset
             """, dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"]))
 
-        NSSET_HANDLE, NUM_OF_DOMAINS = range(2)
+        NSSET_HANDLE, STATES, NUM_OF_DOMAINS = range(3)
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
-                    domains.number,
-                    external_state_description(nsset_contact_map.nssetid, %(lang)s) AS status_list
+                    external_state_description(nsset_contact_map.nssetid, %(lang)s) AS status_list,
+                    domains.number
                 FROM object_registry
                     LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
                     LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id

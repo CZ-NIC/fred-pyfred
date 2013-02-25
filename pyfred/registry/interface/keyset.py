@@ -38,14 +38,14 @@ class KeysetInterface(ListMetaInterface):
             GROUP BY keyset
             """, dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"]))
 
-        KEYSET_HANDLE, NUM_OF_DOMAINS = range(2)
+        KEYSET_HANDLE, STATES, NUM_OF_DOMAINS = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
-                    domains.number,
-                    external_state_description(keyset_contact_map.keysetid, %(lang)s) AS status_list
+                    external_state_description(keyset_contact_map.keysetid, %(lang)s) AS status_list,
+                    domains.number
                 FROM object_registry
                     LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
                     LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
