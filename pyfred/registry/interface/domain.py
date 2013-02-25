@@ -57,7 +57,7 @@ class DomainInterface(ListMetaInterface):
 
         domain_list = []
         class Col(object):
-            REGID, DOMAIN_NAME, REG_HANDLE, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(7)
+            REGID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(8)
 
         counter, limit_exceeded = 0, False
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
@@ -114,7 +114,8 @@ class DomainInterface(ListMetaInterface):
                 str(next_state_date),    # next_state_date DATE
                 "t" if domain_row[Col.DNSSEC] else "f", # dnssec_available BOOL
                 "holder" if domain_row[Col.REGISTRANT] == contact_id else "admin", # your_role TEXT
-                domain_row[Col.REG_HANDLE],                                        # registrar_handle TEXT
+                domain_row[Col.REG_HANDLE],  # registrar_handle TEXT
+                domain_row[Col.REGISTRAR],   # registrar name
                 ])
 
         return domain_list, limit_exceeded
@@ -131,6 +132,7 @@ class DomainInterface(ListMetaInterface):
                 object_registry.id,
                 object_registry.name,
                 registrar.handle,
+                registrar.name AS registrar_name,
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
@@ -165,6 +167,7 @@ class DomainInterface(ListMetaInterface):
                 object_registry.id,
                 object_registry.name,
                 registrar.handle,
+                registrar.name AS registrar_name,
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
@@ -201,6 +204,7 @@ class DomainInterface(ListMetaInterface):
                 object_registry.id,
                 object_registry.name,
                 registrar.handle,
+                registrar.name AS registrar_name,
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
