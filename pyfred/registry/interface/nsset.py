@@ -1,25 +1,15 @@
 #!/usr/bin/python
 # pyfred
 from pyfred.idlstubs import Registry
-from pyfred.registry.interface.base import ListMetaInterface
+from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils import parse_array_agg, none2str
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
 
 
-class NssetInterface(ListMetaInterface):
+class NssetInterface(BaseInterface):
     "NSSET corba interface."
-
-    def getNssetListMeta(self):
-        "Get Nsset List Meta"
-        return self._getObjectListMeta((
-                            ("nsset_handle",     "TEXT"),
-                            ("domain_count",     "INT"),
-                            ("blocked_update",   "BOOL"),
-                            ("blocked_transfer", "BOOL"),
-                        ))
-
 
     @furnish_database_cursor_m
     def getNssetList(self, contact_handle, lang):

@@ -1,24 +1,15 @@
 #!/usr/bin/python
 # pyfred
 from pyfred.idlstubs import Registry
-from pyfred.registry.interface.base import ListMetaInterface
+from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils import none2str
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
 
 
-class KeysetInterface(ListMetaInterface):
+class KeysetInterface(BaseInterface):
     "Keyset corba interface."
-
-    def getKeysetListMeta(self):
-        "Get Keyset List Meta"
-        return self._getObjectListMeta((
-                            ("keyset_handle",    "TEXT"),
-                            ("domain_count",     "INT"),
-                            ("blocked_update",   "BOOL"),
-                            ("blocked_transfer", "BOOL"),
-                        ))
 
     @furnish_database_cursor_m
     def getKeysetList(self, contact_handle, lang):

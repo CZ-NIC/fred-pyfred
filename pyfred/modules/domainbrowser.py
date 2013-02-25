@@ -69,13 +69,6 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainList(contact_handle="%s")' % contact_handle)
         return self.domain.getDomainList(self._norm(contact_handle), self._normLang(lang))
 
-    def getDomainListMeta(self):
-        """
-        RecordSetMeta getDomainListMeta()
-            raises (INTERNAL_SERVER_ERROR);
-        """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainListMeta()')
-        return self.domain.getDomainListMeta()
 
     def getNssetList(self, contact_handle, lang):
         """
@@ -87,13 +80,6 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetList(contact_handle="%s")' % contact_handle)
         return self.nsset.getNssetList(self._norm(contact_handle), self._normLang(lang))
 
-    def getNssetListMeta(self):
-        """
-        RecordSetMeta getNssetListMeta()
-            raises (INTERNAL_SERVER_ERROR);
-        """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetListMeta()')
-        return self.nsset.getNssetListMeta()
 
     def getKeysetList(self, contact_handle, lang):
         """
@@ -105,13 +91,6 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetList(contact_handle="%s")' % contact_handle)
         return self.keyset.getKeysetList(self._norm(contact_handle), self._normLang(lang))
 
-    def getKeysetListMeta(self):
-        """
-        RecordSetMeta getKeysetListMeta()
-            raises (INTERNAL_SERVER_ERROR);
-        """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetListMeta()')
-        return self.keyset.getKeysetListMeta()
 
     def getDomainsForKeyset(self, contact_handle, keyset, lang):
         """
@@ -124,13 +103,6 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset), self._normLang(lang))
 
-    def getDomainsForKeysetMeta(self):
-        """
-        RecordSetMeta getDomainsForKeysetMeta()
-            raises (INTERNAL_SERVER_ERROR);
-        """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeysetMeta()')
-        return self.domain.getDomainsForKeysetMeta()
 
     def getDomainsForNsset(self, contact_handle, nsset, lang):
         """
@@ -143,13 +115,6 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset), self._normLang(lang))
 
-    def getDomainsForNssetMeta(self):
-        """
-        RecordSetMeta getDomainsForNssetMeta()
-            raises (INTERNAL_SERVER_ERROR);
-        """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNssetMeta()')
-        return self.domain.getDomainsForNssetMeta()
 
     def getContactDetail(self, contact_handle, contact_handle_detail, lang):
         """

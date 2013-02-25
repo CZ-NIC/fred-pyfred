@@ -346,34 +346,3 @@ class BaseInterface(object):
         # This function is here for case when columns in tables ${object} and ${object}_history do not have the same order.
         # List column names is required in this case. (e.g. \d domain and \d domain_history)
         return "INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d" % dict(name=objtype)
-
-
-
-class ListMetaInterface(BaseInterface):
-    "Parent of interfaces with getDomainListMeta"
-
-    def _getObjectListMeta(self, list_of_meta_names):
-        """
-        Returns the object (domain, nssest, keyset) list column names.
-
-        enum RecordType {
-            TEXT,
-            DATE,
-            BOOL,
-            INT
-        };
-        struct RecordSetMeta
-        {
-            sequence<string> column_names;
-            sequence<RecordType> data_types; // for sorting in frontend
-        };
-        """
-        # prepare record types into dictionnary:
-        rtp = dict([(inst._n, inst) for inst in Registry.DomainBrowser.RecordType._items])
-
-        column_names, data_types = [], []
-        for name, value in list_of_meta_names:
-            column_names.append(name)
-            data_types.append(rtp[value])
-
-        return Registry.DomainBrowser.RecordSetMeta(column_names, data_types)

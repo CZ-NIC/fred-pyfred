@@ -12,40 +12,16 @@ from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES
-from pyfred.registry.interface.base import ListMetaInterface
+from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils import none2str
 
 
 
-class DomainInterface(ListMetaInterface):
+class DomainInterface(BaseInterface):
     """
     This class implements DomainBrowser Domain interface.
     """
-
-    def getDomainListMeta(self):
-        "Return the Domain list column names."
-        return self._getObjectListMeta((
-                            ("domain_name",      "TEXT"),
-                            ("domain_state",     "TEXT"),
-                            ("next_state",       "TEXT"),
-                            ("next_state_date",  "DATE"),
-                            ("dnssec_available", "BOOL"),
-                            ("your_role",        "TEXT"),
-                            ("registrar_handle", "TEXT"),
-                            ("blocked_update",   "BOOL"),
-                            ("blocked_transfer", "BOOL"),
-                        ))
-
-
-    def getDomainsForNssetMeta(self):
-        "Dummy Domain for Nsset List Meta"
-        return self.getDomainListMeta() # TODO: remove redundant
-
-    def getDomainsForKeysetMeta(self):
-        "Dummy Domain for Keyset List Meta"
-        return self.getDomainListMeta() # TODO: remove redundant
-
 
     def __provideDomainList(self, contact_id, sql_query, sql_params):
         """
