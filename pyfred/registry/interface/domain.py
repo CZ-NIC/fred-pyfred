@@ -482,3 +482,17 @@ class DomainInterface(ListMetaInterface):
                        (historyid, id, zone, registrant, nsset, exdate, keyset)
             SELECT %(history_id)d, id, zone, registrant, nsset, exdate, keyset
             FROM domain WHERE id = %(object_id)d"""
+
+
+    @furnish_database_cursor_m
+    def getPublicStatusDesc(self, lang):
+        "Public status descriptions in the language."
+        # return: ["text", "another text", ...]
+        return self.source.fetch_array("""
+            SELECT
+                dsc.description
+            FROM enum_object_states ost
+            LEFT JOIN enum_object_states_desc dsc ON dsc.state_id = ost.id
+            WHERE ost.external = 't'
+                AND dsc.lang = %(lang)s
+            ORDER BY description""", dict(lang=lang))

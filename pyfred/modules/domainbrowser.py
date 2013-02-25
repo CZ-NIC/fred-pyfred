@@ -272,6 +272,16 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         return getattr(self, objtype).setObjectBlockStatus(self._norm(contact_handle), objtype, selections, block)
 
 
+    def getPublicStatusDesc(self, lang):
+        """
+        RecordSequence getPublicStatusDesc(
+                in string lang
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE);
+        """
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getPublicStatusDesc(lang="%s")' % lang)
+        return self.domain.getPublicStatusDesc(self._normLang(lang))
+
+
 
 def init(logger, db, conf, joblist, corba_refs):
     """
