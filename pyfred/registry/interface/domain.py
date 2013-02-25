@@ -57,7 +57,7 @@ class DomainInterface(ListMetaInterface):
 
         domain_list = []
         class Col(object):
-            REGID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES = range(8)
+            REGID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES, CAN_UPDATE = range(9)
 
         counter, limit_exceeded = 0, False
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
@@ -116,6 +116,7 @@ class DomainInterface(ListMetaInterface):
                 "holder" if domain_row[Col.REGISTRANT] == contact_id else "admin", # your_role TEXT
                 domain_row[Col.REG_HANDLE],  # registrar_handle TEXT
                 domain_row[Col.REGISTRAR],   # registrar name
+                domain_row[Col.CAN_UPDATE],  # a contact can update this domain
                 ])
 
         return domain_list, limit_exceeded
@@ -136,7 +137,8 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                external_state_description(object_registry.id, %(lang)s) AS status_list
+                external_state_description(object_registry.id, %(lang)s) AS status_list,
+                't'
             FROM object_registry
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -171,7 +173,10 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                external_state_description(object_registry.id, %(lang)s) AS status_list
+                external_state_description(object_registry.id, %(lang)s) AS status_list,
+                CASE WHEN
+                    (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
+                THEN 't' ELSE 'f' END
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -181,7 +186,6 @@ class DomainInterface(ListMetaInterface):
             LEFT JOIN registrar ON registrar.id = object_history.clid
             WHERE object_registry.type = %(objtype)d
                 AND domain.nsset = %(nsset_id)d
-                AND (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
@@ -208,7 +212,10 @@ class DomainInterface(ListMetaInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                external_state_description(object_registry.id, %(lang)s) AS status_list
+                external_state_description(object_registry.id, %(lang)s) AS status_list,
+                CASE WHEN
+                    (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
+                THEN 't' ELSE 'f' END
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -218,7 +225,6 @@ class DomainInterface(ListMetaInterface):
             LEFT JOIN registrar ON registrar.id = object_history.clid
             WHERE object_registry.type = %(objtype)d
                 AND domain.keyset = %(keyset_id)d
-                AND (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
             ORDER BY domain.exdate
             LIMIT %(limit)d"""
         sql_params = dict(contact_id=contact_id, keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
