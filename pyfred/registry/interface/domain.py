@@ -37,7 +37,7 @@ class DomainInterface(BaseInterface):
 
         counter, limit_exceeded = 0, False
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
-        for domain_row in self.source.fetchall(sql_query, sql_params): #, self.source.DUMP
+        for domain_row in self.source.fetchall(sql_query, sql_params): #, self.logger.INFO
 
             counter += 1
             if counter > self.list_limit:
@@ -99,7 +99,7 @@ class DomainInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def getDomainList(self, contact_handle, lang):
+    def getDomainList(self, contact_handle, lang, offset):
         "Return list of domains."
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -120,19 +120,20 @@ class DomainInterface(BaseInterface):
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
                       AND domain_contact_map.contactid = %(contact_id)d
-            LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
-            LEFT JOIN registrar ON registrar.id = object_history.clid
+            LEFT JOIN object ON object.id = object_registry.id
+            LEFT JOIN registrar ON registrar.id = object.clid
             WHERE domain_contact_map.contactid = %(contact_id)d
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate
-            LIMIT %(limit)d"""
-        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1)
+            LIMIT %(limit)d OFFSET %(offset)d"""
+        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"],
+                          lang=lang, limit=self.list_limit + 1, offset=offset)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
 
     @furnish_database_cursor_m
-    def getDomainsForNsset(self, contact_handle, nsset, lang):
+    def getDomainsForNsset(self, contact_handle, nsset, lang, offset):
         "Domains for nsset"
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -163,15 +164,15 @@ class DomainInterface(BaseInterface):
             WHERE object_registry.type = %(objtype)d
                 AND domain.nsset = %(nsset_id)d
             ORDER BY domain.exdate
-            LIMIT %(limit)d"""
+            LIMIT %(limit)d OFFSET %(offset)d"""
         sql_params = dict(contact_id=contact_id, nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1)
+                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 
 
     @furnish_database_cursor_m
-    def getDomainsForKeyset(self, contact_handle, keyset, lang):
+    def getDomainsForKeyset(self, contact_handle, keyset, lang, offset):
         "Domains for keyset"
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -202,9 +203,9 @@ class DomainInterface(BaseInterface):
             WHERE object_registry.type = %(objtype)d
                 AND domain.keyset = %(keyset_id)d
             ORDER BY domain.exdate
-            LIMIT %(limit)d"""
+            LIMIT %(limit)d OFFSET %(offset)d"""
         sql_params = dict(contact_id=contact_id, keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1)
+                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
         return self.__provideDomainList(contact_id, sql_query, sql_params)
 

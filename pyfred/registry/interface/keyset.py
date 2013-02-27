@@ -12,7 +12,7 @@ class KeysetInterface(BaseInterface):
     "Keyset corba interface."
 
     @furnish_database_cursor_m
-    def getKeysetList(self, contact_handle, lang):
+    def getKeysetList(self, contact_handle, lang, offset):
         "List of keysets"
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -36,16 +36,20 @@ class KeysetInterface(BaseInterface):
                 SELECT
                     object_registry.name,
                     external_state_description(keyset_contact_map.keysetid, %(lang)s) AS status_list,
-                    domains.number
+                    domains.number,
+                    registrar.handle,
+                    registrar.name AS registrar_name
                 FROM object_registry
                     LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
                     LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
+                    LEFT JOIN object ON object.id = object_registry.id
+                    LEFT JOIN registrar ON registrar.id = object.clid
                 WHERE object_registry.type = %(objtype)d
                     AND keyset_contact_map.contactid = %(contact_id)d
-                LIMIT %(limit)d
+                LIMIT %(limit)d OFFSET %(offset)d
                 """,
                 dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact_id,
-                     lang=lang, limit=self.list_limit + 1)):
+                     lang=lang, limit=self.list_limit + 1, offset=offset)):
 
             counter += 1
             if counter > self.list_limit:

@@ -59,7 +59,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         return normalize_and_check_langcode(self.logger, lang)
 
 
-    def getDomainList(self, contact_handle, lang):
+    def getDomainList(self, contact_handle, lang, offset):
         """
         RecordSet getDomainList(
             in RegistryObject contact_handle,
@@ -67,10 +67,10 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainList(contact_handle="%s")' % contact_handle)
-        return self.domain.getDomainList(self._norm(contact_handle), self._normLang(lang))
+        return self.domain.getDomainList(self._norm(contact_handle), self._normLang(lang), offset)
 
 
-    def getNssetList(self, contact_handle, lang):
+    def getNssetList(self, contact_handle, lang, offset):
         """
         RecordSet getNssetList(
             in RegistryObject contact_handle,
@@ -78,10 +78,10 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetList(contact_handle="%s")' % contact_handle)
-        return self.nsset.getNssetList(self._norm(contact_handle), self._normLang(lang))
+        return self.nsset.getNssetList(self._norm(contact_handle), self._normLang(lang), offset)
 
 
-    def getKeysetList(self, contact_handle, lang):
+    def getKeysetList(self, contact_handle, lang, offset):
         """
         RecordSet getKeysetList(
             in RegistryObject contact_handle,
@@ -89,10 +89,10 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetList(contact_handle="%s")' % contact_handle)
-        return self.keyset.getKeysetList(self._norm(contact_handle), self._normLang(lang))
+        return self.keyset.getKeysetList(self._norm(contact_handle), self._normLang(lang), offset)
 
 
-    def getDomainsForKeyset(self, contact_handle, keyset, lang):
+    def getDomainsForKeyset(self, contact_handle, keyset, lang, offset):
         """
         RecordSet getDomainsForKeyset(
             in RegistryObject contact_handle,
@@ -101,10 +101,10 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
-        return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset), self._normLang(lang))
+        return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset), self._normLang(lang), offset)
 
 
-    def getDomainsForNsset(self, contact_handle, nsset, lang):
+    def getDomainsForNsset(self, contact_handle, nsset, lang, offset):
         """
         RecordSet getDomainsForNsset(
             in RegistryObject contact_handle,
@@ -113,7 +113,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
-        return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset), self._normLang(lang))
+        return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset), self._normLang(lang), offset)
 
 
     def getContactDetail(self, contact_handle, contact_handle_detail, lang):
