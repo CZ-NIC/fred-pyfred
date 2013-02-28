@@ -38,10 +38,10 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
                     pass # use default defined above when the limit is not in the config
 
         # Object interfaces
-        self.contact = ContactInterface(database, logger)
-        self.domain = DomainInterface(database, logger, limits["domains"])
-        self.nsset = NssetInterface(database, logger, limits["nssets"])
-        self.keyset = KeysetInterface(database, logger, limits["keysets"])
+        self.contact = ContactInterface(self, database, logger)
+        self.domain = DomainInterface(self, database, logger, limits["domains"])
+        self.nsset = NssetInterface(self, database, logger, limits["nssets"])
+        self.keyset = KeysetInterface(self, database, logger, limits["keysets"])
 
         logger.log(logger.DEBUG, "Object DomainBrowser initialized.")
 
@@ -98,7 +98,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle,
             in RegistryObject keyset,
             in string lang
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset), self._normLang(lang), offset)
@@ -110,7 +110,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle,
             in RegistryObject nsset,
             in string lang
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset), self._normLang(lang), offset)

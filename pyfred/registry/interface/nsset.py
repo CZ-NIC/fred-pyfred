@@ -218,9 +218,11 @@ class NssetInterface(BaseInterface):
             """)
 
 
-    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id, source=None):
         "Check if object belongs to the contact."
-        admins = self.source.fetch_array("""
+        if source is None:
+            source = self.source
+        admins = source.fetch_array("""
             SELECT object_registry.name
             FROM nsset_contact_map
             LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid

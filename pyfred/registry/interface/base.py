@@ -20,7 +20,8 @@ class BaseInterface(object):
     INTERNAL_SERVER_ERROR = Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
 
-    def __init__(self, database, logger, list_limit=None):
+    def __init__(self, browser, database, logger, list_limit=None):
+        self.browser = browser
         self.database = database
         self.logger = logger
         self.list_limit = list_limit

@@ -95,6 +95,7 @@ class DomainInterface(BaseInterface):
                 domain_row[Col.CAN_UPDATE],  # a contact can update this domain
                 ])
 
+        #self.logger.log(self.logger.INFO, "domain_list.length=%d limit_exceeded=%s" % (len(domain_list), limit_exceeded)) # TEST
         return domain_list, limit_exceeded
 
 
@@ -141,6 +142,9 @@ class DomainInterface(BaseInterface):
         nsset_id = self._get_handle_id(nsset, "nsset")
         self.logger.log(self.logger.INFO, "Found NSSET ID %d of the handle '%s'." % (nsset_id, nsset))
 
+        # throw ACCESS_DENIED - when contact is not owner of nsset
+        self.browser.nsset._object_belongs_to_contact(contact_id, contact_handle, nsset_id, self.source)
+
         sql_query = """
             SELECT
                 object_registry.id,
@@ -179,6 +183,9 @@ class DomainInterface(BaseInterface):
 
         keyset_id = self._get_handle_id(keyset, "keyset")
         self.logger.log(self.logger.INFO, "Found KEYSET ID %d of the handle '%s'." % (keyset_id, keyset))
+
+        # throw ACCESS_DENIED - when contact is not owner of keyset
+        self.browser.keyset._object_belongs_to_contact(contact_id, contact_handle, keyset_id, self.source)
 
         sql_query = """
             SELECT
