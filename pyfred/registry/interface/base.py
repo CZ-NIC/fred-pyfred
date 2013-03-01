@@ -352,7 +352,7 @@ class BaseInterface(object):
     def parse_states(cls, states):
         "Parse states struct into the lists."
         # example: states = 't\t20\toutzone\tDomain is not generated into zone\n...'
-        state_codes, state_importance, state_descriptions = [], [], []
+        state_codes, state_descriptions, state_importance = [], [], 0
 
         for row in states.split("\\n"):
             if row == "":
@@ -362,7 +362,7 @@ class BaseInterface(object):
             state_codes.append(data[2])
             if data[0] == 't':
                 if data[1]:
-                    state_importance.append(data[1])
+                    state_importance += int(data[1])
                 state_descriptions.append(data[3])
 
-        return ",".join(state_codes), ",".join(state_importance), "\n".join(state_descriptions)
+        return ",".join(state_codes), str(state_importance), "\n".join(state_descriptions)
