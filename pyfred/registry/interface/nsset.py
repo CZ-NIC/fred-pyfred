@@ -29,15 +29,15 @@ class NssetInterface(BaseInterface):
             GROUP BY nsset
             """, dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"]))
 
-        NSSET_HANDLE, STATES, NUM_OF_DOMAINS = range(3)
+        NSSET_HANDLE, NUM_OF_DOMAINS = range(2)
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
-                    external_state_description(nsset_contact_map.nssetid, %(lang)s) AS status_list,
                     domains.number,
                     registrar.handle,
-                    registrar.name AS registrar_name
+                    registrar.name AS registrar_name,
+                    get_state_descriptions(nsset_contact_map.nssetid, %(lang)s) AS states
                 FROM object_registry
                     LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
                     LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
@@ -56,6 +56,9 @@ class NssetInterface(BaseInterface):
                 break
 
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
+            state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
+            row.append(state_importance)
+            row.append(state_descriptions)
             result.append(row)
 
         self.logger.log(self.logger.INFO, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
@@ -97,9 +100,8 @@ class NssetInterface(BaseInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
-                external_state_description(oreg.id, %(lang)s) AS states,
-                get_object_states(oreg.id) AS state_codes,
                 nsset.checklevel,
+                get_state_descriptions(oreg.id, %(lang)s) AS states,
 
                 current.handle AS registrar_handle,
                 current.name AS registrar_name,
@@ -144,7 +146,7 @@ class NssetInterface(BaseInterface):
                 "handle": none2str(nsset_detail.pop()),
             },
         }
-        report_level = nsset_detail.pop()
+        state_codes, state_importance, state_descriptions = self.parse_states(nsset_detail.pop())
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
@@ -190,14 +192,16 @@ class NssetInterface(BaseInterface):
             nsset_detail.append(Registry.DomainBrowser.Couple(registrar[key]["handle"], registrar[key]["name"]))
         nsset_detail.append(admins)
         nsset_detail.append(hosts)
-        nsset_detail.append(report_level)
+        nsset_detail.append(state_codes)
+        #nsset_detail.append(state_importance)
+        nsset_detail.append(state_descriptions)
 
         # replace None by empty string
         nsset_detail = ['' if value is None else value for value in nsset_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "states", "state_codes", "registrar", "create_registrar", "update_registrar",
-                   "admins", "hosts", "report_level")
+                   "auth_info", "report_level", "registrar", "create_registrar", "update_registrar",
+                   "admins", "hosts", "state_codes", "states")
         data = dict(zip(columns, nsset_detail))
 
         return (Registry.DomainBrowser.NSSetDetail(**data), data_type)

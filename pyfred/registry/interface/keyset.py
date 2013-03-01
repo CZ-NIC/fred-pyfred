@@ -29,16 +29,16 @@ class KeysetInterface(BaseInterface):
             GROUP BY keyset
             """, dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"]))
 
-        KEYSET_HANDLE, STATES, NUM_OF_DOMAINS = range(3)
+        KEYSET_HANDLE, NUM_OF_DOMAINS = range(2)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
                     object_registry.name,
-                    external_state_description(keyset_contact_map.keysetid, %(lang)s) AS status_list,
                     domains.number,
                     registrar.handle,
-                    registrar.name AS registrar_name
+                    registrar.name AS registrar_name,
+                    get_state_descriptions(keyset_contact_map.keysetid, %(lang)s) AS states
                 FROM object_registry
                     LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
                     LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
@@ -57,6 +57,9 @@ class KeysetInterface(BaseInterface):
                 break
 
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
+            state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
+            row.append(state_importance)
+            row.append(state_descriptions)
             result.append(row)
 
         self.logger.log(self.logger.INFO, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
@@ -116,8 +119,7 @@ class KeysetInterface(BaseInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
-                external_state_description(oreg.id, %(lang)s) AS states,
-                get_object_states(oreg.id) AS state_codes,
+                get_state_descriptions(oreg.id, %(lang)s) AS states,
 
                 current.handle AS registrar_handle,
                 current.name AS registrar_name,
@@ -161,6 +163,7 @@ class KeysetInterface(BaseInterface):
                 "handle": none2str(keyset_detail.pop()),
             },
         }
+        state_codes, state_importance, state_descriptions = self.parse_states(keyset_detail.pop())
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
@@ -212,13 +215,16 @@ class KeysetInterface(BaseInterface):
         keyset_detail.append(admins)
         keyset_detail.append(dsrecords)
         keyset_detail.append(dnskeys)
+        keyset_detail.append(state_codes)
+        #keyset_detail.append(state_importance)
+        keyset_detail.append(state_descriptions)
 
         # replace None by empty string
         keyset_detail = ['' if value is None else value for value in keyset_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "states", "state_codes", "registrar", "create_registrar", "update_registrar",
-                   "admins", "dsrecords", "dnskeys")
+                   "auth_info", "registrar", "create_registrar", "update_registrar",
+                   "admins", "dsrecords", "dnskeys", "state_codes", "states")
         data = dict(zip(columns, keyset_detail))
 
         return (Registry.DomainBrowser.KeysetDetail(**data), data_type)

@@ -347,3 +347,22 @@ class BaseInterface(object):
         # This function is here for case when columns in tables ${object} and ${object}_history do not have the same order.
         # List column names is required in this case. (e.g. \d domain and \d domain_history)
         return "INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d" % dict(name=objtype)
+
+    @classmethod
+    def parse_states(cls, states):
+        "Parse states struct into the lists."
+        # example: states = 't\t20\toutzone\tDomain is not generated into zone\n...'
+        state_codes, state_importance, state_descriptions = [], [], []
+
+        for row in states.split("\\n"):
+            if row == "":
+                continue
+            #data = [external, importance, name, description]
+            data = row.split("\\t")
+            state_codes.append(data[2])
+            if data[0] == 't':
+                if data[1]:
+                    state_importance.append(data[1])
+                state_descriptions.append(data[3])
+
+        return ",".join(state_codes), ",".join(state_importance), "\n".join(state_descriptions)

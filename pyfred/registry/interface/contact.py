@@ -61,8 +61,6 @@ class ContactInterface(BaseInterface):
                 obj.update AS update_date,
 
                 obj.authinfopw AS auth_info,
-                external_state_description(oreg.id, %(lang)s) AS states,
-                get_object_states(oreg.id) AS state_codes,
 
                 contact.name,
                 contact.organization,
@@ -91,6 +89,7 @@ class ContactInterface(BaseInterface):
                 contact.disclosevat,
                 contact.disclosenotifyemail,
 
+                get_state_descriptions(oreg.id, %(lang)s) AS states,
                 current.handle AS registrar_handle,
                 current.name AS registrar_name
 
@@ -114,6 +113,7 @@ class ContactInterface(BaseInterface):
         row = results[0]
         registrar_name = none2str(row.pop())
         registrar_handle = none2str(row.pop())
+        state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
 
         TID, HANDLE, PASSWORD = 0, 1, 6
         contact_detail = row[:-9]
@@ -130,6 +130,8 @@ class ContactInterface(BaseInterface):
         columns = ("name", "organization", "email", "address", "telephone", "fax", "ident", "vat", "notify_email")
         disclose_flags = Registry.DomainBrowser.ContactDiscloseFlags(**dict(zip(columns, disclose_flag_values)))
 
+        contact_detail.append(state_codes)
+        contact_detail.append(state_descriptions)
         contact_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
         contact_detail.append(disclose_flags)
 
@@ -137,10 +139,10 @@ class ContactInterface(BaseInterface):
         contact_detail = ['' if value is None else value for value in contact_detail]
 
         columns = ("id", "handle", "roid", "create_date", "transfer_date", "update_date",
-                   "auth_info", "states", "state_codes", "name", "organization",
+                   "auth_info", "name", "organization",
                    "street1", "street2", "street3", "province", "postalcode", "city", "country",
                    "telephone", "fax", "email", "notify_email", "ssn", "ssn_type", "vat",
-                   "registrar", "disclose_flags")
+                   "state_codes", "states", "registrar", "disclose_flags")
         data = dict(zip(columns, contact_detail))
 
         return (Registry.DomainBrowser.ContactDetail(**data), data_type)

@@ -33,7 +33,7 @@ class DomainInterface(BaseInterface):
 
         domain_list = []
         class Col(object):
-            REGID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, DNSSEC, DOMAIN_STATES, CAN_UPDATE = range(9)
+            REGID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, DNSSEC, CAN_UPDATE, DOMAIN_STATES = range(9)
 
         counter, limit_exceeded = 0, False
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
@@ -83,9 +83,11 @@ class DomainInterface(BaseInterface):
             #        "next_state=%s next_state_date=%s" % (domain_row[Col.REGID], exdate, outzone_date, delete_date,
             #        next_state, next_state_date))
 
+            state_codes, state_importance, state_descriptions = self.parse_states(domain_row.pop())
+
             domain_list.append([
                 domain_row[Col.DOMAIN_NAME], # domain_name TEXT
-                domain_row[Col.DOMAIN_STATES],
+                state_importance,
                 next_state,              # next_state TEXT
                 str(next_state_date),    # next_state_date DATE
                 "t" if domain_row[Col.DNSSEC] else "f", # dnssec_available BOOL
@@ -93,6 +95,7 @@ class DomainInterface(BaseInterface):
                 domain_row[Col.REG_HANDLE],  # registrar_handle TEXT
                 domain_row[Col.REGISTRAR],   # registrar name
                 domain_row[Col.CAN_UPDATE],  # a contact can update this domain
+                state_descriptions
                 ])
 
         #self.logger.log(self.logger.INFO, "domain_list.length=%d limit_exceeded=%s" % (len(domain_list), limit_exceeded)) # TEST
@@ -114,8 +117,8 @@ class DomainInterface(BaseInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                external_state_description(object_registry.id, %(lang)s) AS status_list,
-                't'
+                't',
+                get_state_descriptions(object_registry.id, %(lang)s) AS states
             FROM object_registry
             LEFT JOIN domain ON object_registry.id = domain.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -154,10 +157,10 @@ class DomainInterface(BaseInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                external_state_description(object_registry.id, %(lang)s) AS status_list,
                 CASE WHEN
                     (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
-                THEN 't' ELSE 'f' END
+                THEN 't' ELSE 'f' END,
+                get_state_descriptions(object_registry.id, %(lang)s) AS states
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -196,10 +199,10 @@ class DomainInterface(BaseInterface):
                 domain.exdate,
                 domain.registrant,
                 domain.keyset IS NOT NULL,
-                external_state_description(object_registry.id, %(lang)s) AS status_list,
                 CASE WHEN
                     (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
-                THEN 't' ELSE 'f' END
+                THEN 't' ELSE 'f' END,
+                get_state_descriptions(object_registry.id, %(lang)s) AS states
             FROM object_registry
             LEFT JOIN domain ON domain.id = object_registry.id
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
@@ -257,17 +260,14 @@ class DomainInterface(BaseInterface):
                 oreg.crdate AS create_date,
                 obj.update AS update_date,
                 obj.authinfopw AS auth_info,
-                external_state_description(oreg.id, %(lang)s) AS states,
-                get_object_states(oreg.id) AS state_codes,
-
                 domain.exdate AS expiration_date,
-
                 enum.exdate AS val_ex_date,
                 enum.publish AS publish,
                 zone.enum_zone,
 
                 regnsset.name AS nsset,
                 regkeyset.name AS keyset,
+                get_state_descriptions(oreg.id, %(lang)s) AS states,
 
                 registrant.name AS registrant_handle,
                 CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
@@ -321,7 +321,7 @@ class DomainInterface(BaseInterface):
         # registrar_name    | Company A l.t.d
 
         class Col(object):
-            TID, PASSWORD, PUBLISH = 0, 5, 10
+            TID, PASSWORD, PUBLISH = 0, 5, 8
 
         columns = (
             "id",
@@ -330,14 +330,15 @@ class DomainInterface(BaseInterface):
             "create_date",
             "update_date",
             "auth_info",
-            "states",
-            "state_codes",
             "expiration_date",
             "val_ex_date",
             "publish",
             "is_enum",
             "nsset",
             "keyset",
+            "state_codes",
+            #"state_importance",
+            "states", # state_description
             # create from registrar_handle + registrar_name
             "registrant",
             "registrar",
@@ -351,6 +352,8 @@ class DomainInterface(BaseInterface):
 
         registrant_name = none2str(domain_detail.pop())
         registrant_handle = none2str(domain_detail.pop())
+
+        state_codes, state_importance, state_descriptions = self.parse_states(domain_detail.pop())
 
         if domain_detail[Col.PUBLISH] is None:
             domain_detail[Col.PUBLISH] = False
@@ -379,6 +382,9 @@ class DomainInterface(BaseInterface):
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PUBLIC_DATA)
             domain_detail[Col.PASSWORD] = self.PASSWORD_SUBSTITUTION
 
+        domain_detail.append(state_codes)
+        #domain_detail.append(state_importance)
+        domain_detail.append(state_descriptions)
         domain_detail.append(Registry.DomainBrowser.Couple(registrant_handle, registrant_name))
         domain_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
         domain_detail.append(admins)
