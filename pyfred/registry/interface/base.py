@@ -28,6 +28,7 @@ class BaseInterface(object):
         self.source = None
         self.enum_object_states = None # cache
         self.ignore_server_blocked = False
+        self.minimal_importance = None # minimal state.importance
 
     def setObjectBlockStatus(self, handle, objtype, selections, action):
         "Set object block status."
@@ -348,8 +349,8 @@ class BaseInterface(object):
         # List column names is required in this case. (e.g. \d domain and \d domain_history)
         return "INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d" % dict(name=objtype)
 
-    @classmethod
-    def parse_states(cls, states):
+
+    def parse_states(self, states):
         "Parse states struct into the lists."
         # example: states = 't\t20\toutzone\tDomain is not generated into zone\n...'
         state_codes, state_descriptions, state_importance = [], [], 0
@@ -362,7 +363,12 @@ class BaseInterface(object):
             state_codes.append(data[2])
             if data[0] == 't':
                 if data[1]:
-                    state_importance += int(data[1])
+                    state_importance |= int(data[1])
                 state_descriptions.append(data[3])
 
-        return ",".join(state_codes), str(state_importance), "\n".join(state_descriptions)
+        if state_importance == 0:
+            if self.minimal_importance is None:
+                self.minimal_importance = self.source.getval("SELECT MAX(importance) * 2 FROM enum_object_states")
+            state_importance = self.minimal_importance
+
+        return ",".join(state_codes), str(state_importance), "|".join(state_descriptions)
