@@ -17,18 +17,6 @@ class NssetInterface(BaseInterface):
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
-        self.source.execute("""
-            CREATE OR REPLACE TEMPORARY VIEW domains_by_nsset_view AS
-            SELECT nsset, COUNT(nsset) AS number
-            FROM domain
-            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                      AND domain_contact_map.role = %(role_id)d
-                      AND domain_contact_map.contactid = %(contact_id)d
-            WHERE domain_contact_map.contactid = %(contact_id)d
-                OR domain.registrant = %(contact_id)d
-            GROUP BY nsset
-            """, dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"]))
-
         NSSET_HANDLE, NUM_OF_DOMAINS = range(2)
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
