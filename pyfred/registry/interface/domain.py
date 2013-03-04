@@ -36,7 +36,9 @@ class DomainInterface(BaseInterface):
             REGID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, DNSSEC, CAN_UPDATE, DOMAIN_STATES = range(9)
 
         counter, limit_exceeded = 0, False
-        # domain_row: [33, 'fred.cz', 'REG-FRED_A', '2015-10-12', 30, True, '{NULL}']
+        # domain_row: [33, 'fred.cz', 'REG-FRED_A', 'Company A l.t.d', '2015-10-12', 30, True, 't',
+        #       't\\t22\\tserverUpdateProhibited\\tUpdate prohibited\\nt\\t24\\tserverTransferProh' \
+        #       'ibited\\tSponsoring registrar change prohibited']
         for domain_row in self.source.fetchall(sql_query, sql_params): #, self.logger.INFO
 
             counter += 1
@@ -85,13 +87,20 @@ class DomainInterface(BaseInterface):
 
             state_codes, state_importance, state_descriptions = self.parse_states(domain_row.pop())
 
+            role = ""
+            if domain_row[Col.CAN_UPDATE] == "t":
+                if domain_row[Col.REGISTRANT] == contact_id:
+                    role = "holder"
+                else:
+                    role = "admin"
+
             domain_list.append([
                 domain_row[Col.DOMAIN_NAME], # domain_name TEXT
                 state_importance,
                 next_state,              # next_state TEXT
                 str(next_state_date),    # next_state_date DATE
                 "t" if domain_row[Col.DNSSEC] else "f", # dnssec_available BOOL
-                "holder" if domain_row[Col.REGISTRANT] == contact_id else "admin", # your_role TEXT
+                role, # your_role TEXT
                 domain_row[Col.REG_HANDLE],  # registrar_handle TEXT
                 domain_row[Col.REGISTRAR],   # registrar name
                 domain_row[Col.CAN_UPDATE],  # a contact can update this domain
