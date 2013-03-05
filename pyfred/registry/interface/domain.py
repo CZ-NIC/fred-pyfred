@@ -103,7 +103,6 @@ class DomainInterface(BaseInterface):
                 role, # your_role TEXT
                 domain_row[Col.REG_HANDLE],  # registrar_handle TEXT
                 domain_row[Col.REGISTRAR],   # registrar name
-                domain_row[Col.CAN_UPDATE],  # a contact can update this domain
                 state_descriptions
                 ])
 
