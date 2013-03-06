@@ -355,11 +355,11 @@ class BaseInterface(object):
         # example: states = 't\t20\toutzone\tDomain is not generated into zone\n...'
         state_codes, state_descriptions, state_importance = [], [], 0
 
-        for row in states.split("\\n"):
+        for row in states.split("&"):
             if row == "":
                 continue
             #data = [external, importance, name, description]
-            data = row.split("\\t")
+            data = row.split("#")
             state_codes.append(data[2])
             if data[0] == 't':
                 if data[1]:
