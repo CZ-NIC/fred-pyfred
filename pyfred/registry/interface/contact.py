@@ -156,9 +156,9 @@ class ContactInterface(BaseInterface):
         self.owner_has_required_status(contact_id, ["validatedContact", "identifiedContact"])
         self.check_if_object_is_blocked(contact_id)
 
+        # cannot change flags: contact.disclosename, contact.discloseorganization,
         results = self.source.fetchall("""
             SELECT
-                contact.discloseorganization,
                 contact.discloseemail,
                 contact.discloseaddress,
                 contact.disclosetelephone,
