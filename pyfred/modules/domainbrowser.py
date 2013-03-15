@@ -24,7 +24,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger = logger # syslog functionality
 
         # Defaults of limits when they missing in config:
-        limits = dict(domains=1000, nssets=1000, keysets=1000)
+        limits = dict(domains=5000, nssets=5000, keysets=5000)
 
         # config
         section = "DomainBrowser"
