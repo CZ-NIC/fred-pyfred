@@ -278,10 +278,13 @@ class BuildPy(build_py):
         outputs = build_py.get_outputs(self, include_bytecode=include_bytecode)
         idl_build_dir = os.path.join(self.build_lib, 'pyfred', 'idlstubs')
         for module in MODULES:
-            outputs.append(os.path.join(idl_build_dir, '%s.py' % module))
+            filename = os.path.join(idl_build_dir, '%s_idl.py' % module)
+            outputs.append(filename)
             if include_bytecode:
-                outputs.append(os.path.join(idl_build_dir, '%s.pyc' % module))
-                outputs.append(os.path.join(idl_build_dir, '%s.pyo' % module))
+                if self.compile:
+                    outputs.append(filename + "c")
+                if self.optimize > 0:
+                    outputs.append(filename + "o")
         return outputs
 
 
