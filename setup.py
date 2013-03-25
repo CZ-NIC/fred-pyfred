@@ -277,8 +277,9 @@ class BuildPy(build_py):
     def get_outputs(self, include_bytecode=1):
         outputs = build_py.get_outputs(self, include_bytecode=include_bytecode)
         idl_build_dir = os.path.join(self.build_lib, 'pyfred', 'idlstubs')
-        for module in MODULES:
-            filename = os.path.join(idl_build_dir, '%s_idl.py' % module)
+        modules = ['%s_idl.py' % m for m in MODULES] + ['ccReg/__init__.py', 'ccReg__POA/__init__.py']
+        for module in modules:
+            filename = os.path.join(idl_build_dir, module)
             outputs.append(filename)
             if include_bytecode:
                 if self.compile:
