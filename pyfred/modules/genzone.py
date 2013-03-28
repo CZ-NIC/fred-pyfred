@@ -20,7 +20,7 @@ a dot is not a suffix of nameserver's fqdn, then the list of addresses
 should be empty, if not, the structure is still created but with empty list
 of addresses.
     """
-    if nsFqdn.endswith("." + domain):
+    if nsFqdn.endswith("." + domain) or nsFqdn == domain:
         warning = None
         if not addrs:
             warning = "Missing GLUE for nameserver '%s' of domain '%s'." % \
