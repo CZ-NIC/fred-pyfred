@@ -125,7 +125,7 @@ class KeysetInterface(BaseInterface):
                 LEFT JOIN registrar current ON current.id = obj.clid
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
-            WHERE oreg.type = %(type_id)d AND oreg.name = %(keyset)s
+            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(keyset)s
         """, dict(keyset=keyset, type_id=OBJECT_REGISTRY_TYPES["keyset"], lang=lang))
 
         if len(results) == 0:

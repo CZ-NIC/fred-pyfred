@@ -300,7 +300,7 @@ class DomainInterface(BaseInterface):
 
                 LEFT JOIN enumval enum ON enum.domainid = oreg.id
 
-            WHERE oreg.type = %(type_id)d AND oreg.name = %(domain)s
+            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(domain)s
         """, dict(domain=domain, type_id=OBJECT_REGISTRY_TYPES["domain"], lang=lang))
 
         if len(results) == 0:

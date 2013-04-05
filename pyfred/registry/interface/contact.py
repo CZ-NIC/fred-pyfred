@@ -99,7 +99,7 @@ class ContactInterface(BaseInterface):
                 LEFT JOIN contact ON contact.id = oreg.id
                 LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
-            WHERE oreg.type = %(type_id)d AND oreg.name = %(handle)s""",
+            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(handle)s""",
             dict(handle=contact_handle_detail, type_id=OBJECT_REGISTRY_TYPES["contact"], lang=lang))
 
         if len(results) == 0:

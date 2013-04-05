@@ -108,7 +108,7 @@ class NssetInterface(BaseInterface):
                 LEFT JOIN registrar current ON current.id = obj.clid
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
-            WHERE oreg.type = %(type_id)d AND oreg.name = %(nsset)s
+            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(nsset)s
         """, dict(nsset=nsset, type_id=OBJECT_REGISTRY_TYPES["nsset"], lang=lang))
 
         if len(results) == 0:
