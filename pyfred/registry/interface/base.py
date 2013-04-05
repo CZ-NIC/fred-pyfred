@@ -57,7 +57,7 @@ class BaseInterface(object):
 
 
     @furnish_database_cursor_m
-    def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info):
+    def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info, request_id):
         "Set objects auth info."
         if len(auth_info) > AUTH_INFO_LENGTH:
             # authinfopw | character varying(300)
@@ -95,7 +95,7 @@ class BaseInterface(object):
             self.source.execute("""
                 UPDATE object SET authinfopw = %(auth_info)s
                 WHERE id = %(object_id)d""", dict(auth_info=auth_info, object_id=object_id))
-            self._update_history(contact_id, object_handle, objtype)
+            self._update_history(contact_id, object_handle, objtype, request_id)
         return True
 
 
@@ -307,15 +307,15 @@ class BaseInterface(object):
         return result
 
 
-    def _update_history(self, object_id, handle, objtype):
+    def _update_history(self, object_id, handle, objtype, request_id):
         "Update object history."
-        params = dict(object_id=object_id)
+        params = dict(object_id=object_id, request_id=request_id)
 
         # remember timestamp of update
         self.source.execute("UPDATE object SET update = NOW() WHERE id = %(object_id)d", params)
 
         # create new "history" record
-        params["history_id"] = history_id = self.source.getval("INSERT INTO history (valid_from) VALUES (NOW()) RETURNING id")
+        params["history_id"] = history_id = self.source.getval("INSERT INTO history (request_id, valid_from) VALUES (%(request_id)d, NOW()) RETURNING id", params)
         self.logger.log(self.logger.INFO, 'Next history ID %d for object ID %d with handle "%s".' % (history_id, object_id, handle))
 
         # read previous history ID

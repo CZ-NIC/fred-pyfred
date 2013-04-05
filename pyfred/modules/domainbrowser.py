@@ -175,23 +175,25 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetDetail(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.keyset.getKeysetDetail(self._norm(contact_handle), self._norm(keyset), self._normLang(lang))
 
-    def setContactDiscloseFlags(self, contact_handle, flags):
+    def setContactDiscloseFlags(self, contact_handle, flags, request_id):
         """
         void setDiscloseFlags(
                 in RegistryObject contact_handle,
-                in ContactDiscloseFlags flags
+                in ContactDiscloseFlags flags,
+                in TID request_id
             ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setContactDiscloseFlags(contact_handle="%s", flags=%s)' % (contact_handle, flags))
-        return self.contact.setContactDiscloseFlags(self._norm(contact_handle), flags)
+        return self.contact.setContactDiscloseFlags(self._norm(contact_handle), flags, request_id)
 
-    def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info):
+    def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info, request_id):
         """
         void setAuthInfo(
                 in RegistryObject contact_handle,
                 in RegistryObject object_handle,
                 in RegistryObject objtype,
                 in RegistryObject auth_info,
+                in TID request_id
             ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
         """
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setAuthInfo(contact_handle="%s", object_handle="%s", objtype="%s", auth_info="*******")' % (contact_handle, object_handle, objtype))
@@ -205,7 +207,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             raise Registry.DomainBrowser.ACCESS_DENIED
 
         normalize = normalize_and_check_domain if objtype == "domain" else normalize_and_check_handle
-        return getattr(self, objtype).setAuthInfo(self._norm(contact_handle), normalize(self.logger, object_handle), objtype, auth_info)
+        return getattr(self, objtype).setAuthInfo(self._norm(contact_handle), normalize(self.logger, object_handle), objtype, auth_info, request_id)
 
 
     def setObjectBlockStatus(self, contact_handle, objtype, objects, block):

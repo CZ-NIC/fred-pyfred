@@ -149,7 +149,7 @@ class ContactInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def setContactDiscloseFlags(self, contact_handle, flags):
+    def setContactDiscloseFlags(self, contact_handle, flags, request_id):
         "Set contact disclose flags."
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
@@ -211,7 +211,7 @@ class ContactInterface(BaseInterface):
                     disclosevat = %(vat)s,
                     disclosenotifyemail = %(notify_email)s
                 WHERE id = %(contact_id)d""", params)
-            self._update_history(contact_id, contact_handle, "contact")
+            self._update_history(contact_id, contact_handle, "contact", request_id)
 
         self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, contact_handle))
         return True
