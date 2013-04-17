@@ -327,7 +327,7 @@ class BaseInterface(object):
 
         # make backup of table $OBJECT (contact, domain, nsset, keyset)
         # INSERT INTO object_history ...
-        self.source.execute(self._copy_into_history_query(objtype), params)
+        self.source.execute(self._get_history_query(), params)
 
         # refresh history pointer in "object_registry"
         self.source.execute("UPDATE object_registry SET historyid = %(history_id)d WHERE id = %(object_id)d", params)
@@ -343,12 +343,9 @@ class BaseInterface(object):
         #       IF OLD.erdate IS NULL and NEW.erdate IS NOT NULL THEN
         #       UPDATE history SET valid_to = NEW.erdate WHERE id = OLD.historyid;
 
-    def _copy_into_history_query(self, objtype):
-        "Prepare query for copy object into history."
-        # This function is here for case when columns in tables ${object} and ${object}_history do not have the same order.
-        # List column names is required in this case. (e.g. \d domain and \d domain_history)
-        return "INSERT INTO %(name)s_history SELECT %%(history_id)d, * FROM %(name)s WHERE id = %%(object_id)d" % dict(name=objtype)
-
+    def _get_history_query(self):
+        "Prepare SQL query for copy object into history. The query must prepare every object type separately."
+        raise NotImplementedError("Function %s._get_history_query() is not implemented." % self.__class__.__name__)
 
     def parse_states(self, states):
         "Parse states struct into the lists."

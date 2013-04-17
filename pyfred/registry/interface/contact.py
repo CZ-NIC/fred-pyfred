@@ -234,3 +234,67 @@ class ContactInterface(BaseInterface):
         if contact_id != object_id:
             self.logger.log(self.logger.INFO, "Contact ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))
             raise Registry.DomainBrowser.ACCESS_DENIED
+
+
+    def _get_history_query(self):
+        "Prepare SQL query for copying contact into history."
+        return """
+        INSERT INTO contact_history (
+            historyid,
+            id,
+            name,
+            organization,
+            street1,
+            street2,
+            street3,
+            city,
+            stateorprovince,
+            postalcode,
+            country,
+            telephone,
+            fax,
+            email,
+            disclosename,
+            discloseorganization,
+            discloseaddress,
+            disclosetelephone,
+            disclosefax,
+            discloseemail,
+            notifyemail,
+            vat,
+            ssn,
+            ssntype,
+            disclosevat,
+            discloseident,
+            disclosenotifyemail
+        )
+        SELECT
+            %(history_id)d,
+            id,
+            name,
+            organization,
+            street1,
+            street2,
+            street3,
+            city,
+            stateorprovince,
+            postalcode,
+            country,
+            telephone,
+            fax,
+            email,
+            disclosename,
+            discloseorganization,
+            discloseaddress,
+            disclosetelephone,
+            disclosefax,
+            discloseemail,
+            notifyemail,
+            vat,
+            ssn,
+            ssntype,
+            disclosevat,
+            discloseident,
+            disclosenotifyemail
+        FROM contact WHERE id = %(object_id)d
+        """

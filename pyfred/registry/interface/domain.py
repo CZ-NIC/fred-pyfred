@@ -471,17 +471,6 @@ class DomainInterface(BaseInterface):
             raise Registry.DomainBrowser.ACCESS_DENIED
 
 
-    def _copy_into_history_query(self, objtype):
-        "Prepare query for copy object into history."
-        # The order of columns in tables 'domain_history' and 'domain' are different.
-        # So we need list them in the query.
-        return """
-            INSERT INTO domain_history
-                       (historyid, id, zone, registrant, nsset, exdate, keyset)
-            SELECT %(history_id)d, id, zone, registrant, nsset, exdate, keyset
-            FROM domain WHERE id = %(object_id)d"""
-
-
     @furnish_database_cursor_m
     def getPublicStatusDesc(self, lang):
         "Public status descriptions in the language."
