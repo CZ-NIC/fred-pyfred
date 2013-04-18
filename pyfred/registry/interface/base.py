@@ -332,16 +332,6 @@ class BaseInterface(object):
         # refresh history pointer in "object_registry"
         self.source.execute("UPDATE object_registry SET historyid = %(history_id)d WHERE id = %(object_id)d", params)
 
-        # refresh previous record of "history"
-        ##self.source.execute("UPDATE history SET valid_to = NOW(), next = %(history_id)d WHERE id = %(prev_history_id)d", params)
-        # db/sql/ccreg.sql:
-        # FUNCTION object_registry_update_history_rec TRIGGER object_registry AFTER UPDATE:
-        #   -- when updation object, set valid_to and next of previous history record
-        #       IF OLD.historyid != NEW.historyid THEN
-        #       UPDATE history SET valid_to = NOW(), next = NEW.historyid WHERE id = OLD.historyid;
-        #   -- when deleting object (setting object_registry.erdate), set valid_to of current history record
-        #       IF OLD.erdate IS NULL and NEW.erdate IS NOT NULL THEN
-        #       UPDATE history SET valid_to = NEW.erdate WHERE id = OLD.historyid;
 
     def _get_history_query(self):
         "Prepare SQL query for copy object into history. The query must prepare every object type separately."

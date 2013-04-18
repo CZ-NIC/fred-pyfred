@@ -408,6 +408,7 @@ class DomainInterface(BaseInterface):
     def getRegistrarDetail(self, contact_handle, handle):
         """
         struct RegistrarDetail {
+            TID id;
             string handle;
             string name;
             string phone;
@@ -419,10 +420,10 @@ class DomainInterface(BaseInterface):
         contact_id = self._get_user_handle_id(contact_handle)
         self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
-        columns = ("handle", "name", "phone", "fax", "url", "address")
+        columns = ("id", "handle", "name", "phone", "fax", "url", "address")
         results = self.source.fetchall("""
             SELECT
-                handle, name, telephone, fax, url,
+                id, handle, name, telephone, fax, url,
                 ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
             FROM registrar
             WHERE handle = %(handle)s""", dict(handle=handle))
