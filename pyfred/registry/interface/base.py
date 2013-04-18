@@ -123,7 +123,7 @@ class BaseInterface(object):
         # selections: ("domain.cz", "fred.cz", ...)
         if not len(selections):
             self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle '%s'." % contact_handle)
-            return False, []
+            return False, [], []
 
         if len(selections) > self.SET_STATUS_MAX_ITEMS:
             raise Registry.DomainBrowser.INCORRECT_USAGE
@@ -135,13 +135,14 @@ class BaseInterface(object):
         # find all object belongs to contact
         result = self.source.fetchall(query_object_registry,
                         dict(objtype=OBJECT_REGISTRY_TYPES[objtype], contact_id=contact_id, names=selections))
-        # result: (("domain.cz", 11256), ("fred.cz", 4566), ...), ..)
+        # result: ((11256, "domain.cz"), (4566, "fred.cz"), ...), ..)
 
         object_dict = dict(result)
-        # object_dict: {"domain.cz": 11256, "fred.cz": 4566, ...}
-        object_ids = object_dict.values()
+        # object_dict: {11256: "domain.cz", 4566: "fred.cz", ...}
+        object_ids = object_dict.keys()
         # object_ids: (11256, 4866, ...)
-        missing = set(selections) - set(object_dict.keys())
+        missing = set(selections) - set(object_dict.values())
+
         if len(missing):
             self.logger.log(self.logger.INFO, "Contact ID %d of the handle '%s' missing objects: %s" % (contact_id, contact_handle, list(missing)))
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -176,11 +177,10 @@ class BaseInterface(object):
         if not (block_transfer_ids or block_update_ids or unblock_transfer_ids or unblock_update_ids):
             self.logger.log(self.logger.INFO, "None of the objects %s %s has required set/unset statuses "
                     "for the contact ID %d of the handle '%s'." % (object_ids, selections, contact_id, contact_handle))
-            return False, []
+            return False, [], []
 
         # prepare updates: ((state_id, object_id), ...)
         update_status = []
-
         if (block_transfer_ids or unblock_transfer_ids) and action in (
                 self.BLOCK_TRANSFER, self.BLOCK_TRANSFER_AND_UPDATE,
                 self.UNBLOCK_TRANSFER, self.UNBLOCK_TRANSFER_AND_UPDATE):
@@ -195,8 +195,10 @@ class BaseInterface(object):
 
         # run updates from here:
         blocked = []
+        references = set()
         retval = False
         for state_id, object_id in update_status:
+            references.add(object_id)
             if action in (self.BLOCK_TRANSFER, self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
                 if self._set_status_to_object(state_id, object_id):
                     retval = True
@@ -209,12 +211,13 @@ class BaseInterface(object):
                     blocked.append(object_id)
 
         blocked_names = set()
-        if len(blocked):
-            for name, obect_id in result:
-                if obect_id in blocked:
-                    blocked_names.add(name)
+        for object_id in blocked:
+            name = object_dict[object_id]
+            blocked_names.add(name)
+            references.add(object_id)
 
-        return retval, tuple(blocked_names)
+        refs = [Registry.DomainBrowser.RegistryReference(object_id, object_dict[object_id]) for object_id in references]
+        return retval, tuple(blocked_names), tuple(refs)
 
 
     def _apply_status_to_object(self, state_id, object_id, query):

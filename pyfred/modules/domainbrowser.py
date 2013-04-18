@@ -216,7 +216,9 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             in RegistryObject contact_handle,
             in RegistryObject objtype,
             in RegistryObjectSeq objects,
-            in ObjectBlockType block
+            in ObjectBlockType block,
+            out RegistryObjectSeq blocked_objects,
+            out RegistryReferenceSeq references
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
 
         enum ObjectBlockType {

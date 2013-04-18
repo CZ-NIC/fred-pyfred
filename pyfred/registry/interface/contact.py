@@ -222,8 +222,8 @@ class ContactInterface(BaseInterface):
         return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
-                objreg.name,
-                objreg.id
+                objreg.id,
+                objreg.name
             FROM object_registry objreg
             WHERE objreg.id = %(contact_id)d
             """)
