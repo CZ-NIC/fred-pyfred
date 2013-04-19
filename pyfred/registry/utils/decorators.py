@@ -1,5 +1,9 @@
 #!/usr/bin/python
+from omniORB import CORBA
+# pyfred
+from pyfred.idlstubs import Registry
 from pyfred.registry.utils.cursors import DatabaseCursor, TransactionLevelRead
+from pyfred.registry.utils import get_exception
 
 
 def furnish_database_cursor_m(interface_function):
@@ -30,5 +34,22 @@ def transaction_isolation_level_read_m(interface_function):
         with TransactionLevelRead(self.source, self.logger) as transaction:
             retval = interface_function(self, *args, **kwargs)
         return retval
+
+    return wrapper
+
+
+def log_not_corba_user_exceptions(interface_function):
+    """
+    Catch all exceptions and raise INTERNAL_SERVER_ERROR
+    """
+    def wrapper(self, *args, **kwargs):
+        "Decorate an interface class method."
+        try:
+            return interface_function(self, *args, **kwargs)
+        except Exception, msg:
+            if isinstance(msg, CORBA.UserException):
+                raise msg
+            self.logger.log(self.logger.CRIT, get_exception())
+            raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
     return wrapper

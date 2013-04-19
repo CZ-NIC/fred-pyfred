@@ -1,6 +1,8 @@
 #!/usr/bin/python
 "Registry utils."
 import re
+import sys
+import traceback
 # pyfred
 from pyfred.registry.utils.constants import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED, \
                                             DOMAIN_NAME_REGEX, LANGUAGES
@@ -10,6 +12,7 @@ from pyfred.idlstubs import Registry
 CONTACT_REGEX_PATT = re.compile(CONTACT_REGEX)
 CONTACT_REGEX_RESTRICTED_PATT = re.compile(CONTACT_REGEX_RESTRICTED)
 DOMAIN_NAME_REGEX_PATT = re.compile(DOMAIN_NAME_REGEX)
+
 
 
 # DUPLICITY: server/src/fredlib/contact.cc: bool checkHandleFormat(const std::string& handle) const
@@ -69,3 +72,15 @@ def make_params_private(params):
 def none2str(value):
     "Convert None (NULL) to the empty string."
     return "" if value is None else value
+
+
+def get_exception():
+    'Fetch exception for debugging.'
+    msg = ['Traceback (most recent call last):']
+    ex = sys.exc_info()
+    #sys.exc_clear()
+    for trace in traceback.extract_tb(ex[2]):
+        msg.append(' File "%s", line %d, in %s' % (trace[0], trace[1], trace[2]))
+        msg.append('    %s' % trace[3])
+    msg.append('%s: %s' % (ex[0], ex[1]))
+    return '\n'.join(msg)

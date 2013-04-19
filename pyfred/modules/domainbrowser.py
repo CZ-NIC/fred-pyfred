@@ -1,11 +1,11 @@
 #!/usr/bin/python
 import ConfigParser
-from datetime import datetime, timedelta
 # pyfred
 from pyfred.idlstubs import Registry, Registry__POA
 # objects
 from pyfred.registry.interface import ContactInterface, DomainInterface, NssetInterface, KeysetInterface
 from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES
+from pyfred.registry.utils.decorators import log_not_corba_user_exceptions
 from pyfred.registry.utils import normalize_and_check_handle, normalize_and_check_domain, \
                                   normalize_and_check_langcode
 
@@ -58,7 +58,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         "Normalize and check handle"
         return normalize_and_check_langcode(self.logger, lang)
 
-
+    @log_not_corba_user_exceptions
     def getDomainList(self, contact_handle, lang, offset):
         """
         RecordSet getDomainList(
@@ -69,7 +69,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainList(contact_handle="%s")' % contact_handle)
         return self.domain.getDomainList(self._norm(contact_handle), self._normLang(lang), offset)
 
-
+    @log_not_corba_user_exceptions
     def getNssetList(self, contact_handle, lang, offset):
         """
         RecordSet getNssetList(
@@ -80,7 +80,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetList(contact_handle="%s")' % contact_handle)
         return self.nsset.getNssetList(self._norm(contact_handle), self._normLang(lang), offset)
 
-
+    @log_not_corba_user_exceptions
     def getKeysetList(self, contact_handle, lang, offset):
         """
         RecordSet getKeysetList(
@@ -91,7 +91,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetList(contact_handle="%s")' % contact_handle)
         return self.keyset.getKeysetList(self._norm(contact_handle), self._normLang(lang), offset)
 
-
+    @log_not_corba_user_exceptions
     def getDomainsForKeyset(self, contact_handle, keyset, lang, offset):
         """
         RecordSet getDomainsForKeyset(
@@ -103,7 +103,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset), self._normLang(lang), offset)
 
-
+    @log_not_corba_user_exceptions
     def getDomainsForNsset(self, contact_handle, nsset, lang, offset):
         """
         RecordSet getDomainsForNsset(
@@ -115,7 +115,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset), self._normLang(lang), offset)
 
-
+    @log_not_corba_user_exceptions
     def getContactDetail(self, contact_handle, contact_handle_detail, lang):
         """
         ContactDetail getContactDetail(
@@ -128,6 +128,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getContactDetail(contact_handle="%s", contact_for_detail="%s")' % (contact_handle, contact_handle_detail))
         return self.contact.getContactDetail(self._norm(contact_handle), self._norm(contact_handle_detail), self._normLang(lang))
 
+    @log_not_corba_user_exceptions
     def getNssetDetail(self, contact_handle, nsset, lang):
         """
         NSSetDetail getNssetDetail(
@@ -140,6 +141,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetDetail(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
         return self.nsset.getNssetDetail(self._norm(contact_handle), self._norm(nsset), self._normLang(lang))
 
+    @log_not_corba_user_exceptions
     def getDomainDetail(self, contact_handle, domain, lang):
         """
         DomainDetail getDomainDetail(
@@ -152,6 +154,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainDetail(contact_handle="%s", domain="%s")' % (contact_handle, domain))
         return self.domain.getDomainDetail(self._norm(contact_handle), self._dom(domain), self._normLang(lang))
 
+    @log_not_corba_user_exceptions
     def getRegistrarDetail(self, contact_handle, handle):
         """
         RegistrarDetail getRegistrarDetail(
@@ -163,6 +166,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getRegistrarDetail(contact_handle="%s", handle="%s")' % (contact_handle, handle))
         return self.domain.getRegistrarDetail(self._norm(contact_handle), self._norm(handle))
 
+    @log_not_corba_user_exceptions
     def getKeysetDetail(self, contact_handle, keyset, lang):
         """
         KeysetDetail getKeysetDetail(
@@ -175,6 +179,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetDetail(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
         return self.keyset.getKeysetDetail(self._norm(contact_handle), self._norm(keyset), self._normLang(lang))
 
+    @log_not_corba_user_exceptions
     def setContactDiscloseFlags(self, contact_handle, flags, request_id):
         """
         void setDiscloseFlags(
@@ -186,6 +191,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         self.logger.log(self.logger.INFO, 'Call DomainBrowser.setContactDiscloseFlags(contact_handle="%s", flags=%s)' % (contact_handle, flags))
         return self.contact.setContactDiscloseFlags(self._norm(contact_handle), flags, request_id)
 
+    @log_not_corba_user_exceptions
     def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info, request_id):
         """
         void setAuthInfo(
@@ -209,7 +215,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         normalize = normalize_and_check_domain if objtype == "domain" else normalize_and_check_handle
         return getattr(self, objtype).setAuthInfo(self._norm(contact_handle), normalize(self.logger, object_handle), objtype, auth_info, request_id)
 
-
+    @log_not_corba_user_exceptions
     def setObjectBlockStatus(self, contact_handle, objtype, objects, block):
         """
         void setObjectBlockStatus(
@@ -240,7 +246,7 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
 
         return getattr(self, objtype).setObjectBlockStatus(self._norm(contact_handle), objtype, selections, block)
 
-
+    @log_not_corba_user_exceptions
     def getPublicStatusDesc(self, lang):
         """
         RecordSequence getPublicStatusDesc(

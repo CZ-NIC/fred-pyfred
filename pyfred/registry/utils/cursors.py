@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import pgdb
 from pyfred.idlstubs import Registry
-from pyfred.registry.utils import normalize_spaces, make_params_private
+from pyfred.registry.utils import normalize_spaces, make_params_private, get_exception
 
 
 class DatabaseCursor(object):
