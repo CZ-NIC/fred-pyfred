@@ -276,7 +276,7 @@ class BaseInterface(object):
         response = self.source.fetchall("""
             SELECT object_registry.id
             FROM object_registry
-            WHERE type = %(type_id)d AND object_registry.name = %(handle)s""",
+            WHERE object_registry.erdate IS NULL AND type = %(type_id)d AND object_registry.name = %(handle)s""",
             dict(handle=object_handle, type_id=OBJECT_REGISTRY_TYPES[type_name]))
         if not len(response):
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -287,7 +287,7 @@ class BaseInterface(object):
         response = self.source.fetchall("""
             SELECT object_registry.id
             FROM object_registry
-            WHERE type = %(type_id)d AND object_registry.name = %(handle)s""",
+            WHERE object_registry.erdate IS NULL AND type = %(type_id)d AND object_registry.name = %(handle)s""",
             dict(handle=contact_handle, type_id=OBJECT_REGISTRY_TYPES["contact"]))
         if not len(response):
             raise Registry.DomainBrowser.USER_NOT_EXISTS
