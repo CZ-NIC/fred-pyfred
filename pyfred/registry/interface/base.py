@@ -3,6 +3,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES, AUTH_INFO_LENGTH
 from pyfred.registry.utils.cursors import TransactionLevelRead
+from pyfred.registry.utils import none2str
 
 
 
@@ -57,26 +58,20 @@ class BaseInterface(object):
 
 
     @furnish_database_cursor_m
-    def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info, request_id):
+    def setAuthInfo(self, contact, objtype, objref, auth_info, request_id):
         "Set objects auth info."
         if len(auth_info) > AUTH_INFO_LENGTH:
             # authinfopw | character varying(300)
             raise Registry.DomainBrowser.INCORRECT_USAGE
 
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
-        self.owner_has_required_status(contact_id, ["validatedContact", "identifiedContact"])
-
-        if contact_handle == object_handle:
-            object_id = contact_id
-        else:
-            object_id = self._get_handle_id(object_handle, objtype)
-            self.logger.log(self.logger.INFO, "Found object ID %d of the handle '%s'." % (object_id, object_handle))
+        self._verify_user_contact(contact)
+        self._verify(objref)
+        self.owner_has_required_status(contact.id, ["validatedContact", "identifiedContact"])
 
         # ACCESS_DENIED:
-        self._object_belongs_to_contact(contact_id, contact_handle, object_id)
+        self._object_belongs_to_contact(contact.id, contact.handle, objref.id)
         # OBJECT_BLOCKED:
-        self.check_if_object_is_blocked(object_id)
+        self.check_if_object_is_blocked(objref.id)
 
         authinfopw = self.source.getval("""
             SELECT
@@ -84,18 +79,18 @@ class BaseInterface(object):
             FROM object_registry objreg
             LEFT JOIN object ON objreg.id = object.id
             WHERE objreg.id = %(object_id)d
-            """, dict(object_id=object_id))
+            """, dict(object_id=objref.id))
 
         if auth_info == authinfopw:
-            self.logger.log(self.logger.INFO, 'No change of auth info at object[%d] "%s".' % (object_id, object_handle))
+            self.logger.log(self.logger.INFO, 'No change of auth info at %s.' % objref)
             return False
 
-        self.logger.log(self.logger.INFO, 'Change object[%d] "%s" auth info.' % (object_id, object_handle))
+        self.logger.log(self.logger.INFO, 'Change %s auth info.' % objref)
         with TransactionLevelRead(self.source, self.logger) as transaction:
             self.source.execute("""
                 UPDATE object SET authinfopw = %(auth_info)s
-                WHERE id = %(object_id)d""", dict(auth_info=auth_info, object_id=object_id))
-            self._update_history(contact_id, object_handle, objtype, request_id)
+                WHERE id = %(object_id)d""", dict(auth_info=auth_info, object_id=objref.id))
+            self._update_history(contact.id, objref.handle, objtype, request_id)
         return True
 
 
@@ -118,33 +113,33 @@ class BaseInterface(object):
 
 
     @furnish_database_cursor_m
-    def _setObjectBlockStatus(self, contact_handle, objtype, selections, action_obj, query_object_registry):
+    def _setObjectBlockStatus(self, contact, objtype, regrefseq, action_obj, query_object_registry):
         "Set objects block status."
-        # selections: ("domain.cz", "fred.cz", ...)
-        if not len(selections):
-            self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle '%s'." % contact_handle)
-            return False, [], []
+        # regrefseq: (RegistryReference(id=123, handle="domain.cz"), ...)
+        self._verify_user_contact(contact)
+        if not len(regrefseq):
+            self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle %s." % contact)
+            return False, []
 
-        if len(selections) > self.SET_STATUS_MAX_ITEMS:
+        if len(regrefseq) > self.SET_STATUS_MAX_ITEMS:
             raise Registry.DomainBrowser.INCORRECT_USAGE
 
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
-        self.owner_has_required_status(contact_id, ["validatedContact"])
+        self.owner_has_required_status(contact.id, ["validatedContact"])
+
+        selections = [] # object_ids: (11256, 4866, ...)
+        object_dict = {} # object_dict: {11256: "domain.cz", 4566: "fred.cz", ...}
+        for reg in regrefseq:
+            selections.append(reg.id)
+            object_dict[reg.id] = reg.handle
 
         # find all object belongs to contact
-        result = self.source.fetchall(query_object_registry,
-                        dict(objtype=OBJECT_REGISTRY_TYPES[objtype], contact_id=contact_id, names=selections))
-        # result: ((11256, "domain.cz"), (4566, "fred.cz"), ...), ..)
+        object_ids = self.source.fetch_array(query_object_registry,
+                        dict(objtype=OBJECT_REGISTRY_TYPES[objtype], contact_id=contact.id, selections=selections))
+        # found_ids: (11256, 4566, ...)
 
-        object_dict = dict(result)
-        # object_dict: {11256: "domain.cz", 4566: "fred.cz", ...}
-        object_ids = object_dict.keys()
-        # object_ids: (11256, 4866, ...)
-        missing = set(selections) - set(object_dict.values())
-
+        missing = set(selections) - set(object_ids)
         if len(missing):
-            self.logger.log(self.logger.INFO, "Contact ID %d of the handle '%s' missing objects: %s" % (contact_id, contact_handle, list(missing)))
+            self.logger.log(self.logger.INFO, "Contact ID %d of the handle '%s' missing objects: %s" % (contact.id, contact.handle, list(missing)))
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
         action = action_obj._v # action value
@@ -175,9 +170,9 @@ class BaseInterface(object):
             self.logger.log(self.logger.INFO, "Required IDs to remove Update prohibited %s." % unblock_update_ids)
 
         if not (block_transfer_ids or block_update_ids or unblock_transfer_ids or unblock_update_ids):
-            self.logger.log(self.logger.INFO, "None of the objects %s %s has required set/unset statuses "
-                    "for the contact ID %d of the handle '%s'." % (object_ids, selections, contact_id, contact_handle))
-            return False, [], []
+            self.logger.log(self.logger.INFO, "None of the objects %s has required set/unset statuses "
+                    "for the contact ID %d of the handle '%s'." % (object_ids, contact.id, contact.handle))
+            return False, []
 
         # prepare updates: ((state_id, object_id), ...)
         update_status = []
@@ -194,30 +189,21 @@ class BaseInterface(object):
             update_status.extend([(state_id, object_id) for object_id in block_update_ids + unblock_update_ids])
 
         # run updates from here:
-        blocked = []
-        references = set()
+        blocked = set()
         retval = False
         for state_id, object_id in update_status:
-            references.add(object_id)
             if action in (self.BLOCK_TRANSFER, self.BLOCK_UPDATE, self.BLOCK_TRANSFER_AND_UPDATE):
                 if self._set_status_to_object(state_id, object_id):
                     retval = True
                 else:
-                    blocked.append(object_id)
+                    blocked.add(object_dict[object_id])
             else:
                 if self._remove_status_from_object(state_id, object_id):
                     retval = True
                 else:
-                    blocked.append(object_id)
+                    blocked.add(object_dict[object_id])
 
-        blocked_names = set()
-        for object_id in blocked:
-            name = object_dict[object_id]
-            blocked_names.add(name)
-            references.add(object_id)
-
-        refs = [Registry.DomainBrowser.RegistryReference(object_id, object_dict[object_id]) for object_id in references]
-        return retval, tuple(blocked_names), tuple(refs)
+        return retval, tuple(blocked)
 
 
     def _apply_status_to_object(self, state_id, object_id, query):
@@ -271,27 +257,43 @@ class BaseInterface(object):
                 """)
 
 
-    def _get_handle_id(self, object_handle, type_name):
+    def _get_handle_id(self, objtype, handle):
         "Returns ID of handle."
-        response = self.source.fetchall("""
-            SELECT object_registry.id
+        return self.source.getval("""
+            SELECT
+                object_registry.id
             FROM object_registry
-            WHERE object_registry.erdate IS NULL AND type = %(type_id)d AND object_registry.name = %(handle)s""",
-            dict(handle=object_handle, type_id=OBJECT_REGISTRY_TYPES[type_name]))
-        if not len(response):
-            raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
-        return response[0][0]
+            WHERE
+                type = %(type_id)d
+                AND object_registry.name = %(handle)s
+                AND object_registry.erdate IS NULL
+            """, dict(handle=handle, type_id=OBJECT_REGISTRY_TYPES[objtype]))
 
-    def _get_user_handle_id(self, contact_handle):
-        "Returns ID of handle."
+
+    def _verify(self, regref, is_user_contact=False):
+        """
+        Verify if object ID and HANDLE are valid - object exists and is active.
+        Raise OBJECT_NOT_EXISTS or USER_NOT_EXISTS if not.
+        """
         response = self.source.fetchall("""
-            SELECT object_registry.id
-            FROM object_registry
-            WHERE object_registry.erdate IS NULL AND type = %(type_id)d AND object_registry.name = %(handle)s""",
-            dict(handle=contact_handle, type_id=OBJECT_REGISTRY_TYPES["contact"]))
+            SELECT oreg.id
+            FROM object_registry oreg
+            WHERE oreg.id = %(object_id)d
+                  AND oreg.name = %(handle)s
+                  AND type = %(type_id)d
+                  AND oreg.erdate IS NULL""", regref.__dict__)
         if not len(response):
-            raise Registry.DomainBrowser.USER_NOT_EXISTS
-        return response[0][0]
+            if is_user_contact:
+                raise Registry.DomainBrowser.USER_NOT_EXISTS
+            raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
+
+
+    def _verify_user_contact(self, regref):
+        """
+        Verify if contact ID and HANDLE exists and is active.
+        Raise USER_NOT_EXISTS if not.
+        """
+        return self._verify(regref, True) # True sets USER_NOT_EXISTS
 
 
     def _dict_of_object_states(self):
@@ -362,3 +364,14 @@ class BaseInterface(object):
             state_importance = self.minimal_importance
 
         return ",".join(state_codes), str(state_importance), "|".join(state_descriptions)
+
+
+    def _pop_registrars_from_detail(self, detail):
+        "Pop registrars from sql result and create registrars."
+        registrars = []
+        for pos in range(3): # current, creator, updator
+            name = none2str(detail.pop())
+            handle = none2str(detail.pop())
+            object_id = detail.pop()
+            registrars.append(Registry.DomainBrowser.RegistryReference(0 if object_id is None else object_id, handle, name))
+        return registrars

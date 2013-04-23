@@ -1,5 +1,4 @@
 #!/usr/bin/python
-from omniORB import CORBA
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils.cursors import DatabaseCursor, TransactionLevelRead
@@ -24,6 +23,14 @@ def furnish_database_cursor_m(interface_function):
     return wrapper
 
 
+#def verify_contact_m(interface_function):
+#    "Verify if contact ID and 'handle' exists."
+#    def wrapper(self, *args, **kwargs):
+#        self._verify_user_contact(args[0])
+#        return interface_function(self, *args, **kwargs)
+#    return wrapper
+
+
 def transaction_isolation_level_read_m(interface_function):
     """
     Call function inside transaction.
@@ -38,6 +45,9 @@ def transaction_isolation_level_read_m(interface_function):
     return wrapper
 
 
+EXCEPTION_NAMES = ("INTERNAL_SERVER_ERROR", "USER_NOT_EXISTS", "OBJECT_NOT_EXISTS",
+                   "INCORRECT_USAGE", "ACCESS_DENIED", "OBJECT_BLOCKED")
+
 def log_not_corba_user_exceptions(interface_function):
     """
     Catch all exceptions and raise INTERNAL_SERVER_ERROR
@@ -47,8 +57,9 @@ def log_not_corba_user_exceptions(interface_function):
         try:
             return interface_function(self, *args, **kwargs)
         except Exception, msg:
-            if isinstance(msg, CORBA.UserException):
+            if msg.__class__.__name__ in EXCEPTION_NAMES:
                 raise msg
+
             self.logger.log(self.logger.CRIT, get_exception())
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 

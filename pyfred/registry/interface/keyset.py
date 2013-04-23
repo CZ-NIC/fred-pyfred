@@ -12,16 +12,16 @@ class KeysetInterface(BaseInterface):
     "Keyset corba interface."
 
     @furnish_database_cursor_m
-    def getKeysetList(self, contact_handle, lang, offset):
+    def getKeysetList(self, contact, lang, offset):
         "List of keysets"
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
-        KEYSET_HANDLE, NUM_OF_DOMAINS = range(2)
+        KEYSET_ID, KEYSET_HANDLE, NUM_OF_DOMAINS = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
+                    object_registry.id,
                     object_registry.name,
                     domains.number,
                     registrar.handle,
@@ -36,7 +36,7 @@ class KeysetInterface(BaseInterface):
                     AND keyset_contact_map.contactid = %(contact_id)d
                 LIMIT %(limit)d OFFSET %(offset)d
                 """,
-                dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact_id,
+                dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact.id,
                      lang=lang, limit=self.list_limit + 1, offset=offset)):
 
             counter += 1
@@ -44,19 +44,20 @@ class KeysetInterface(BaseInterface):
                 limit_exceeded = True
                 break
 
+            row[KEYSET_ID] = str(row[KEYSET_ID])
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
             state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
             row.append(state_importance)
             row.append(state_descriptions)
             result.append(row)
 
-        self.logger.log(self.logger.INFO, 'KeysetInterface.getKeysetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
+        self.logger.log(self.logger.INFO, 'KeysetInterface.getKeysetList(id=%d and handle="%s") has %d rows.' % (contact.id, contact.handle, len(result)))
         return result, limit_exceeded
 
         return []
 
     @furnish_database_cursor_m
-    def getKeysetDetail(self, contact_handle, keyset, lang):
+    def getKeysetDetail(self, contact, keyset, lang):
         """
         struct KeysetDetail {
             TID id;
@@ -93,9 +94,9 @@ class KeysetInterface(BaseInterface):
             string         key;
         };
         """
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
+        keyset.lang = lang
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -109,14 +110,17 @@ class KeysetInterface(BaseInterface):
                 obj.authinfopw AS auth_info,
                 get_state_descriptions(oreg.id, %(lang)s) AS states,
 
-                current.handle AS registrar_handle,
-                current.name AS registrar_name,
+                updator.id AS update_registrar_id,
+                updator.handle AS update_registrar_handle,
+                updator.name AS update_registrar_name,
 
+                creator.id AS create_registrar_id,
                 creator.handle AS create_registrar_handle,
                 creator.name AS create_registrar_name,
 
-                updator.handle AS update_registrar_handle,
-                updator.name AS update_registrar_name
+                current.id AS registrar_id,
+                current.handle AS registrar_handle,
+                current.name AS registrar_name
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
@@ -125,8 +129,11 @@ class KeysetInterface(BaseInterface):
                 LEFT JOIN registrar current ON current.id = obj.clid
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
-            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(keyset)s
-        """, dict(keyset=keyset, type_id=OBJECT_REGISTRY_TYPES["keyset"], lang=lang))
+            WHERE oreg.id = %(object_id)d
+                AND oreg.name = %(handle)s
+                AND oreg.type = %(type_id)d
+                AND oreg.erdate IS NULL
+        """, keyset.__dict__)
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -137,26 +144,15 @@ class KeysetInterface(BaseInterface):
 
         TID, PASSWORD = 0, 6
         keyset_detail = results[0]
-        registrar = {
-            "updator": {
-                "name": none2str(keyset_detail.pop()),
-                "handle": none2str(keyset_detail.pop()),
-            },
-            "creator": {
-                "name": none2str(keyset_detail.pop()),
-                "handle": none2str(keyset_detail.pop()),
-            },
-            "current": {
-                "name": none2str(keyset_detail.pop()),
-                "handle": none2str(keyset_detail.pop()),
-            },
-        }
+        registrars = self._pop_registrars_from_detail(keyset_detail) # pop some columns from the detail here
         state_codes, state_importance, state_descriptions = self.parse_states(keyset_detail.pop())
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
         for row in self.source.fetchall("""
-            SELECT object_registry.name,
+            SELECT
+                object_registry.id,
+                object_registry.name,
                 CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
                     contact.organization ELSE contact.name
                 END
@@ -165,8 +161,8 @@ class KeysetInterface(BaseInterface):
             LEFT JOIN contact ON contact.id = keyset_contact_map.contactid
             WHERE keysetid = %(obj_id)d
             """, dict(obj_id=keyset_detail[TID])):
-            admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
-            if contact_handle == row[0]:
+            admins.append(Registry.DomainBrowser.RegistryReference(long(row[0]), none2str(row[1]), none2str(row[2])))
+            if contact.handle == row[0]:
                 owner = True
 
         if owner:
@@ -198,8 +194,7 @@ class KeysetInterface(BaseInterface):
             data = dict(zip(columns, row_dsrec))
             dnskeys.append(Registry.DomainBrowser.DNSKey(**data))
 
-        for key in ("current", "creator", "updator"):
-            keyset_detail.append(Registry.DomainBrowser.Couple(registrar[key]["handle"], registrar[key]["name"]))
+        keyset_detail.extend(registrars)
         keyset_detail.append(admins)
         keyset_detail.append(dsrecords)
         keyset_detail.append(dnskeys)
@@ -223,13 +218,12 @@ class KeysetInterface(BaseInterface):
         return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
-                objreg.id,
-                objreg.name
+                objreg.id
             FROM object_registry objreg
             LEFT JOIN keyset_contact_map map ON map.keysetid = objreg.id
             WHERE type = %(objtype)d
                 AND map.contactid = %(contact_id)d
-                AND name IN %(names)s
+                AND objreg.id IN %(selections)s
             """)
 
 

@@ -5,7 +5,7 @@ import sys
 import traceback
 # pyfred
 from pyfred.registry.utils.constants import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED, \
-                                            DOMAIN_NAME_REGEX, LANGUAGES
+                                DOMAIN_NAME_REGEX, LANGUAGES, OBJECT_REGISTRY_TYPES
 from pyfred.idlstubs import Registry
 
 
@@ -13,6 +13,39 @@ CONTACT_REGEX_PATT = re.compile(CONTACT_REGEX)
 CONTACT_REGEX_RESTRICTED_PATT = re.compile(CONTACT_REGEX_RESTRICTED)
 DOMAIN_NAME_REGEX_PATT = re.compile(DOMAIN_NAME_REGEX)
 
+
+
+def normalize_and_check_regref(logger, handle_type, regref):
+    "Check format of the handle."
+    if handle_type == "domain":
+        handle = regref.handle.lower()
+        pattern = DOMAIN_NAME_REGEX_PATT
+        message = 'Invalid format of domain name "%s".'
+    else:
+        handle = regref.handle.upper()
+        pattern = CONTACT_REGEX_PATT
+        message = 'Invalid format of handle "%s".'
+
+    match = pattern.match(handle)
+    if match is None:
+        logger.log(logger.INFO, message % handle)
+        raise Registry.DomainBrowser.INCORRECT_USAGE
+
+    object_id = regref.id
+    if not isinstance(object_id, long):
+        logger.log(logger.INFO, "Invalid format of ID %s." % regref)
+        raise Registry.DomainBrowser.INCORRECT_USAGE
+
+    regref.object_id = regref.id
+    regref.handle = handle
+    regref.type_id = OBJECT_REGISTRY_TYPES[handle_type]
+
+    return regref
+
+
+def regstr(regref):
+    "Make string from RegistryReference instance."
+    return "(%d,%s)" % (regref.id, regref.handle)
 
 
 # DUPLICITY: server/src/fredlib/contact.cc: bool checkHandleFormat(const std::string& handle) const
@@ -24,7 +57,6 @@ def normalize_and_check_handle(logger, handle):
         logger.log(logger.INFO, 'Invalid format of handle "%s".' % handle)
         raise Registry.DomainBrowser.INCORRECT_USAGE
     return handle
-
 
 def normalize_and_check_domain(logger, domain_name):
     "Normalize domain name."

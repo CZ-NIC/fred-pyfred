@@ -12,15 +12,15 @@ class NssetInterface(BaseInterface):
     "NSSET corba interface."
 
     @furnish_database_cursor_m
-    def getNssetList(self, contact_handle, lang, offset):
+    def getNssetList(self, contact, lang, offset):
         "List of nssets"
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
-        NSSET_HANDLE, NUM_OF_DOMAINS = range(2)
+        NSSET_ID, NSSET_HANDLE, NUM_OF_DOMAINS = range(3)
         result, counter, limit_exceeded = [], 0, False
         for row in self.source.fetchall("""
                 SELECT
+                    object_registry.id,
                     object_registry.name,
                     domains.number,
                     registrar.handle,
@@ -35,7 +35,7 @@ class NssetInterface(BaseInterface):
                     AND nsset_contact_map.contactid = %(contact_id)d
                 LIMIT %(limit)d OFFSET %(offset)d
                 """,
-                dict(objtype=OBJECT_REGISTRY_TYPES['nsset'], contact_id=contact_id,
+                dict(objtype=OBJECT_REGISTRY_TYPES['nsset'], contact_id=contact.id,
                      lang=lang, limit=self.list_limit + 1, offset=offset)):
 
             counter += 1
@@ -43,40 +43,41 @@ class NssetInterface(BaseInterface):
                 limit_exceeded = True
                 break
 
+            row[NSSET_ID] = str(row[NSSET_ID])
             row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
             state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
             row.append(state_importance)
             row.append(state_descriptions)
             result.append(row)
 
-        self.logger.log(self.logger.INFO, 'NssetInterface.getNssetList(handle="%s") has %d rows.' % (contact_handle, len(result)))
+        self.logger.log(self.logger.INFO, 'NssetInterface.getNssetList(id=%d and handle="%s") has %d rows.' % (contact.id, contact.handle, len(result)))
         return result, limit_exceeded
 
 
     @furnish_database_cursor_m
-    def getNssetDetail(self, contact_handle, nsset, lang):
+    def getNssetDetail(self, contact, nsset, lang):
         """
         struct NSSetDetail {
             TID id;
             string handle;
             string roid;
-            Couple registrar;
+            RegistryReference registrar;
             string create_date;
             string transfer_date;
             string update_date;
-            Couple create_registrar;
-            Couple update_registrar;
+            RegistryReference create_registrar;
+            RegistryReference update_registrar;
             string auth_info;
-            CoupleSeq admins;
+            RegistryReferenceSeq admins;
             sequence<DNSHost> hosts;
             string states;
             string state_codes;
             short report_level;
         };
         """
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
+        nsset.lang = lang
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -91,14 +92,17 @@ class NssetInterface(BaseInterface):
                 nsset.checklevel,
                 get_state_descriptions(oreg.id, %(lang)s) AS states,
 
-                current.handle AS registrar_handle,
-                current.name AS registrar_name,
+                updator.id AS update_registrar_id,
+                updator.handle AS update_registrar_handle,
+                updator.name AS update_registrar_name,
 
+                creator.id AS create_registrar_id,
                 creator.handle AS create_registrar_handle,
                 creator.name AS create_registrar_name,
 
-                updator.handle AS update_registrar_handle,
-                updator.name AS update_registrar_name
+                current.id AS registrar_id,
+                current.handle AS registrar_handle,
+                current.name AS registrar_name
 
             FROM object_registry oreg
                 LEFT JOIN object obj ON obj.id = oreg.id
@@ -108,8 +112,11 @@ class NssetInterface(BaseInterface):
                 LEFT JOIN registrar current ON current.id = obj.clid
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
-            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(nsset)s
-        """, dict(nsset=nsset, type_id=OBJECT_REGISTRY_TYPES["nsset"], lang=lang))
+            WHERE oreg.id = %(object_id)d
+                AND oreg.name = %(handle)s
+                AND oreg.type = %(type_id)d
+                AND oreg.erdate IS NULL
+            """, nsset.__dict__)
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -120,26 +127,15 @@ class NssetInterface(BaseInterface):
 
         TID, PASSWORD = 0, 6
         nsset_detail = results[0]
-        registrar = {
-            "updator": {
-                "name": none2str(nsset_detail.pop()),
-                "handle": none2str(nsset_detail.pop()),
-            },
-            "creator": {
-                "name": none2str(nsset_detail.pop()),
-                "handle": none2str(nsset_detail.pop()),
-            },
-            "current": {
-                "name": none2str(nsset_detail.pop()),
-                "handle": none2str(nsset_detail.pop()),
-            },
-        }
+        registrars = self._pop_registrars_from_detail(nsset_detail) # pop some columns from the detail here
         state_codes, state_importance, state_descriptions = self.parse_states(nsset_detail.pop())
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
         for row in self.source.fetchall("""
-            SELECT object_registry.name,
+            SELECT
+                object_registry.id,
+                object_registry.name,
                 CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
                     contact.organization ELSE contact.name
                 END
@@ -148,8 +144,8 @@ class NssetInterface(BaseInterface):
             LEFT JOIN contact ON contact.id = nsset_contact_map.contactid
             WHERE nssetid = %(obj_id)d
             """, dict(obj_id=nsset_detail[TID])):
-            admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
-            if contact_handle == row[0]:
+            admins.append(Registry.DomainBrowser.RegistryReference(long(row[0]), none2str(row[1]), none2str(row[2])))
+            if contact.handle == row[0]:
                 owner = True
 
         if owner:
@@ -176,8 +172,7 @@ class NssetInterface(BaseInterface):
             ip_address = parse_array_agg(row_host[1])
             hosts.append(Registry.DomainBrowser.DNSHost(fqdn=row_host[0], inet=", ".join(ip_address)))
 
-        for key in ("current", "creator", "updator"):
-            nsset_detail.append(Registry.DomainBrowser.Couple(registrar[key]["handle"], registrar[key]["name"]))
+        nsset_detail.extend(registrars)
         nsset_detail.append(admins)
         nsset_detail.append(hosts)
         nsset_detail.append(state_codes)
@@ -200,13 +195,12 @@ class NssetInterface(BaseInterface):
         return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
-                objreg.id,
-                objreg.name
+                objreg.id
             FROM object_registry objreg
             LEFT JOIN nsset_contact_map map ON map.nssetid = objreg.id
             WHERE type = %(objtype)d
                 AND map.contactid = %(contact_id)d
-                AND name IN %(names)s
+                AND objreg.id IN %(selections)s
             """)
 
 

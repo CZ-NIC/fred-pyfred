@@ -63,7 +63,10 @@ class DatabaseCursor(object):
 
     def getval(self, sql, params=None, logging_level=None):
         "Return first column of first row."
-        return self.fetchall(sql, params, logging_level)[0][0] # [row][column]
+        try:
+            return self.fetchall(sql, params, logging_level)[0][0] # [row][column]
+        except IndexError:
+            raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
     def fetch_array(self, sql, params=None, logging_level=None):
         "Return first column of the result."

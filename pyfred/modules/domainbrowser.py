@@ -6,8 +6,9 @@ from pyfred.idlstubs import Registry, Registry__POA
 from pyfred.registry.interface import ContactInterface, DomainInterface, NssetInterface, KeysetInterface
 from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES
 from pyfred.registry.utils.decorators import log_not_corba_user_exceptions
-from pyfred.registry.utils import normalize_and_check_handle, normalize_and_check_domain, \
-                                  normalize_and_check_langcode
+from pyfred.registry.utils import regstr, \
+                    normalize_and_check_handle, normalize_and_check_domain, \
+                    normalize_and_check_langcode, normalize_and_check_regref
 
 
 
@@ -58,174 +59,212 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
         "Normalize and check handle"
         return normalize_and_check_langcode(self.logger, lang)
 
+    def _norm_reg(self, handle_type, regref):
+        "Normalize and check RegistryReference object"
+        return normalize_and_check_regref(self.logger, handle_type, regref)
+
+    def _norm_contact(self, regref):
+        return self._norm_reg("contact", regref)
+
+    def _norm_nsset(self, regref):
+        return self._norm_reg("nsset", regref)
+
+    def _norm_keyset(self, regref):
+        return self._norm_reg("keyset", regref)
+
+    def _norm_domain(self, regref):
+        return self._norm_reg("domain", regref)
+
+
     @log_not_corba_user_exceptions
-    def getDomainList(self, contact_handle, lang, offset):
+    def getObjectRegistryId(self, objtype, handle):
+        """
+        TID getObjectRegistryId(
+            in string objtype,
+            in string handle
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
+        """
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getObjectRegistryId(type="%s", handle="%s")' % (objtype, handle))
+        if objtype not in OBJECT_REGISTRY_TYPES:
+            raise Registry.DomainBrowser.INCORRECT_USAGE
+
+        return self.contact.getObjectRegistryId(objtype, self._dom(handle) if objtype == "domain" else self._norm(handle))
+
+    @log_not_corba_user_exceptions
+    def getDomainList(self, contact, lang, offset):
         """
         RecordSet getDomainList(
-            in RegistryObject contact_handle,
-            in string lang
+            in RegistryReference contact,
+            in string lang,
+            in unsigned long offset,
+            out boolean limit_exceeded
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainList(contact_handle="%s")' % contact_handle)
-        return self.domain.getDomainList(self._norm(contact_handle), self._normLang(lang), offset)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainList(contact="%s", lang="%s", offset=%d)' % (regstr(contact), lang, offset))
+        return self.domain.getDomainList(self._norm_contact(contact), self._normLang(lang), offset)
 
     @log_not_corba_user_exceptions
-    def getNssetList(self, contact_handle, lang, offset):
+    def getNssetList(self, contact, lang, offset):
         """
         RecordSet getNssetList(
-            in RegistryObject contact_handle,
-            in string lang
+            in RegistryReference contact,
+            in string lang,
+            in unsigned long offset,
+            out boolean limit_exceeded
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetList(contact_handle="%s")' % contact_handle)
-        return self.nsset.getNssetList(self._norm(contact_handle), self._normLang(lang), offset)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetList(contact="%s", lang="%s", offset=%d)' % (regstr(contact), lang, offset))
+        return self.nsset.getNssetList(self._norm_contact(contact), self._normLang(lang), offset)
 
     @log_not_corba_user_exceptions
-    def getKeysetList(self, contact_handle, lang, offset):
+    def getKeysetList(self, contact, lang, offset):
         """
         RecordSet getKeysetList(
-            in RegistryObject contact_handle,
-            in string lang
+            in RegistryReference contact,
+            in string lang,
+            in unsigned long offset,
+            out boolean limit_exceeded
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetList(contact_handle="%s")' % contact_handle)
-        return self.keyset.getKeysetList(self._norm(contact_handle), self._normLang(lang), offset)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetList(contact="%s", lang="%s", offset=%d)' % (regstr(contact), lang, offset))
+        return self.keyset.getKeysetList(self._norm_contact(contact), self._normLang(lang), offset)
 
     @log_not_corba_user_exceptions
-    def getDomainsForKeyset(self, contact_handle, keyset, lang, offset):
+    def getDomainsForKeyset(self, contact, keyset, lang, offset):
         """
         RecordSet getDomainsForKeyset(
-            in RegistryObject contact_handle,
-            in RegistryObject keyset,
-            in string lang
+            in RegistryReference contact,
+            in RegistryReference keyset,
+            in string lang,
+            in unsigned long offset,
+            out boolean limit_exceeded
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
-        return self.domain.getDomainsForKeyset(self._norm(contact_handle), self._norm(keyset), self._normLang(lang), offset)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForKeyset(contact="%s", keyset="%s", lang="%s", offset=%d)' % (regstr(contact), regstr(keyset), lang, offset))
+        return self.domain.getDomainsForKeyset(self._norm_contact(contact), self._norm_keyset(keyset), self._normLang(lang), offset)
 
     @log_not_corba_user_exceptions
-    def getDomainsForNsset(self, contact_handle, nsset, lang, offset):
+    def getDomainsForNsset(self, contact, nsset, lang, offset):
         """
         RecordSet getDomainsForNsset(
-            in RegistryObject contact_handle,
-            in RegistryObject nsset,
-            in string lang
+            in RegistryReference contact,
+            in RegistryReference nsset,
+            in string lang,
+            in unsigned long offset,
+            out boolean limit_exceeded
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
-        return self.domain.getDomainsForNsset(self._norm(contact_handle), self._norm(nsset), self._normLang(lang), offset)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainsForNsset(contact="%s", nsset="%s", lang="%s", offset=%d)' % (regstr(contact), regstr(nsset), lang, offset))
+        return self.domain.getDomainsForNsset(self._norm_contact(contact), self._norm_nsset(nsset), self._normLang(lang), offset)
 
     @log_not_corba_user_exceptions
-    def getContactDetail(self, contact_handle, contact_handle_detail, lang):
+    def getContactDetail(self, contact, detail, lang):
         """
         ContactDetail getContactDetail(
-            in RegistryObject contact_handle,
-            in RegistryObject contact_handle_detail,
+            in RegistryReference contact,
+            in RegistryReference detail,
             in string lang,
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getContactDetail(contact_handle="%s", contact_for_detail="%s")' % (contact_handle, contact_handle_detail))
-        return self.contact.getContactDetail(self._norm(contact_handle), self._norm(contact_handle_detail), self._normLang(lang))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getContactDetail(contact=%s, detail=%s)' % (regstr(contact), regstr(detail)))
+        return self.contact.getContactDetail(self._norm_contact(contact), self._norm_contact(detail), self._normLang(lang))
 
     @log_not_corba_user_exceptions
-    def getNssetDetail(self, contact_handle, nsset, lang):
+    def getNssetDetail(self, contact, nsset, lang):
         """
         NSSetDetail getNssetDetail(
-            in RegistryObject contact_handle,
-            in RegistryObject nsset,
+            in RegistryReference contact,
+            in RegistryReference nsset,
             in string lang,
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetDetail(contact_handle="%s", nsset="%s")' % (contact_handle, nsset))
-        return self.nsset.getNssetDetail(self._norm(contact_handle), self._norm(nsset), self._normLang(lang))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getNssetDetail(contact=%s, nsset=%s)' % (regstr(contact), regstr(nsset)))
+        return self.nsset.getNssetDetail(self._norm_contact(contact), self._norm_nsset(nsset), self._normLang(lang))
 
     @log_not_corba_user_exceptions
-    def getDomainDetail(self, contact_handle, domain, lang):
+    def getDomainDetail(self, contact, domain, lang):
         """
         DomainDetail getDomainDetail(
-            in RegistryObject contact_handle,
-            in RegistryObject domain,
+            in RegistryReference contact,
+            in RegistryReference domain,
             in string lang,
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainDetail(contact_handle="%s", domain="%s")' % (contact_handle, domain))
-        return self.domain.getDomainDetail(self._norm(contact_handle), self._dom(domain), self._normLang(lang))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getDomainDetail(contact=%s, domain=%s)' % (regstr(contact), regstr(domain)))
+        return self.domain.getDomainDetail(self._norm_contact(contact), self._norm_domain(domain), self._normLang(lang))
 
     @log_not_corba_user_exceptions
-    def getRegistrarDetail(self, contact_handle, handle):
+    def getRegistrarDetail(self, contact, handle):
         """
         RegistrarDetail getRegistrarDetail(
-                in RegistryObject contact_handle,
-                in RegistryObject handle,
-                in string lang
+                in RegistryReference contact,
+                in RegistryObject handle
             ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getRegistrarDetail(contact_handle="%s", handle="%s")' % (contact_handle, handle))
-        return self.domain.getRegistrarDetail(self._norm(contact_handle), self._norm(handle))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getRegistrarDetail(contact=%s, handle="%s")' % (regstr(contact), handle))
+        return self.domain.getRegistrarDetail(self._norm_contact(contact), self._norm(handle))
 
     @log_not_corba_user_exceptions
-    def getKeysetDetail(self, contact_handle, keyset, lang):
+    def getKeysetDetail(self, contact, keyset, lang):
         """
         KeysetDetail getKeysetDetail(
-            in RegistryObject contact_handle,
-            in RegistryObject keyset,
+            in RegistryReference contact,
+            in RegistryReference keyset,
             in string lang,
             out DataAccessLevel auth_result
         ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetDetail(contact_handle="%s", keyset="%s")' % (contact_handle, keyset))
-        return self.keyset.getKeysetDetail(self._norm(contact_handle), self._norm(keyset), self._normLang(lang))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.getKeysetDetail(contact=%s, keyset=%s)' % (regstr(contact), regstr(keyset)))
+        return self.keyset.getKeysetDetail(self._norm_contact(contact), self._norm_keyset(keyset), self._normLang(lang))
 
     @log_not_corba_user_exceptions
-    def setContactDiscloseFlags(self, contact_handle, flags, request_id):
+    def setContactDiscloseFlags(self, contact, flags, request_id):
         """
-        void setDiscloseFlags(
-                in RegistryObject contact_handle,
-                in ContactDiscloseFlags flags,
+        boolean setContactDiscloseFlags(
+                in RegistryReference contact,
+                in UpdateContactDiscloseFlags flags,
                 in TID request_id
-            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
+            ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setContactDiscloseFlags(contact_handle="%s", flags=%s)' % (contact_handle, flags))
-        return self.contact.setContactDiscloseFlags(self._norm(contact_handle), flags, request_id)
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setContactDiscloseFlags(contact=%s, flags=%s)' % (regstr(contact), flags))
+        return self.contact.setContactDiscloseFlags(self._norm_contact(contact), flags, request_id)
 
     @log_not_corba_user_exceptions
-    def setAuthInfo(self, contact_handle, object_handle, objtype, auth_info, request_id):
+    def setAuthInfo(self, contact, objtype, objref, auth_info, request_id):
         """
-        void setAuthInfo(
-                in RegistryObject contact_handle,
-                in RegistryObject object_handle,
+        boolean setAuthInfo(
+                in RegistryReference contact,
                 in RegistryObject objtype,
+                in RegistryReference objref,
                 in RegistryObject auth_info,
                 in TID request_id
             ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setAuthInfo(contact_handle="%s", object_handle="%s", objtype="%s", auth_info="*******")' % (contact_handle, object_handle, objtype))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setAuthInfo(contact=%s, objtype="%s", objref=%s, auth_info="*******")' % (regstr(contact), objtype, regstr(objref)))
 
         # only contact type can update auth info
         if objtype != "contact":
             raise Registry.DomainBrowser.INCORRECT_USAGE
 
         # update auth info only for user's contact
-        if contact_handle != object_handle:
+        if contact.handle != objref.handle:
             raise Registry.DomainBrowser.ACCESS_DENIED
 
-        normalize = normalize_and_check_domain if objtype == "domain" else normalize_and_check_handle
-        return getattr(self, objtype).setAuthInfo(self._norm(contact_handle), normalize(self.logger, object_handle), objtype, auth_info, request_id)
+        return getattr(self, objtype).setAuthInfo(self._norm_contact(contact), objtype, self._norm_reg(objtype, objref), auth_info, request_id)
 
     @log_not_corba_user_exceptions
-    def setObjectBlockStatus(self, contact_handle, objtype, objects, block):
+    def setObjectBlockStatus(self, contact, objtype, objects, block):
         """
-        void setObjectBlockStatus(
-            in RegistryObject contact_handle,
+        boolean setObjectBlockStatus(
+            in RegistryReference contact,
             in RegistryObject objtype,
-            in RegistryObjectSeq objects,
+            in RegistryReferenceSeq objects,
             in ObjectBlockType block,
-            out RegistryObjectSeq blocked_objects,
-            out RegistryReferenceSeq references
-        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED, OBJECT_BLOCKED);
+            out RecordSequence blocked
+        ) raises (INTERNAL_SERVER_ERROR, INCORRECT_USAGE, USER_NOT_EXISTS, OBJECT_NOT_EXISTS, ACCESS_DENIED);
 
         enum ObjectBlockType {
             BLOCK_TRANSFER, UNBLOCK_TRANSFER,
@@ -233,18 +272,17 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE
         };
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setObjectBlockStatus(contact_handle="%s", objtype="%s", objects=%s, block=%s)' % (contact_handle, objtype, objects, block))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setObjectBlockStatus(contact=%s, objtype="%s", objects=%s, block=%s)' % (regstr(contact), objtype, objects, block))
 
         if objtype not in OBJECT_REGISTRY_TYPES:
             raise Registry.DomainBrowser.INCORRECT_USAGE
 
-        normalize = normalize_and_check_domain if objtype == "domain" else normalize_and_check_handle
         selections = []
-        for name in objects:
-            selections.append(normalize(self.logger, name))
+        for objref in objects:
+            selections.append(self._norm_reg(objtype, objref))
         self.logger.log(self.logger.DEBUG, "Normalized objects: %s" % selections)
 
-        return getattr(self, objtype).setObjectBlockStatus(self._norm(contact_handle), objtype, selections, block)
+        return getattr(self, objtype).setObjectBlockStatus(self._norm_contact(contact), objtype, selections, block)
 
     @log_not_corba_user_exceptions
     def getPublicStatusDesc(self, lang):

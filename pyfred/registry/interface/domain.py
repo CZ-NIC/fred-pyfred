@@ -95,6 +95,7 @@ class DomainInterface(BaseInterface):
                     role = "admin"
 
             domain_list.append([
+                str(domain_row[Col.REGID]),
                 domain_row[Col.DOMAIN_NAME], # domain_name TEXT
                 state_importance,
                 next_state,              # next_state TEXT
@@ -111,10 +112,9 @@ class DomainInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def getDomainList(self, contact_handle, lang, offset):
+    def getDomainList(self, contact, lang, offset):
         "Return list of domains."
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
         sql_query = """
             SELECT
@@ -138,23 +138,20 @@ class DomainInterface(BaseInterface):
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate
             LIMIT %(limit)d OFFSET %(offset)d"""
-        sql_params = dict(contact_id=contact_id, role_id=DOMAIN_ROLE["admin"],
+        sql_params = dict(contact_id=contact.id, role_id=DOMAIN_ROLE["admin"],
                           lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact_id, sql_query, sql_params)
+        return self.__provideDomainList(contact.id, sql_query, sql_params)
 
 
     @furnish_database_cursor_m
-    def getDomainsForNsset(self, contact_handle, nsset, lang, offset):
+    def getDomainsForNsset(self, contact, nsset, lang, offset):
         "Domains for nsset"
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
-
-        nsset_id = self._get_handle_id(nsset, "nsset")
-        self.logger.log(self.logger.INFO, "Found NSSET ID %d of the handle '%s'." % (nsset_id, nsset))
+        self._verify_user_contact(contact)
+        self._verify(nsset)
 
         # throw ACCESS_DENIED - when contact is not owner of nsset
-        self.browser.nsset._object_belongs_to_contact(contact_id, contact_handle, nsset_id, self.source)
+        self.browser.nsset._object_belongs_to_contact(contact.id, contact.handle, nsset.id, self.source)
 
         sql_query = """
             SELECT
@@ -180,23 +177,20 @@ class DomainInterface(BaseInterface):
                 AND domain.nsset = %(nsset_id)d
             ORDER BY domain.exdate
             LIMIT %(limit)d OFFSET %(offset)d"""
-        sql_params = dict(contact_id=contact_id, nsset_id=nsset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
+        sql_params = dict(contact_id=contact.id, nsset_id=nsset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact_id, sql_query, sql_params)
+        return self.__provideDomainList(contact.id, sql_query, sql_params)
 
 
     @furnish_database_cursor_m
-    def getDomainsForKeyset(self, contact_handle, keyset, lang, offset):
+    def getDomainsForKeyset(self, contact, keyset, lang, offset):
         "Domains for keyset"
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
-
-        keyset_id = self._get_handle_id(keyset, "keyset")
-        self.logger.log(self.logger.INFO, "Found KEYSET ID %d of the handle '%s'." % (keyset_id, keyset))
+        self._verify_user_contact(contact)
+        self._verify(keyset)
 
         # throw ACCESS_DENIED - when contact is not owner of keyset
-        self.browser.keyset._object_belongs_to_contact(contact_id, contact_handle, keyset_id, self.source)
+        self.browser.keyset._object_belongs_to_contact(contact.id, contact.handle, keyset.id, self.source)
 
         sql_query = """
             SELECT
@@ -222,31 +216,31 @@ class DomainInterface(BaseInterface):
                 AND domain.keyset = %(keyset_id)d
             ORDER BY domain.exdate
             LIMIT %(limit)d OFFSET %(offset)d"""
-        sql_params = dict(contact_id=contact_id, keyset_id=keyset_id, objtype=OBJECT_REGISTRY_TYPES['domain'],
+        sql_params = dict(contact_id=contact.id, keyset_id=keyset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact_id, sql_query, sql_params)
+        return self.__provideDomainList(contact.id, sql_query, sql_params)
 
 
     @furnish_database_cursor_m
-    def getDomainDetail(self, contact_handle, domain, lang):
+    def getDomainDetail(self, contact, domain, lang):
         """
         struct DomainDetail {
             TID id;
             string fqdn;
             string roid;
-            Couple registrar;
+            RegistryReference registrar;
             string create_date;
             string update_date;
             string auth_info;
-            Couple registrant;
+            RegistryReference registrant;
             string expiration_date;
             string val_ex_date;
             boolean publish;
             boolean is_enum;
             string nsset;
             string keyset;
-            CoupleSeq admins;
+            RegistryReferenceSeq admins;
             string states;
             string state_codes;
         };
@@ -256,9 +250,9 @@ class DomainInterface(BaseInterface):
             3 - domain
             4 - keyset
         """
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
+        domain.lang = lang
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -277,11 +271,13 @@ class DomainInterface(BaseInterface):
                 regkeyset.name AS keyset,
                 get_state_descriptions(oreg.id, %(lang)s) AS states,
 
+                registrant.id AS registrant_id,
                 registrant.name AS registrant_handle,
                 CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
                     contact.organization ELSE contact.name
                 END AS registrant_name,
 
+                current.id AS registrar_id,
                 current.handle AS registrar_handle,
                 current.name AS registrar_name
 
@@ -300,8 +296,11 @@ class DomainInterface(BaseInterface):
 
                 LEFT JOIN enumval enum ON enum.domainid = oreg.id
 
-            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(domain)s
-        """, dict(domain=domain, type_id=OBJECT_REGISTRY_TYPES["domain"], lang=lang))
+            WHERE oreg.id = %(object_id)d
+                AND oreg.name = %(handle)s
+                AND oreg.type = %(type_id)d
+                AND oreg.erdate IS NULL
+        """, domain.__dict__)
 
         if len(results) == 0:
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
@@ -357,9 +356,11 @@ class DomainInterface(BaseInterface):
 
         registrar_name = none2str(domain_detail.pop())
         registrar_handle = none2str(domain_detail.pop())
+        registrar_id = domain_detail.pop()
 
         registrant_name = none2str(domain_detail.pop())
         registrant_handle = none2str(domain_detail.pop())
+        registrant_id = domain_detail.pop()
 
         state_codes, state_importance, state_descriptions = self.parse_states(domain_detail.pop())
 
@@ -369,7 +370,9 @@ class DomainInterface(BaseInterface):
         admins = [] # Registry.DomainBrowser.CoupleSeq
         admin_handles = []
         for row in self.source.fetchall("""
-                SELECT object_registry.name,
+                SELECT
+                    object_registry.id,
+                    object_registry.name,
                     CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
                         contact.organization ELSE contact.name
                     END AS contact_name
@@ -379,10 +382,10 @@ class DomainInterface(BaseInterface):
                 WHERE domain_contact_map.role = %(role_id)d
                     AND domainid = %(obj_id)d
                 """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[Col.TID])):
-            admins.append(Registry.DomainBrowser.Couple(none2str(row[0]), none2str(row[1])))
+            admins.append(Registry.DomainBrowser.RegistryReference(long(row[0]), none2str(row[1]), none2str(row[2])))
             admin_handles.append(row[0])
 
-        if contact_handle == registrant_handle or contact_handle in admin_handles:
+        if contact.handle == registrant_handle or contact.handle in admin_handles:
             # owner or contact in admins list
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
@@ -393,8 +396,8 @@ class DomainInterface(BaseInterface):
         domain_detail.append(state_codes)
         #domain_detail.append(state_importance)
         domain_detail.append(state_descriptions)
-        domain_detail.append(Registry.DomainBrowser.Couple(registrant_handle, registrant_name))
-        domain_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
+        domain_detail.append(Registry.DomainBrowser.RegistryReference(0 if registrant_id is None else registrant_id, registrant_handle, registrant_name))
+        domain_detail.append(Registry.DomainBrowser.RegistryReference(0 if registrar_id is None else registrar_id, registrar_handle, registrar_name))
         domain_detail.append(admins)
 
         # replace None by empty string
@@ -405,7 +408,7 @@ class DomainInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def getRegistrarDetail(self, contact_handle, handle):
+    def getRegistrarDetail(self, contact, handle):
         """
         struct RegistrarDetail {
             TID id;
@@ -417,8 +420,7 @@ class DomainInterface(BaseInterface):
             string address;
         };
         """
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
         columns = ("id", "handle", "name", "phone", "fax", "url", "address")
         results = self.source.fetchall("""
@@ -445,14 +447,13 @@ class DomainInterface(BaseInterface):
         return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
-                objreg.id,
-                objreg.name
+                objreg.id
             FROM object_registry objreg
             LEFT JOIN domain_contact_map map ON map.domainid = objreg.id
             LEFT JOIN domain ON objreg.id = domain.id
             WHERE type = %(objtype)d
                 AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
-                AND name IN %(names)s
+                AND objreg.id IN %(selections)s
             """)
 
 

@@ -14,14 +14,19 @@ class ContactInterface(BaseInterface):
     "Contact corba interface."
 
     @furnish_database_cursor_m
-    def getContactDetail(self, contact_handle, contact_handle_detail, lang):
-        """Return detail of contact."
+    def getObjectRegistryId(self, objtype, handle):
+        "Return ID of object."
+        return self._get_handle_id(objtype, handle)
+
+    @furnish_database_cursor_m
+    def getContactDetail(self, contact, detail, lang):
+        """Return detail of contact.
 
         struct ContactDetail {
             TID id;
             string handle;
             string roid;
-            Couple registrar;
+            RegistryReference registrar;
             string create_date;
             string transfer_date;
             string update_date;
@@ -47,9 +52,9 @@ class ContactInterface(BaseInterface):
             string state_codes;
         };
         """
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
+        self._verify_user_contact(contact)
 
+        detail.lang = lang
         results = self.source.fetchall("""
             SELECT
                 oreg.id AS id,
@@ -90,6 +95,7 @@ class ContactInterface(BaseInterface):
                 contact.disclosenotifyemail,
 
                 get_state_descriptions(oreg.id, %(lang)s) AS states,
+                current.id AS registrar_id,
                 current.handle AS registrar_handle,
                 current.name AS registrar_name
 
@@ -99,27 +105,32 @@ class ContactInterface(BaseInterface):
                 LEFT JOIN contact ON contact.id = oreg.id
                 LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
-            WHERE oreg.erdate IS NULL AND oreg.type = %(type_id)d AND oreg.name = %(handle)s""",
-            dict(handle=contact_handle_detail, type_id=OBJECT_REGISTRY_TYPES["contact"], lang=lang))
+            WHERE
+                oreg.id = %(object_id)d
+                AND oreg.name = %(handle)s
+                AND oreg.type = %(type_id)d
+                AND oreg.erdate IS NULL
+            """, detail.__dict__)
 
         if len(results) == 0:
-            self.logger.log(self.logger.INFO, 'Contact of handle "%s" does not exist.' % contact_handle_detail)
+            self.logger.log(self.logger.INFO, 'Contact of handle "%s" does not exist.' % detail.handle)
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
         if len(results) != 1:
-            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact_handle_detail, results))
+            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (detail.handle, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
         row = results[0]
         registrar_name = none2str(row.pop())
         registrar_handle = none2str(row.pop())
+        registrar_id = none2str(row.pop())
         state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
 
         TID, HANDLE, PASSWORD = 0, 1, 6
         contact_detail = row[:-9]
         disclose_flag_values = results[0][len(contact_detail):]
 
-        if contact_detail[HANDLE] == contact_handle:
+        if contact_detail[HANDLE] == contact.handle:
             # owner
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:
@@ -132,7 +143,7 @@ class ContactInterface(BaseInterface):
 
         contact_detail.append(state_codes)
         contact_detail.append(state_descriptions)
-        contact_detail.append(Registry.DomainBrowser.Couple(registrar_handle, registrar_name))
+        contact_detail.append(Registry.DomainBrowser.RegistryReference(registrar_id, registrar_handle, registrar_name))
         contact_detail.append(disclose_flags)
 
         # replace None by empty string
@@ -149,12 +160,11 @@ class ContactInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def setContactDiscloseFlags(self, contact_handle, flags, request_id):
+    def setContactDiscloseFlags(self, contact, flags, request_id):
         "Set contact disclose flags."
-        contact_id = self._get_user_handle_id(contact_handle)
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
-        self.owner_has_required_status(contact_id, ["validatedContact", "identifiedContact"])
-        self.check_if_object_is_blocked(contact_id)
+        self._verify_user_contact(contact)
+        self.owner_has_required_status(contact.id, ["validatedContact", "identifiedContact"])
+        self.check_if_object_is_blocked(contact.id)
 
         # cannot change flags: contact.disclosename, contact.discloseorganization,
         results = self.source.fetchall("""
@@ -167,17 +177,16 @@ class ContactInterface(BaseInterface):
                 contact.disclosevat,
                 contact.disclosenotifyemail
             FROM contact
-            WHERE id = %(contact_id)d""", dict(contact_id=contact_id))
+            WHERE id = %(contact_id)d""", dict(contact_id=contact.id))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.USER_NOT_EXISTS
 
         if len(results) != 1:
-            self.logger.log(self.logger.CRITICAL, "Contact detail of '%s' does not have one record: %s" % (contact_handle, results))
+            self.logger.log(self.logger.CRITICAL, "Contact detail %s does not have one record: %s" % (contact, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
         disclose_flag_values = results[0]
-        self.logger.log(self.logger.INFO, "Found contact ID %d of the handle '%s'." % (contact_id, contact_handle))
 
         # "name" and "organization" cannot change
         columns = ("email", "address", "telephone", "fax", "ident", "vat", "notify_email")
@@ -186,17 +195,17 @@ class ContactInterface(BaseInterface):
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
 
         if not len(changes):
-            self.logger.log(self.logger.INFO, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact_id, contact_handle))
+            self.logger.log(self.logger.INFO, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact.id, contact.handle))
             return False
 
         # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
         with TransactionLevelRead(self.source, self.logger) as transaction:
             self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
-                    contact_id, contact_handle,
+                    contact.id, contact.handle,
                     ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
                     ", ".join(["%s=%s" % item for item in changes]))
             )
-            params = dict(contact_id=contact_id)
+            params = dict(contact_id=contact.id)
             params.update(flags.__dict__)
             # "name" and "organization" cannot change:
             # disclosename = %(name)s,
@@ -211,9 +220,9 @@ class ContactInterface(BaseInterface):
                     disclosevat = %(vat)s,
                     disclosenotifyemail = %(notify_email)s
                 WHERE id = %(contact_id)d""", params)
-            self._update_history(contact_id, contact_handle, "contact", request_id)
+            self._update_history(contact.id, contact.handle, "contact", request_id)
 
-        self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact_id, contact_handle))
+        self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact.id, contact.handle))
         return True
 
 
