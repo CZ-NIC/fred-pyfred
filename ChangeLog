@@ -1,3 +1,7 @@
+2013-04-24 Jiri Sadek (2.4.2)
+
+    * Temporary enhancement for email sending - hardcoded mail type priorities
+
 2012-10-18 Vlastimil Zima (2.4.1)
 
     * Fix installation of additional directories
