@@ -6,7 +6,7 @@ from pyfred.idlstubs import Registry, Registry__POA
 from pyfred.registry.interface import ContactInterface, DomainInterface, NssetInterface, KeysetInterface
 from pyfred.registry.utils.constants import OBJECT_REGISTRY_TYPES
 from pyfred.registry.utils.decorators import log_not_corba_user_exceptions
-from pyfred.registry.utils import regstr, \
+from pyfred.registry.utils import regstr, regstrseq, \
                     normalize_and_check_handle, normalize_and_check_domain, \
                     normalize_and_check_langcode, normalize_and_check_regref
 
@@ -272,7 +272,9 @@ class DomainBrowserServerInterface(Registry__POA.DomainBrowser.Server):
             BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE
         };
         """
-        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setObjectBlockStatus(contact=%s, objtype="%s", objects=%s, block=%s)' % (regstr(contact), objtype, objects, block))
+        self.logger.log(self.logger.INFO, 'Call DomainBrowser.setObjectBlockStatus('
+                        'contact=%s, objtype="%s", objects=%s, block=%s)' % (
+                            regstr(contact), objtype, regstrseq(objects), block))
 
         if objtype not in OBJECT_REGISTRY_TYPES:
             raise Registry.DomainBrowser.INCORRECT_USAGE

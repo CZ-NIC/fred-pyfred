@@ -45,7 +45,14 @@ def normalize_and_check_regref(logger, handle_type, regref):
 
 def regstr(regref):
     "Make string from RegistryReference instance."
-    return "(%d,%s)" % (regref.id, regref.handle)
+    return "(%d,'%s')" % (regref.id, regref.handle)
+
+def regstrseq(regrefs):
+    "Repr sequence of RegistryReference."
+    retval = []
+    for reg in regrefs:
+        retval.append("(%d,'%s')" % (reg.id, reg.handle))
+    return "(%s)" % ", ".join(retval)
 
 
 # DUPLICITY: server/src/fredlib/contact.cc: bool checkHandleFormat(const std::string& handle) const
