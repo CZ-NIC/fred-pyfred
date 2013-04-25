@@ -646,7 +646,16 @@ class Mailer_i (ccReg__POA.Mailer):
                 "((SELECT id FROM mail_type WHERE name = 'mojeid_email_change'), 1), "
                 "((SELECT id FROM mail_type WHERE name = 'mojeid_verified_contact_transfer'), 1), "
                 "((SELECT id FROM mail_type WHERE name = 'conditional_contact_identification'), 2), "
-                "((SELECT id FROM mail_type WHERE name = 'contact_identification'), 2)")
+                "((SELECT id FROM mail_type WHERE name = 'contact_identification'), 2), "
+                "((SELECT id FROM mail_type WHERE name = 'sendauthinfo_epp'), 2), "
+                "((SELECT id FROM mail_type WHERE name = 'sendauthinfo_pif'), 2), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_create'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_update'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_transfer'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_renew'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_unused'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_delete'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'request_block'), 3)")
         # QUICK FIX
         cur.execute("SELECT mar.id, mar.message, "
                 "array_filter_null(array_accum(mat.attachid)), "
@@ -656,7 +665,7 @@ class Mailer_i (ccReg__POA.Mailer):
                 "LEFT JOIN mail_type_priority mtp ON mtp.mail_type_id = mar.mailtype "
                 "WHERE mar.status = 1 AND mar.attempt < %d "
                 "GROUP BY mar.id, mar.message, mtp.priority "
-                "ORDER BY mtp.priority "
+                "ORDER BY mtp.priority ASC NULLS LAST "
                 "LIMIT %d" , [self.maxattempts, self.sendlimit])
         rows = cur.fetchall()
         cur.close()
