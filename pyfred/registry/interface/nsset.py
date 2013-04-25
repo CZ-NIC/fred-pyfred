@@ -195,7 +195,8 @@ class NssetInterface(BaseInterface):
         return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
-                objreg.id
+                objreg.id,
+                objreg.name
             FROM object_registry objreg
             LEFT JOIN nsset_contact_map map ON map.nssetid = objreg.id
             WHERE type = %(objtype)d

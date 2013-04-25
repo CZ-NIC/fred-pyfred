@@ -218,7 +218,8 @@ class KeysetInterface(BaseInterface):
         return self._setObjectBlockStatus(contact_handle, objtype, selections, action,
             """
             SELECT
-                objreg.id
+                objreg.id,
+                objreg.name
             FROM object_registry objreg
             LEFT JOIN keyset_contact_map map ON map.keysetid = objreg.id
             WHERE type = %(objtype)d

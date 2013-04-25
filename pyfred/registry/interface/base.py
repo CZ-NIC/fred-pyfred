@@ -133,9 +133,14 @@ class BaseInterface(object):
             object_dict[reg.id] = reg.handle
 
         # find all object belongs to contact
-        object_ids = self.source.fetch_array(query_object_registry,
-                        dict(objtype=OBJECT_REGISTRY_TYPES[objtype], contact_id=contact.id, selections=selections))
-        # found_ids: (11256, 4566, ...)
+        object_ids = [] # object_ids: (11256, 4566, ...)
+        for registry_id, handle in self.source.fetchall(query_object_registry,
+                    dict(objtype=OBJECT_REGISTRY_TYPES[objtype], contact_id=contact.id, selections=selections)):
+            # response: [[11256, "domain.cz"], [4566, "fred.cz"], ...]
+            if object_dict.get(registry_id) != handle:
+                self.logger.log(self.logger.INFO, "Object ID %s %s received by %s %s was not found." % (registry_id, handle, contact.id, contact.handle))
+                raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
+            object_ids.append(registry_id)
 
         missing = set(selections) - set(object_ids)
         if len(missing):
