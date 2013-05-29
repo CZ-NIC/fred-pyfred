@@ -301,7 +301,7 @@ def main():
                         "pyfred.registry.utils"
                 ),
           package_data={
-              'pyfred.unittests': ['create_environment.sh', 'README', 'zone-file-check'],
+              'pyfred.unittests': ['create_environment.sh', 'README', 'zone-file-check', 'dbdata/*'],
           },
           scripts=("scripts/fred-pyfred",
                    "scripts/pyfredctl",
