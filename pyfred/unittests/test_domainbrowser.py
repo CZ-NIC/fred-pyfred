@@ -22,28 +22,28 @@ class TestDomainBrowser(unittest.TestCase):
         handler = logging.StreamHandler()
         logging.getLogger('').addHandler(handler)
 
-        cls._conf = getConfiguration(CONFIGS)
-        cls._log = Logger("pyfred")
-        cls._db = MockDB(
-            cls._conf.get("General", "dbhost"),
-            cls._conf.get("General", "dbport"),
-            cls._conf.get("General", "dbname"),
-            cls._conf.get("General", "dbuser"),
-            cls._conf.get("General", "dbpassword")
+        conf = getConfiguration(CONFIGS)
+        log = Logger("pyfred")
+        db = MockDB(
+            conf.get("General", "dbhost"),
+            conf.get("General", "dbport"),
+            conf.get("General", "dbname"),
+            conf.get("General", "dbuser"),
+            conf.get("General", "dbpassword")
         )
-        cls._corba_refs = CorbaRefs()
-        cls._joblist = []
-
-
-    def setUp(self):
-        self.interface = DomainBrowserServerInterface(self._log, self._db,
-                                    self._conf, self._joblist, self._corba_refs)
+        corba_refs = CorbaRefs()
+        joblist = []
+        cls.interface = DomainBrowserServerInterface(log, db, conf, joblist, corba_refs)
 
     def test_010_getObjectRegistryId(self):
         "Test getObjectRegistryId with domain fred.cz returns ID 33."
         response = self.interface.getObjectRegistryId("domain", "fred.cz")
         self.assertEqual(response, 33)
 
+    def test_020_getObjectRegistryId(self):
+        "Test getObjectRegistryId with contact KONTAKT returns ID 30."
+        response = self.interface.getObjectRegistryId("contact", "KONTAKT")
+        self.assertEqual(response, 30)
 
 
 if __name__ == '__main__':

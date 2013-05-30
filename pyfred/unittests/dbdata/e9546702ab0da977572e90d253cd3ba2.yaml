@@ -7,3 +7,5 @@ query: |-
                   type = %(type_id)d
                   AND object_registry.name = %(handle)s
                   AND object_registry.erdate IS NULL
+response:
+- [33]

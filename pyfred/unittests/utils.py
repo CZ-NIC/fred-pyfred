@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import re
 import hashlib
 import pgdb
 import _pg
@@ -19,38 +20,31 @@ class MockPgdbCursor(pgdb.pgdbCursor):
     def __init__(self, dbcnx):
         super(MockPgdbCursor, self).__init__(dbcnx)
         self._data_path = os.path.join(os.path.dirname(__file__), self.query_folder_name)
-        self._query_code = None
-
-    def _store_data(self, data, filename):
-        "Store data into filename."
-        if self.overwrite_existing or (not self.overwrite_existing and not os.path.exists(filename)):
-            with open(filename, "w") as handle:
-                yaml.dump(data, handle)
-
-    def _load_data(self, filename):
-        "Load data from file."
-        data = None
-        with open(filename) as handle:
-            data = yaml.load(handle)
-        return data
+        self._cache_query = None
 
     def execute(self, operation, params=None):
         "Prepare and execute a database operation (query or command)."
-        query = operation.strip()
-        self._query_code = hashlib.md5(query).hexdigest()
-        if self.track_traffic:
-            filename = os.path.join(self._data_path, "%s.query.yaml" % self._query_code)
-            self._store_data(dict(query=LiteralUnicode(query), params=params), filename)
+        self._cache_query = dict(query=operation, params=params)
         super(MockPgdbCursor, self).execute(operation, params)
 
     def fetchall(self):
         """Fetch all (remaining) rows of a query result."""
-        filename = os.path.join(self._data_path, "%s.response.yaml" % self._query_code)
+        query = self._cache_query["query"].strip()
+        params = self._cache_query["params"]
+        code = hashlib.md5(u"%s; %s" % (re.sub("\s+", " ", query).lower(), params)).hexdigest()
+
+        filename = os.path.join(self._data_path, "%s.yaml" % code)
         if self.track_traffic:
             response = super(MockPgdbCursor, self).fetchall()
-            self._store_data(response, filename)
+            if self.overwrite_existing or (not self.overwrite_existing and not os.path.exists(filename)):
+                data = dict(query=LiteralUnicode(query), params=params, response=response)
+                with open(filename, "w") as handle:
+                    yaml.dump(data, handle)
         else:
-            response = self._load_data(filename)
+            response = None
+            with open(filename) as handle:
+                data = yaml.load(handle)
+                response = data["response"]
         return response
 
 
