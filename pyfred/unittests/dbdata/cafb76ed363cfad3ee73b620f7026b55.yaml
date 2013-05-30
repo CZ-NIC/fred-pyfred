@@ -1,4 +1,4 @@
-params: {handle: NSSET, type_id: 2}
+params: {handle: foo.cz, type_id: 3}
 query: |-
   SELECT
                   object_registry.id

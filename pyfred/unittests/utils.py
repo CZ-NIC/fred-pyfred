@@ -9,14 +9,32 @@ import yaml
 from pyfred.runtime_support import DB
 
 
+DATA_FOLDER_NAME = "dbdata"
+makepath = lambda name: os.path.join(os.path.dirname(__file__), DATA_FOLDER_NAME, "%s.yaml" % name)
+
+
+def provide_data(name, data, track_traffic=False):
+    "Load or save data and return result."
+    path = makepath(name)
+
+    if track_traffic:
+        with open(path, "w") as handle:
+            yaml.dump(data, handle)
+        return data
+
+    with open(path) as handle:
+        data = yaml.load(handle)
+
+    return data
+
+
 
 class MockPgdbCursor(pgdb.pgdbCursor):
     "Mock Cursor Object."
-    query_folder_name = "dbdata"
 
     def __init__(self, dbcnx):
         super(MockPgdbCursor, self).__init__(dbcnx)
-        self._data_path = os.path.join(os.path.dirname(__file__), self.query_folder_name)
+        self._data_path = os.path.join(os.path.dirname(__file__), DATA_FOLDER_NAME)
         self._cache_query = None
 
     def execute(self, operation, params=None):

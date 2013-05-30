@@ -1,0 +1,5 @@
+params: null
+query: |-
+  SELECT MAX(importance) * 2 FROM enum_object_states
+response:
+- [64]

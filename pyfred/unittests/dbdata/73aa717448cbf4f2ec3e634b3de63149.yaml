@@ -1,0 +1,18 @@
+params: null
+query: |-
+  SELECT name, val FROM enum_parameters
+response:
+- [tld_list_version, '2008013001']
+- [expiration_notify_period, '-30']
+- [expiration_dns_protection_period, '30']
+- [expiration_letter_warning_period, '34']
+- [expiration_registration_protection_period, '61']
+- [validation_notify1_period, '-30']
+- [validation_notify2_period, '-15']
+- [regular_day_procedure_period, '0']
+- [regular_day_procedure_zone, Europe/Prague]
+- [object_registration_protection_period, '6']
+- [regular_day_outzone_procedure_period, '14']
+- [model_version, <insert version here>]
+- [roid_suffix, CZ]
+- [handle_registration_protection_period, '0']

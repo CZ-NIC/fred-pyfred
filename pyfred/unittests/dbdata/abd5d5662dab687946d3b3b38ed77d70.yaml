@@ -1,0 +1,11 @@
+params: {handle: KONTAKT, id: &id001 !!python/long '30', name: '', object_id: *id001,
+  type_id: 1}
+query: |-
+  SELECT oreg.id
+              FROM object_registry oreg
+              WHERE oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND type = %(type_id)d
+                    AND oreg.erdate IS NULL
+response:
+- [30]
