@@ -46,25 +46,38 @@ class TestDomainBrowser(DomainBrowserTestCase):
     def test_0050(self):
         "Test getDomainList with wrong lang code - INCORRECT_USAGE."
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE,
-                          self.interface.getDomainList, self._regref(30L, "KONTAKT"), "es", 0)
+                          self.interface.getDomainList, self._regref(30L, "kontakt"), "es", 0)
 
     def test_0060(self):
         "Test getDomainList non exist user XKONTAKT - USER_NOT_EXISTS."
         self.assertRaises(Registry.DomainBrowser.USER_NOT_EXISTS,
-                          self.interface.getDomainList, self._regref(30L, "XKONTAKT"), "en", 0)
+                          self.interface.getDomainList, self._regref(30L, "xkontakt"), "en", 0)
 
     def test_0070(self):
         "Test getDomainList non exist user ID 31 - USER_NOT_EXISTS."
         self.assertRaises(Registry.DomainBrowser.USER_NOT_EXISTS,
-                          self.interface.getDomainList, self._regref(31L, "KONTAKT"), "en", 0)
+                          self.interface.getDomainList, self._regref(31L, "kontakt"), "en", 0)
 
     def test_0080(self):
-        "Test getDomainList page index 0."
-        table, exceeded = self.interface.getDomainList(self._regref(30L, "KONTAKT"), "en", 0)
-        data = provide_data("test_0080", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        "Test getDomainList; language 'en' and page index 0."
+        table, exceeded = self.interface.getDomainList(self._regref(30L, "kontakt"), "en", 0)
+        data = provide_data("test_domain_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
+    def test_0090(self):
+        "Test getDomainList; language 'cs' and page index 0."
+        table, exceeded = self.interface.getDomainList(self._regref(30L, "kontakt"), "cs", 0)
+        data = provide_data("test_domain_list_cs_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        self.assertEqual(exceeded, data["exceeded"])
+        self.assertListEqual(table, data["table"])
+
+    def test_0100(self):
+        "Test getDomainList; language 'en' and page index 1100."
+        table, exceeded = self.interface.getDomainList(self._regref(30L, "kontakt"), "en", 1100)
+        data = provide_data("test_domain_list_en_1100", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        self.assertEqual(exceeded, data["exceeded"])
+        self.assertListEqual(table, data["table"])
 
 
 if __name__ == '__main__':
