@@ -14,9 +14,6 @@ class MockPgdbCursor(pgdb.pgdbCursor):
     "Mock Cursor Object."
     query_folder_name = "dbdata"
 
-    track_traffic = False # True - store SQL query and response info files.
-    overwrite_existing = False # True - overwrite existing files with query and response.
-
     def __init__(self, dbcnx):
         super(MockPgdbCursor, self).__init__(dbcnx)
         self._data_path = os.path.join(os.path.dirname(__file__), self.query_folder_name)
@@ -34,9 +31,9 @@ class MockPgdbCursor(pgdb.pgdbCursor):
         code = hashlib.md5(u"%s; %s" % (re.sub("\s+", " ", query).lower(), params)).hexdigest()
 
         filename = os.path.join(self._data_path, "%s.yaml" % code)
-        if self.track_traffic:
+        if self._dbcnx.track_traffic:
             response = super(MockPgdbCursor, self).fetchall()
-            if self.overwrite_existing or (not self.overwrite_existing and not os.path.exists(filename)):
+            if self._dbcnx.overwrite_existing or (not self._dbcnx.overwrite_existing and not os.path.exists(filename)):
                 data = dict(query=LiteralUnicode(query), params=params, response=response)
                 with open(filename, "w") as handle:
                     yaml.dump(data, handle)
@@ -52,6 +49,11 @@ class MockPgdbCursor(pgdb.pgdbCursor):
 class MockPgdbCnx(pgdb.pgdbCnx):
     "Mock Connection Object."
 
+    # True - store SQL query and response info files.
+    track_traffic = False
+    # True - overwrite existing files with query and response.
+    overwrite_existing = False
+
     def cursor(self):
         "Return a new Cursor Object using the connection."
         if self._cnx:
@@ -65,12 +67,17 @@ class MockPgdbCnx(pgdb.pgdbCnx):
 
 class MockDB(DB):
     "Mock database."
+    track_traffic = False
+    overwrite_existing = False
 
     def getConn(self):
         "Obtain connection to database."
-        return connect(host=self.host + ":" + self.port,
+        contx = connect(host=self.host + ":" + self.port,
                 database=self.dbname, user=self.user,
                 password=self.password)
+        contx.track_traffic = self.track_traffic
+        contx.overwrite_existing = self.overwrite_existing
+        return contx
 
 
 _connect_ = _pg.connect
