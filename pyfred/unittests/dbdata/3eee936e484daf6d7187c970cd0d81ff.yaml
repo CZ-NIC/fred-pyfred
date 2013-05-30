@@ -1,0 +1,29 @@
+params: {contact_id: !!python/long '30', keyset_id: !!python/long '32', lang: EN,
+  limit: 1001, objtype: 3, offset: 0, role_id: 1}
+query: |-
+  SELECT
+                  object_registry.id,
+                  object_registry.name,
+                  registrar.handle,
+                  registrar.name AS registrar_name,
+                  domain.exdate,
+                  domain.registrant,
+                  domain.keyset IS NOT NULL,
+                  CASE WHEN
+                      (domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
+                  THEN 't' ELSE 'f' END,
+                  get_state_descriptions(object_registry.id, %(lang)s) AS states
+              FROM object_registry
+              LEFT JOIN domain ON domain.id = object_registry.id
+              LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                        AND domain_contact_map.role = %(role_id)d
+                        AND domain_contact_map.contactid = %(contact_id)d
+              LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
+              LEFT JOIN registrar ON registrar.id = object_history.clid
+              WHERE object_registry.type = %(objtype)d
+                  AND domain.keyset = %(keyset_id)d
+              ORDER BY domain.exdate
+              LIMIT %(limit)d OFFSET %(offset)d
+response:
+- [33, fred.cz, REG-FRED_A, Company A l.t.d, '2015-10-12', 30, true, t, t#22#serverUpdateProhibited#Update
+    prohibited&t#24#serverTransferProhibited#Sponsoring registrar change prohibited]

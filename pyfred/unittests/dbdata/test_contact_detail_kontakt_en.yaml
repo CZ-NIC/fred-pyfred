@@ -1,0 +1,34 @@
+detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.ContactDetail
+  auth_info: hesloheslo
+  city: Praha
+  country: CZ
+  create_date: '2012-10-12 08:31:22.527984'
+  disclose_flags: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.ContactDiscloseFlags {
+    address: false, email: true, fax: false, ident: false, name: true, notify_email: true,
+    organization: true, telephone: true, vat: false}
+  email: zdenek.bohm+kontakt@nic.cz
+  fax: '+420.222745111'
+  handle: KONTAKT
+  id: 30
+  name: !!python/str "\u0158eho\u0159 Novak"
+  notify_email: zdenek.bohm+kontakt-notify@nic.cz
+  organization: Firma s.r.o.
+  postalcode: '12000'
+  province: ''
+  registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: REG-MOJEID, id: 5, name: !!python/str "MojeID registr\xE1tor"}
+  roid: C0000000030-CZ
+  ssn: '8888888856'
+  ssn_type: OP
+  state_codes: mojeidContact,validatedContact,linked,serverUpdateProhibited,serverDeleteProhibited
+  states: MojeID contact|Contact is validated|Has relation to other records in registry|Update
+    prohibited|Delete prohibited
+  street1: Namesti republiky 1230/12
+  street2: ''
+  street3: ''
+  telephone: '+420.775897897'
+  transfer_date: '2012-11-28 10:06:44.882676'
+  update_date: '2013-04-24 13:44:02.960255'
+  vat: '7035555556'
+owner: !!python/object:omniORB.EnumItem {_n: PRIVATE_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',
+  _v: 1}

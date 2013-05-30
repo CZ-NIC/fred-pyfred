@@ -1,0 +1,41 @@
+params: {contact_id: !!python/long '30', lang: EN, limit: 5001, objtype: 4, offset: 0}
+query: |-
+  SELECT
+                      object_registry.id,
+                      object_registry.name,
+                      domains.number,
+                      registrar.handle,
+                      registrar.name AS registrar_name,
+                      get_state_descriptions(keyset_contact_map.keysetid, %(lang)s) AS states
+                  FROM object_registry
+                      LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
+                      LEFT JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
+                      LEFT JOIN object ON object.id = object_registry.id
+                      LEFT JOIN registrar ON registrar.id = object.clid
+                  WHERE object_registry.type = %(objtype)d
+                      AND keyset_contact_map.contactid = %(contact_id)d
+                  LIMIT %(limit)d OFFSET %(offset)d
+response:
+- [32, 'KEYSID:102', !!python/long '1', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry]
+- [129, KEYSID-1, null, REG-FRED_A, Company A l.t.d, t#24#serverTransferProhibited#Sponsoring
+    registrar change prohibited]
+- [152, KEYID01, !!python/long '120', REG-FRED_B, Company B l.t.d., t#20#linked#Has
+    relation to other records in registry&t#22#serverUpdateProhibited#Update prohibited&t#24#serverTransferProhibited#Sponsoring
+    registrar change prohibited]
+- [153, KEYID02, !!python/long '499', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry&t#22#serverUpdateProhibited#Update prohibited&t#24#serverTransferProhibited#Sponsoring
+    registrar change prohibited]
+- [154, KEYID03, !!python/long '501', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry&t#22#serverUpdateProhibited#Update prohibited&t#24#serverTransferProhibited#Sponsoring
+    registrar change prohibited]
+- [156, KEYID05, null, REG-FRED_A, Company A l.t.d, t#22#serverUpdateProhibited#Update
+    prohibited&t#24#serverTransferProhibited#Sponsoring registrar change prohibited]
+- [157, KEYID06, !!python/long '2', REG-FRED_A, Company A l.t.d, t#20#linked#Has relation
+    to other records in registry&t#22#serverUpdateProhibited#Update prohibited&t#24#serverTransferProhibited#Sponsoring
+    registrar change prohibited]
+- [158, KEYID07, null, REG-FRED_A, Company A l.t.d, t#22#serverUpdateProhibited#Update
+    prohibited&t#24#serverTransferProhibited#Sponsoring registrar change prohibited]
+- [159, KEYID08, null, REG-FRED_A, Company A l.t.d, '']
+- [160, KEYID09, null, REG-FRED_A, Company A l.t.d, '']
+- [161, KEYID10, null, REG-FRED_A, Company A l.t.d, '']

@@ -1,0 +1,8 @@
+params: {object_id: !!python/long '31'}
+query: |-
+  SELECT object_registry.name
+              FROM nsset_contact_map
+              LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+              WHERE nssetid = %(object_id)d
+response:
+- [KONTAKT]

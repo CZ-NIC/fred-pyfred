@@ -1,0 +1,21 @@
+exceeded: false
+table:
+- ['32', 'KEYSID:102', '1', REG-FRED_A, Company A l.t.d, '20', Has relation to other
+    records in registry]
+- ['129', KEYSID-1, '0', REG-FRED_A, Company A l.t.d, '24', Sponsoring registrar change
+    prohibited]
+- ['152', KEYID01, '120', REG-FRED_B, Company B l.t.d., '30', Has relation to other
+    records in registry|Update prohibited|Sponsoring registrar change prohibited]
+- ['153', KEYID02, '499', REG-FRED_A, Company A l.t.d, '30', Has relation to other
+    records in registry|Update prohibited|Sponsoring registrar change prohibited]
+- ['154', KEYID03, '501', REG-FRED_A, Company A l.t.d, '30', Has relation to other
+    records in registry|Update prohibited|Sponsoring registrar change prohibited]
+- ['156', KEYID05, '0', REG-FRED_A, Company A l.t.d, '30', Update prohibited|Sponsoring
+    registrar change prohibited]
+- ['157', KEYID06, '2', REG-FRED_A, Company A l.t.d, '30', Has relation to other records
+    in registry|Update prohibited|Sponsoring registrar change prohibited]
+- ['158', KEYID07, '0', REG-FRED_A, Company A l.t.d, '30', Update prohibited|Sponsoring
+    registrar change prohibited]
+- ['159', KEYID08, '0', REG-FRED_A, Company A l.t.d, '64', '']
+- ['160', KEYID09, '0', REG-FRED_A, Company A l.t.d, '64', '']
+- ['161', KEYID10, '0', REG-FRED_A, Company A l.t.d, '64', '']

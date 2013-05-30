@@ -1,0 +1,43 @@
+params: {contact_id: !!python/long '30', lang: EN, limit: 5001, objtype: 2, offset: 0}
+query: |-
+  SELECT
+                      object_registry.id,
+                      object_registry.name,
+                      domains.number,
+                      registrar.handle,
+                      registrar.name AS registrar_name,
+                      get_state_descriptions(nsset_contact_map.nssetid, %(lang)s) AS states
+                  FROM object_registry
+                      LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
+                      LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
+                      LEFT JOIN object ON object.id = object_registry.id
+                      LEFT JOIN registrar ON registrar.id = object.clid
+                  WHERE object_registry.type = %(objtype)d
+                      AND nsset_contact_map.contactid = %(contact_id)d
+                  LIMIT %(limit)d OFFSET %(offset)d
+response:
+- [31, 'NSSET:102', !!python/long '2', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry]
+- [128, NSSET-1, null, REG-FRED_A, Company A l.t.d, t#22#serverUpdateProhibited#Update
+    prohibited&t#24#serverTransferProhibited#Sponsoring registrar change prohibited]
+- [125, NSID103, !!python/long '2', REG-FRED_A, Company A l.t.d, t#20#linked#Has relation
+    to other records in registry&t#22#serverUpdateProhibited#Update prohibited&t#24#serverTransferProhibited#Sponsoring
+    registrar change prohibited]
+- [142, NSSID01, !!python/long '120', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry&t#22#serverUpdateProhibited#Update prohibited&t#24#serverTransferProhibited#Sponsoring
+    registrar change prohibited]
+- [143, NSSID02, !!python/long '499', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry]
+- [144, NSSID03, !!python/long '501', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry]
+- [145, NSSID04, null, REG-FRED_A, Company A l.t.d, '']
+- [146, NSSID05, null, REG-FRED_A, Company A l.t.d, '']
+- [147, NSSID06, null, REG-FRED_A, Company A l.t.d, '']
+- [148, NSSID07, null, REG-FRED_A, Company A l.t.d, '']
+- [149, NSSID08, null, REG-FRED_A, Company A l.t.d, '']
+- [151, NSSID10, null, REG-FRED_A, Company A l.t.d, '']
+- [150, NSSID09, null, REG-FRED_B, Company B l.t.d., '']
+- [1313, NSSID11, !!python/long '1', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+    relation to other records in registry]
+- [1324, NSFOO1, null, REG-FRED_A, Company A l.t.d, t#22#serverUpdateProhibited#Update
+    prohibited&t#24#serverTransferProhibited#Sponsoring registrar change prohibited]

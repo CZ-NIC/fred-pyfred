@@ -2,6 +2,7 @@
 import os
 import logging
 import unittest
+from unittest.util import safe_repr
 # pyfred
 from pyfred.runtime_support import Logger, CorbaRefs, getConfiguration, CONFIGS
 from pyfred.modules.domainbrowser import DomainBrowserServerInterface
@@ -43,3 +44,38 @@ class DomainBrowserTestCase(unittest.TestCase):
     def _regref(cls, object_id, handle, name=""):
         "return Registry.DomainBrowser.RegistryReference"
         return Registry.DomainBrowser.RegistryReference(object_id, handle, name)
+
+    def compareContactDetail(self, detail1, detail2, msg=None):
+        "Compare contact details."
+        for key in detail1.__dict__.keys():
+            value1, value2 = getattr(detail1, key), getattr(detail2, key)
+            if key == "registrar":
+                self.compareRegistryReference(value1, value2)
+                continue
+            if key == "disclose_flags":
+                self.compareDiscloseFlags(value1, value2)
+                continue
+            if value1 != value2:
+                raise self.failureException('ContactDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
+
+    def _compare_items(self, keys, ref1, ref2, msg):
+        "Compare items by keys."
+        for key in keys:
+            value1, value2 = getattr(ref1, key), getattr(ref2, key)
+            if value1 != value2:
+                raise self.failureException(msg % (key, safe_repr(value1), safe_repr(value2)))
+
+    def compareEnumItem(self, ref1, ref2, msg=None):
+        "Compare Enum item."
+        #EnumItem = {_n: PUBLIC_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',  _v: 1}
+        self._compare_items(("_n", "_v", "_parent_id"), ref1, ref2, 'EnumItem.%s: %s != %s')
+
+    def compareRegistryReference(self, ref1, ref2, msg=None):
+        "Compare contact details."
+        self._compare_items(("id", "handle", "name"), ref1, ref2, 'RegistryReference.%s: %s != %s')
+
+    def compareDiscloseFlags(self, flags1, flags2):
+        "Compare Disclose lags."
+        self._compare_items(("name", "organization", "email", "address",
+                            "telephone", "fax", "ident", "vat", "notify_email"),
+                            flags1, flags2, 'DiscloseFlags.%s: %s != %s')
