@@ -1,0 +1,54 @@
+params: {handle: wrong.cz, id: &id001 !!python/long '38', lang: EN, name: '', object_id: *id001,
+  type_id: 3}
+query: |-
+  SELECT
+                  oreg.id AS id,
+                  oreg.roid AS roid,
+                  oreg.name AS fqdn,
+
+                  oreg.crdate AS create_date,
+                  obj.update AS update_date,
+                  obj.authinfopw AS auth_info,
+                  domain.exdate AS expiration_date,
+                  enum.exdate AS val_ex_date,
+                  enum.publish AS publish,
+                  zone.enum_zone,
+
+                  regnsset.name AS nsset,
+                  regkeyset.name AS keyset,
+                  get_state_descriptions(oreg.id, %(lang)s) AS states,
+
+                  registrant.id AS registrant_id,
+                  registrant.name AS registrant_handle,
+                  CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                      contact.organization ELSE contact.name
+                  END AS registrant_name,
+
+                  current.id AS registrar_id,
+                  current.handle AS registrar_handle,
+                  current.name AS registrar_name
+
+              FROM object_registry oreg
+                  LEFT JOIN object obj ON obj.id = oreg.id
+
+                  LEFT JOIN domain ON oreg.id = domain.id
+                  LEFT JOIN zone ON domain.zone = zone.id
+                  LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
+                  LEFT JOIN contact ON contact.id = registrant.id
+
+                  LEFT JOIN registrar current ON current.id = obj.clid
+
+                  LEFT JOIN object_registry regnsset ON regnsset.id = domain.nsset
+                  LEFT JOIN object_registry regkeyset ON regkeyset.id = domain.keyset
+
+                  LEFT JOIN enumval enum ON enum.domainid = oreg.id
+
+              WHERE oreg.id = %(object_id)d
+                  AND oreg.name = %(handle)s
+                  AND oreg.type = %(type_id)d
+                  AND oreg.erdate IS NULL
+response:
+- [38, wrong.cz, REG-FRED_A, Company A l.t.d, '2015-10-12', 30, true, t, t#22#serverUpdateProhibited#Update
+    prohibited&t#24#serverTransferProhibited#Sponsoring registrar change prohibited]
+- [39, wrong.cz, REG-FRED_A, Company A l.t.d, '2015-10-12', 30, true, t, t#22#serverUpdateProhibited#Update
+    prohibited&t#24#serverTransferProhibited#Sponsoring registrar change prohibited]

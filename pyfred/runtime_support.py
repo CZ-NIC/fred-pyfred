@@ -56,6 +56,7 @@ class Logger(object):
     EMERG = LEVELS["emerg"]
     ALERT = LEVELS["alert"]
     CRIT = LEVELS["critical"]
+    CRITICAL = LEVELS["critical"]
     ERR = LEVELS["error"]
     ERROR = LEVELS["error"]
     WARNING = LEVELS["warning"]

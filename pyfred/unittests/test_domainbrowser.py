@@ -330,6 +330,11 @@ class TestDomainBrowser(DomainBrowserTestCase):
         data = provide_data("public_status_desc_en", response, self.db.track_traffic)
         self.assertListEqual(response, data)
 
+    def test_035(self):
+        "Test getDomainDetail when some relation in database is corrupted (returns more than one record)."
+        self.assertRaises(Registry.DomainBrowser.INTERNAL_SERVER_ERROR, self.interface.getDomainDetail,
+                          self._regref(30L, "kontakt"), self._regref(38L, "wrong.cz"), "en")
+
 
 
 if __name__ == '__main__':
