@@ -1,0 +1,5 @@
+params: {history_id: 2398, object_id: !!python/long '30', request_id: 1}
+query: |-
+  SELECT historyid FROM object_registry WHERE id = %(object_id)d
+response:
+- [2397]

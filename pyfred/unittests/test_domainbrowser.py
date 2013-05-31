@@ -199,6 +199,57 @@ class TestDomainBrowser(DomainBrowserTestCase):
         response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, request_id)
         self.assertFalse(response)
 
+    #def test_022(self):
+    #    "Test setContactDiscloseFlags try to set readlony flags (name, organization)."
+    #    self.db.stage_pos = 1 # The db state is after UPDATE contact.disclose_flag.notify_email
+    #    request_id = 1
+    #    flags = Registry.DomainBrowser.ContactDiscloseFlags(
+    #                name=True, # this is not a parameter of UpdateContactDiscloseFlags
+    #                organization=True, # this is not a parameter of UpdateContactDiscloseFlags
+    #                email=True,
+    #                address=False,
+    #                telephone=True,
+    #                fax=False,
+    #                ident=False,
+    #                vat=False,
+    #                notify_email=False
+    #               )
+    #    self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setContactDiscloseFlags,
+    #                      self._regref(30L, "kontakt"), flags, request_id)
+
+    def test_023(self):
+        "Test setAuthInfo to KONTAKT."
+        self.db.stage_pos = 0
+        request_id = 1
+        response = self.interface.setAuthInfo(self._regref(30L, "KONTAKT"), "contact",
+                                              self._regref(30L, "KONTAKT"), "password", request_id)
+        self.assertTrue(response)
+
+    def test_024(self):
+        "Test setAuthInfo to KONTAKT but it is already set."
+        self.db.stage_pos = 1
+        request_id = 1
+        response = self.interface.setAuthInfo(self._regref(30L, "KONTAKT"), "contact",
+                                              self._regref(30L, "KONTAKT"), "password", request_id)
+        self.assertFalse(response)
+
+    def test_025(self):
+        "Test setAuthInfo but for unsupported type - domain."
+        request_id = 1
+        self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
+                          self._regref(30L, "kontakt"), "domain", self._regref(33L, "fred.cz"), "password", request_id)
+
+    def test_026(self):
+        "Test setAuthInfo but for unsupported type - nsset."
+        request_id = 1
+        self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
+                          self._regref(30L, "kontakt"), "nsset", self._regref(31L, "NSSET:102"), "password", request_id)
+
+    def test_027(self):
+        "Test setAuthInfo but for unsupported type - keyset."
+        request_id = 1
+        self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
+                          self._regref(30L, "kontakt"), "keyset", self._regref(32L, "KEYSID:102"), "password", request_id)
 
 
 if __name__ == '__main__':
