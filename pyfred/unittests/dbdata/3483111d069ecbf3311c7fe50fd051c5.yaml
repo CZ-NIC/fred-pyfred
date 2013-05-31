@@ -1,0 +1,21 @@
+params:
+  contact_id: !!python/long '30'
+  objtype: 3
+  selections: [!!python/long '33', !!python/long '162', !!python/long '170']
+query: |-
+  SELECT
+                  objreg.id,
+                  objreg.name
+              FROM object_registry objreg
+              LEFT JOIN domain_contact_map map ON map.domainid = objreg.id
+              LEFT JOIN domain ON objreg.id = domain.id
+              WHERE type = %(objtype)d
+                  AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
+                  AND objreg.id IN %(selections)s
+response:
+- [33, fred.cz]
+- [33, fred.cz]
+- [162, nic01.cz]
+- [162, nic01.cz]
+- [170, nic09.cz]
+- [170, nic09.cz]

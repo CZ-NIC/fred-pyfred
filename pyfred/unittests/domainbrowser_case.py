@@ -13,6 +13,10 @@ from pyfred.idlstubs import Registry
 
 class DomainBrowserTestCase(unittest.TestCase):
 
+    BLOCK_TRANSFER, UNBLOCK_TRANSFER, \
+    BLOCK_UPDATE, UNBLOCK_UPDATE, \
+    BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE = range(6)
+
     @classmethod
     def setUpClass(cls):
         "Run once per test."

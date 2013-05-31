@@ -26,6 +26,13 @@ class TestDomainBrowser(DomainBrowserTestCase):
     "Test DomainBrowser"
     LIST_LIMIT = 50
 
+
+    def setUp(self):
+        "set default db stage."
+        self.db.stage_pos = 0
+        self.request_id = 1
+
+
     def test_001(self):
         "Test getObjectRegistryId for INCORRECT_USAGE."
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.getObjectRegistryId, "xdomain", "fred.cz")
@@ -170,7 +177,6 @@ class TestDomainBrowser(DomainBrowserTestCase):
 
     def test_020(self):
         "Test setContactDiscloseFlags for KONTAKT with disclose notify_email."
-        request_id = 1
         flags = Registry.DomainBrowser.UpdateContactDiscloseFlags(
                     email=True,
                     address=False,
@@ -180,13 +186,12 @@ class TestDomainBrowser(DomainBrowserTestCase):
                     vat=False,
                     notify_email=False
                    )
-        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, request_id)
+        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, self.request_id)
         self.assertTrue(response)
 
     def test_021(self):
         "Test setContactDiscloseFlags for KONTAKT with disclose notify_email but no change."
         self.db.stage_pos = 1 # The db state is after UPDATE contact.disclose_flag.notify_email
-        request_id = 1
         flags = Registry.DomainBrowser.UpdateContactDiscloseFlags(
                     email=True,
                     address=False,
@@ -196,13 +201,12 @@ class TestDomainBrowser(DomainBrowserTestCase):
                     vat=False,
                     notify_email=False
                    )
-        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, request_id)
+        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, self.request_id)
         self.assertFalse(response)
 
     #def test_022(self):
     #    "Test setContactDiscloseFlags try to set readlony flags (name, organization)."
     #    self.db.stage_pos = 1 # The db state is after UPDATE contact.disclose_flag.notify_email
-    #    request_id = 1
     #    flags = Registry.DomainBrowser.ContactDiscloseFlags(
     #                name=True, # this is not a parameter of UpdateContactDiscloseFlags
     #                organization=True, # this is not a parameter of UpdateContactDiscloseFlags
@@ -215,41 +219,112 @@ class TestDomainBrowser(DomainBrowserTestCase):
     #                notify_email=False
     #               )
     #    self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setContactDiscloseFlags,
-    #                      self._regref(30L, "kontakt"), flags, request_id)
+    #                      self._regref(30L, "kontakt"), flags, self.request_id)
 
     def test_023(self):
         "Test setAuthInfo to KONTAKT."
-        self.db.stage_pos = 0
-        request_id = 1
         response = self.interface.setAuthInfo(self._regref(30L, "KONTAKT"), "contact",
-                                              self._regref(30L, "KONTAKT"), "password", request_id)
+                                              self._regref(30L, "KONTAKT"), "password", self.request_id)
         self.assertTrue(response)
 
     def test_024(self):
         "Test setAuthInfo to KONTAKT but it is already set."
         self.db.stage_pos = 1
-        request_id = 1
         response = self.interface.setAuthInfo(self._regref(30L, "KONTAKT"), "contact",
-                                              self._regref(30L, "KONTAKT"), "password", request_id)
+                                              self._regref(30L, "KONTAKT"), "password", self.request_id)
         self.assertFalse(response)
 
     def test_025(self):
         "Test setAuthInfo but for unsupported type - domain."
-        request_id = 1
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
-                          self._regref(30L, "kontakt"), "domain", self._regref(33L, "fred.cz"), "password", request_id)
+                          self._regref(30L, "kontakt"), "domain", self._regref(33L, "fred.cz"), "password", self.request_id)
 
     def test_026(self):
         "Test setAuthInfo but for unsupported type - nsset."
-        request_id = 1
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
-                          self._regref(30L, "kontakt"), "nsset", self._regref(31L, "NSSET:102"), "password", request_id)
+                          self._regref(30L, "kontakt"), "nsset", self._regref(31L, "NSSET:102"), "password", self.request_id)
 
     def test_027(self):
         "Test setAuthInfo but for unsupported type - keyset."
-        request_id = 1
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
-                          self._regref(30L, "kontakt"), "keyset", self._regref(32L, "KEYSID:102"), "password", request_id)
+                          self._regref(30L, "kontakt"), "keyset", self._regref(32L, "KEYSID:102"), "password", self.request_id)
+
+    def test_028(self):
+        "Test setObjectBlockStatus BLOCK_TRANSFER for domains."
+        selections = (
+            self._regref(33L, "fred.cz"),
+            self._regref(162L, "nic01.cz"),
+            self._regref(170L, "nic09.cz"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
+        self.assertTrue(status)
+        self.assertTupleEqual(blocked_names, ())
+
+    def test_029(self):
+        "Test setObjectBlockStatus BLOCK_TRANSFER for domains again, but all blocks are already set."
+        self.db.stage_pos = 1
+        selections = (
+            self._regref(33L, "fred.cz"),
+            self._regref(162L, "nic01.cz"),
+            self._regref(170L, "nic09.cz"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
+        self.assertFalse(status)
+        self.assertListEqual(blocked_names, [])
+
+    def test_030(self):
+        "Test setObjectBlockStatus UNBLOCK_TRANSFER for domains."
+        self.db.stage_pos = 1
+        selections = (
+            self._regref(33L, "fred.cz"),
+            self._regref(162L, "nic01.cz"),
+            self._regref(170L, "nic09.cz"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.UNBLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
+        self.assertTrue(status)
+        self.assertTupleEqual(blocked_names, ())
+
+    def test_031(self):
+        "Test setObjectBlockStatus BLOCK_TRANSFER_AND_UPDATE for domains."
+        selections = (
+            self._regref(33L, "fred.cz"),
+            self._regref(162L, "nic01.cz"),
+            self._regref(170L, "nic09.cz"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER_AND_UPDATE)
+        status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
+        self.assertTrue(status)
+        self.assertTupleEqual(blocked_names, ())
+
+    def test_032(self):
+        "Test setObjectBlockStatus BLOCK_TRANSFER_AND_UPDATE for domains again, but all blocks are already set."
+        self.db.stage_pos = 1
+        selections = (
+            self._regref(33L, "fred.cz"),
+            self._regref(162L, "nic01.cz"),
+            self._regref(170L, "nic09.cz"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER_AND_UPDATE)
+        status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
+        self.assertFalse(status)
+        self.assertListEqual(blocked_names, [])
+
+    def test_033(self):
+        "Test setObjectBlockStatus UNBLOCK_TRANSFER_AND_UPDATE for domains."
+        self.db.stage_pos = 1
+        selections = (
+            self._regref(33L, "fred.cz"),
+            self._regref(162L, "nic01.cz"),
+            self._regref(170L, "nic09.cz"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.UNBLOCK_TRANSFER_AND_UPDATE)
+        status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
+        self.assertTrue(status)
+        self.assertTupleEqual(blocked_names, ())
+
 
 
 if __name__ == '__main__':
