@@ -204,22 +204,21 @@ class TestDomainBrowser(DomainBrowserTestCase):
         response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, self.request_id)
         self.assertFalse(response)
 
-    #def test_022(self):
-    #    "Test setContactDiscloseFlags try to set readlony flags (name, organization)."
-    #    self.db.stage_pos = 1 # The db state is after UPDATE contact.disclose_flag.notify_email
-    #    flags = Registry.DomainBrowser.ContactDiscloseFlags(
-    #                name=True, # this is not a parameter of UpdateContactDiscloseFlags
-    #                organization=True, # this is not a parameter of UpdateContactDiscloseFlags
-    #                email=True,
-    #                address=False,
-    #                telephone=True,
-    #                fax=False,
-    #                ident=False,
-    #                vat=False,
-    #                notify_email=False
-    #               )
-    #    self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setContactDiscloseFlags,
-    #                      self._regref(30L, "kontakt"), flags, self.request_id)
+    def test_022(self):
+        "Test setContactDiscloseFlags try to set readlony flags (name, organization)."
+        flags = Registry.DomainBrowser.ContactDiscloseFlags(
+                    name=True, # this is not a parameter of UpdateContactDiscloseFlags
+                    organization=True, # this is not a parameter of UpdateContactDiscloseFlags
+                    email=True,
+                    address=False,
+                    telephone=True,
+                    fax=False,
+                    ident=False,
+                    vat=False,
+                    notify_email=False
+                   )
+        self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setContactDiscloseFlags,
+                          self._regref(30L, "kontakt"), flags, self.request_id)
 
     def test_023(self):
         "Test setAuthInfo to KONTAKT."

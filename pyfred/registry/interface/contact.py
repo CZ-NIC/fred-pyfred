@@ -166,6 +166,13 @@ class ContactInterface(BaseInterface):
         self.owner_has_required_status(contact.id, ["validatedContact", "identifiedContact"])
         self.check_if_object_is_blocked(contact.id)
 
+        # "name" and "organization" cannot change
+        columns = ("email", "address", "telephone", "fax", "ident", "vat", "notify_email")
+        for name in flags.__dict__.keys():
+            if name not in columns:
+                self.logger.log(self.logger.ERROR, "Invalid flag name: '%s'." % name)
+                raise Registry.DomainBrowser.INCORRECT_USAGE
+
         # cannot change flags: contact.disclosename, contact.discloseorganization,
         results = self.source.fetchall("""
             SELECT
@@ -187,9 +194,6 @@ class ContactInterface(BaseInterface):
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
         disclose_flag_values = results[0]
-
-        # "name" and "organization" cannot change
-        columns = ("email", "address", "telephone", "fax", "ident", "vat", "notify_email")
         disclose_flags = dict(zip(columns, disclose_flag_values))
         discloses_original = Registry.DomainBrowser.UpdateContactDiscloseFlags(**disclose_flags)
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
