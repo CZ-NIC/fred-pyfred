@@ -1,0 +1,14 @@
+params: {obj_id: 31}
+query: |-
+  SELECT
+                  object_registry.id,
+                  object_registry.name,
+                  CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                      contact.organization ELSE contact.name
+                  END
+              FROM nsset_contact_map
+              LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+              LEFT JOIN contact ON contact.id = nsset_contact_map.contactid
+              WHERE nssetid = %(obj_id)d
+response:
+- [30, KONTAKT, Firma s.r.o.]

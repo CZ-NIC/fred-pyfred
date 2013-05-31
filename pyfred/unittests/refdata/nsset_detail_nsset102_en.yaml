@@ -1,0 +1,27 @@
+detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.NSSetDetail
+  admins:
+  - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {handle: KONTAKT,
+    id: !!python/long '30', name: Firma s.r.o.}
+  auth_info: '********'
+  create_date: '2012-10-12 08:31:23.220568'
+  create_registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: REG-FRED_A, id: 1, name: Company A l.t.d}
+  handle: NSSET:102
+  hosts:
+  - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DNSHost {fqdn: a.ns.nic.cz,
+    inet: 194.0.12.1}
+  - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DNSHost {fqdn: b.ns.nic.cz,
+    inet: 194.0.13.1}
+  id: 31
+  registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: REG-FRED_A, id: 1, name: Company A l.t.d}
+  report_level: 10
+  roid: N0000000031-CZ
+  state_codes: linked
+  states: Has relation to other records in registry
+  transfer_date: ''
+  update_date: ''
+  update_registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: '', id: 0, name: ''}
+owner: !!python/object:omniORB.EnumItem {_n: PUBLIC_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',
+  _v: 0}

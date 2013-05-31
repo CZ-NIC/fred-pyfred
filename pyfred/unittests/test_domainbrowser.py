@@ -126,6 +126,16 @@ class TestDomainBrowser(DomainBrowserTestCase):
         self.addTypeEqualityFunc(type(detail), self.compareContactDetail)
         self.assertEqual(detail, data["detail"])
 
+    def test_016(self):
+        "Test getNssetDetail NSSET:102; language 'en'."
+        self.maxDiff = None
+        detail, owner = self.interface.getNssetDetail(self._regref(30L, "kontakt"), self._regref(31L, "nsset:102"), "en")
+        data = provide_data("nsset_detail_nsset102_en", dict(detail=detail, owner=owner), self.db.track_traffic)
+        self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
+        self.assertEqual(owner, data["owner"])
+        self.assertIsInstance(detail, Registry.DomainBrowser.NSSetDetail)
+        self.addTypeEqualityFunc(type(detail), self.compareNssetDetail)
+        self.assertEqual(detail, data["detail"])
 
 
 if __name__ == '__main__':

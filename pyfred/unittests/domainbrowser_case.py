@@ -68,7 +68,7 @@ class DomainBrowserTestCase(unittest.TestCase):
     def compareEnumItem(self, ref1, ref2, msg=None):
         "Compare Enum item."
         #EnumItem = {_n: PUBLIC_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',  _v: 1}
-        self._compare_items(("_n", "_v", "_parent_id"), ref1, ref2, 'EnumItem.%s: %s != %s')
+        self._compare_items(("_n", "_v", "_parent_id"), ref1, ref2, msg if msg else 'EnumItem.%s: %s != %s')
 
     def compareRegistryReference(self, ref1, ref2, msg=None):
         "Compare contact details."
@@ -79,3 +79,27 @@ class DomainBrowserTestCase(unittest.TestCase):
         self._compare_items(("name", "organization", "email", "address",
                             "telephone", "fax", "ident", "vat", "notify_email"),
                             flags1, flags2, 'DiscloseFlags.%s: %s != %s')
+
+    def compareHost(self, ref1, ref2, msg=None):
+        "Compare contact details."
+        self._compare_items(("fqdn", "inet"), ref1, ref2, msg if msg else 'Host.%s: %s != %s')
+
+    def compareNssetDetail(self, detail1, detail2, msg=None):
+        "Compare contact details."
+        for key in detail1.__dict__.keys():
+            value1, value2 = getattr(detail1, key), getattr(detail2, key)
+            if key == "hosts":
+                if len(value1) != len(value2):
+                    raise self.failureException('NssetDetail.%s: different length %d != %d' % (key, len(value1), len(value2)))
+                for host1, host2 in zip(value1, value2):
+                    self.compareHost(host1, host2, 'Nsset.host.%s: %s != %s')
+                continue
+            if key == "admins":
+                for admin1, admin2 in zip(value1, value2):
+                    self.compareRegistryReference(admin1, admin2, 'Nsset.admin.%s: %s != %s')
+                continue
+            if key in ("registrar", "create_registrar", "update_registrar"):
+                self.compareRegistryReference(value1, value2)
+                continue
+            if value1 != value2:
+                raise self.failureException('NssetDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
