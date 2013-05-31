@@ -137,6 +137,18 @@ class TestDomainBrowser(DomainBrowserTestCase):
         self.addTypeEqualityFunc(type(detail), self.compareNssetDetail)
         self.assertEqual(detail, data["detail"])
 
+    def test_017(self):
+        "Test getDomainDetail fred.cz; language 'en'."
+        self.maxDiff = None
+        detail, owner = self.interface.getDomainDetail(self._regref(30L, "kontakt"), self._regref(33L, "FRED.CZ"), "en")
+        data = provide_data("domain_detail_fredcz_en", dict(detail=detail, owner=owner), self.db.track_traffic)
+        self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
+        self.assertEqual(owner, data["owner"])
+        self.assertIsInstance(detail, Registry.DomainBrowser.DomainDetail)
+        self.addTypeEqualityFunc(type(detail), self.compareDomainDetail)
+        self.assertEqual(detail, data["detail"])
+
+
 
 if __name__ == '__main__':
     unittest.main()

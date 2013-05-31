@@ -103,3 +103,17 @@ class DomainBrowserTestCase(unittest.TestCase):
                 continue
             if value1 != value2:
                 raise self.failureException('NssetDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
+
+    def compareDomainDetail(self, detail1, detail2, msg=None):
+        "Compare contact details."
+        for key in detail1.__dict__.keys():
+            value1, value2 = getattr(detail1, key), getattr(detail2, key)
+            if key == "admins":
+                for admin1, admin2 in zip(value1, value2):
+                    self.compareRegistryReference(admin1, admin2, 'Doamin.admin.%s: %s != %s')
+                continue
+            if key in ("registrant", "registrar"):
+                self.compareRegistryReference(value1, value2)
+                continue
+            if value1 != value2:
+                raise self.failureException('DoaminDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
