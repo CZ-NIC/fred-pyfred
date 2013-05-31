@@ -325,6 +325,12 @@ class TestDomainBrowser(DomainBrowserTestCase):
         self.assertTrue(status)
         self.assertTupleEqual(blocked_names, ())
 
+    def test_034(self):
+        "Test getPublicStatusDesc; language 'en'."
+        response = self.interface.getPublicStatusDesc("en")
+        data = provide_data("public_status_desc_en", response, self.db.track_traffic)
+        self.assertListEqual(response, data)
+
 
 
 if __name__ == '__main__':
