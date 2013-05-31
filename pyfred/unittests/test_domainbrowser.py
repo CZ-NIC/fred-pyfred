@@ -24,6 +24,7 @@ from pyfred.unittests.domainbrowser_case import DomainBrowserTestCase
 
 class TestDomainBrowser(DomainBrowserTestCase):
     "Test DomainBrowser"
+    LIST_LIMIT = 50
 
     def test_001(self):
         "Test getObjectRegistryId for INCORRECT_USAGE."
@@ -60,50 +61,57 @@ class TestDomainBrowser(DomainBrowserTestCase):
 
     def test_008(self):
         "Test getDomainList; language 'en' and page index 0."
+        self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainList(self._regref(30L, "kontakt"), "en", 0)
-        data = provide_data("test_domain_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = provide_data("domain_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
     def test_009(self):
         "Test getDomainList; language 'cs' and page index 0."
+        self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainList(self._regref(30L, "kontakt"), "cs", 0)
-        data = provide_data("test_domain_list_cs_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = provide_data("domain_list_cs_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
     def test_010(self):
         "Test getDomainList; language 'en' and page index 1100."
+        self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainList(self._regref(30L, "kontakt"), "en", 1100)
-        data = provide_data("test_domain_list_en_1100", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = provide_data("domain_list_en_1100", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
     def test_011(self):
         "Test getNssetList; language 'en' and page index 0."
+        self.interface.nsset.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getNssetList(self._regref(30L, "kontakt"), "en", 0)
-        data = provide_data("test_nsset_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = provide_data("nsset_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
     def test_012(self):
         "Test getKeysetList; language 'en' and page index 0."
+        self.interface.keyset.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getKeysetList(self._regref(30L, "kontakt"), "en", 0)
-        data = provide_data("test_keyset_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = provide_data("keyset_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
     def test_013(self):
         "Test getDomainsForNsset NSSET:102; language 'en' and page index 0."
+        self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainsForNsset(self._regref(30L, "kontakt"), self._regref(31L, "NSSET:102"), "en", 0)
-        data = provide_data("test_domains_for_nsset102_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = provide_data("domains_for_nsset102_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
     def test_014(self):
         "Test getDomainsForKeyset KEYSID:102; language 'en' and page index 0."
+        self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainsForKeyset(self._regref(30L, "kontakt"), self._regref(32L, "KEYSID:102"), "en", 0)
-        data = provide_data("test_domains_for_keyset102_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = provide_data("domains_for_keyset102_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
@@ -111,7 +119,7 @@ class TestDomainBrowser(DomainBrowserTestCase):
         "Test getContactDetail KONTAKT; language 'en'."
         self.maxDiff = None
         detail, owner = self.interface.getContactDetail(self._regref(30L, "kontakt"), self._regref(30L, "kontakt"), "en")
-        data = provide_data("test_contact_detail_kontakt_en", dict(detail=detail, owner=owner), self.db.track_traffic)
+        data = provide_data("contact_detail_kontakt_en", dict(detail=detail, owner=owner), self.db.track_traffic)
         self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
         self.assertEqual(owner, data["owner"])
         self.assertIsInstance(detail, Registry.DomainBrowser.ContactDetail)

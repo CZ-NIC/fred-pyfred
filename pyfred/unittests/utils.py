@@ -10,12 +10,12 @@ from pyfred.runtime_support import DB
 
 
 DATA_FOLDER_NAME = "dbdata"
-makepath = lambda name: os.path.join(os.path.dirname(__file__), DATA_FOLDER_NAME, "%s.yaml" % name)
+REFS_FOLDER_NAME = "refdata"
 
 
 def provide_data(name, data, track_traffic=False):
     "Load or save data and return result."
-    path = makepath(name)
+    path = os.path.join(os.path.dirname(__file__), REFS_FOLDER_NAME, "%s.yaml" % name)
 
     if track_traffic:
         with open(path, "w") as handle:

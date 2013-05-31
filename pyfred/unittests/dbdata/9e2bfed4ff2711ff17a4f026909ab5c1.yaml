@@ -1,4 +1,4 @@
-params: {contact_id: !!python/long '30', lang: EN, limit: 1001, offset: 1100, role_id: 1}
+params: {contact_id: !!python/long '30', lang: EN, limit: 51, offset: 1100, role_id: 1}
 query: |-
   SELECT
                   object_registry.id,
