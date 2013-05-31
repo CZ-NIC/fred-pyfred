@@ -50,7 +50,7 @@ class DomainBrowserTestCase(unittest.TestCase):
         for key in detail1.__dict__.keys():
             value1, value2 = getattr(detail1, key), getattr(detail2, key)
             if key == "registrar":
-                self.compareRegistryReference(value1, value2)
+                self.compareRegistryReference(value1, value2, "Contact.registrar.%s: %s != %s")
                 continue
             if key == "disclose_flags":
                 self.compareDiscloseFlags(value1, value2)
@@ -72,7 +72,7 @@ class DomainBrowserTestCase(unittest.TestCase):
 
     def compareRegistryReference(self, ref1, ref2, msg=None):
         "Compare contact details."
-        self._compare_items(("id", "handle", "name"), ref1, ref2, 'RegistryReference.%s: %s != %s')
+        self._compare_items(("id", "handle", "name"), ref1, ref2, msg if msg else 'RegistryReference.%s: %s != %s')
 
     def compareDiscloseFlags(self, flags1, flags2):
         "Compare Disclose lags."
@@ -99,10 +99,47 @@ class DomainBrowserTestCase(unittest.TestCase):
                     self.compareRegistryReference(admin1, admin2, 'Nsset.admin.%s: %s != %s')
                 continue
             if key in ("registrar", "create_registrar", "update_registrar"):
-                self.compareRegistryReference(value1, value2)
+                self.compareRegistryReference(value1, value2, "Nsset." + key + ".%s: %s != %s")
                 continue
             if value1 != value2:
                 raise self.failureException('NssetDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
+
+    def compareDNSkeys(self, ref1, ref2, msg=None):
+        "Compare contact details."
+        # {alg: 5, flags: 257, key: AwEAAddt2AkLfYGKgiEZB5SmIF8EvrjxNMH6HtxWEA4RJ9Ao6LCWheg8, protocol: 3}
+        self._compare_items(("alg", "flags", "key", "protocol"), ref1, ref2, msg if msg else 'DNSkeys.%s: %s != %s')
+
+    def compareDSrecords(self, ref1, ref2, msg=None):
+        "Compare contact details."
+        # {alg: 2, digest: HASH, digest_type: 256, key_tag: 11, max_sig_life: 128}
+        self._compare_items(("alg", "digest", "digest_type", "key_tag", "max_sig_life"),
+            ref1, ref2, msg if msg else 'DSrecords.%s: %s != %s')
+
+    def compareKeysetDetail(self, detail1, detail2, msg=None):
+        "Compare contact details."
+        for key in detail1.__dict__.keys():
+            value1, value2 = getattr(detail1, key), getattr(detail2, key)
+            if key == "dnskeys":
+                if len(value1) != len(value2):
+                    raise self.failureException('KeysetDetail.%s: different length %d != %d' % (key, len(value1), len(value2)))
+                for host1, host2 in zip(value1, value2):
+                    self.compareDNSkeys(host1, host2, 'Keyset.dnskeys.%s: %s != %s')
+                continue
+            if key == "dsrecords":
+                if len(value1) != len(value2):
+                    raise self.failureException('KeysetDetail.%s: different length %d != %d' % (key, len(value1), len(value2)))
+                for host1, host2 in zip(value1, value2):
+                    self.compareDSrecords(host1, host2, 'Keyset.dsrecords.%s: %s != %s')
+                continue
+            if key == "admins":
+                for admin1, admin2 in zip(value1, value2):
+                    self.compareRegistryReference(admin1, admin2, 'Keyset.admin.%s: %s != %s')
+                continue
+            if key in ("registrar", "create_registrar", "update_registrar"):
+                self.compareRegistryReference(value1, value2, "Keyset." + key + ".%s: %s != %s")
+                continue
+            if value1 != value2:
+                raise self.failureException('KeysetDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
 
     def compareDomainDetail(self, detail1, detail2, msg=None):
         "Compare contact details."
@@ -113,7 +150,7 @@ class DomainBrowserTestCase(unittest.TestCase):
                     self.compareRegistryReference(admin1, admin2, 'Doamin.admin.%s: %s != %s')
                 continue
             if key in ("registrant", "registrar"):
-                self.compareRegistryReference(value1, value2)
+                self.compareRegistryReference(value1, value2, "Domain." + key + ".%s: %s != %s")
                 continue
             if value1 != value2:
                 raise self.failureException('DoaminDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))

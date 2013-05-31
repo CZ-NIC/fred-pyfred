@@ -1,0 +1,8 @@
+params: {keyset_id: 32}
+query: |-
+  SELECT
+                      keytag, alg, digesttype, digest, maxsiglife
+                  FROM dsrecord
+                  WHERE keysetid = %(keyset_id)d
+response:
+- [11, 2, 256, HASH, 128]

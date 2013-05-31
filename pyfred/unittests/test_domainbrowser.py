@@ -157,6 +157,17 @@ class TestDomainBrowser(DomainBrowserTestCase):
         self.assertIsInstance(refdetail, Registry.DomainBrowser.RegistrarDetail)
         self.assertDictEqual(detail.__dict__, refdetail.__dict__)
 
+    def test_019(self):
+        "Test getKeysetDetail KEYSID:102; language 'en'."
+        self.maxDiff = None
+        detail, owner = self.interface.getKeysetDetail(self._regref(30L, "kontakt"), self._regref(32L, "keysid:102"), "en")
+        data = provide_data("keyset_detail_keysid102_en", dict(detail=detail, owner=owner), self.db.track_traffic)
+        self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
+        self.assertEqual(owner, data["owner"])
+        self.assertIsInstance(detail, Registry.DomainBrowser.KeysetDetail)
+        self.addTypeEqualityFunc(type(detail), self.compareKeysetDetail)
+        self.assertEqual(detail, data["detail"])
+
 
 
 if __name__ == '__main__':

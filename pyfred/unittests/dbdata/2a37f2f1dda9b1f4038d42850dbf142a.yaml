@@ -1,0 +1,8 @@
+params: {keyset_id: 32}
+query: |-
+  SELECT
+                      flags, protocol, alg, key
+                  FROM dnskey
+                  WHERE keysetid = %(keyset_id)d
+response:
+- [257, 3, 5, AwEAAddt2AkLfYGKgiEZB5SmIF8EvrjxNMH6HtxWEA4RJ9Ao6LCWheg8]
