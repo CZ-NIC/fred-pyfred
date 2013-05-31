@@ -272,7 +272,7 @@ class TestDomainBrowser(DomainBrowserTestCase):
         action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
         status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
         self.assertFalse(status)
-        self.assertListEqual(blocked_names, [])
+        self.assertTupleEqual(blocked_names, ())
 
     def test_030(self):
         "Test setObjectBlockStatus UNBLOCK_TRANSFER for domains."
@@ -310,7 +310,7 @@ class TestDomainBrowser(DomainBrowserTestCase):
         action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER_AND_UPDATE)
         status, blocked_names = self.interface.setObjectBlockStatus(self._regref(30L, "kontakt"), "domain", selections, action)
         self.assertFalse(status)
-        self.assertListEqual(blocked_names, [])
+        self.assertTupleEqual(blocked_names, ())
 
     def test_033(self):
         "Test setObjectBlockStatus UNBLOCK_TRANSFER_AND_UPDATE for domains."

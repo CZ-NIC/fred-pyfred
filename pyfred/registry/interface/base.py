@@ -119,7 +119,7 @@ class BaseInterface(object):
         self._verify_user_contact(contact)
         if not len(regrefseq):
             self.logger.log(self.logger.INFO, "SetObjectBlockStatus without selection for handle %s." % contact)
-            return False, []
+            return False, ()
 
         if len(regrefseq) > self.SET_STATUS_MAX_ITEMS:
             raise Registry.DomainBrowser.INCORRECT_USAGE
@@ -177,7 +177,7 @@ class BaseInterface(object):
         if not (block_transfer_ids or block_update_ids or unblock_transfer_ids or unblock_update_ids):
             self.logger.log(self.logger.INFO, "None of the objects %s has required set/unset statuses "
                     "for the contact ID %d of the handle '%s'." % (object_ids, contact.id, contact.handle))
-            return False, []
+            return False, ()
 
         # prepare updates: ((state_id, object_id), ...)
         update_status = []
