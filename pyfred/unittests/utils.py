@@ -49,19 +49,34 @@ class MockPgdbCursor(pgdb.pgdbCursor):
         query = self._cache_query["query"].strip()
         params = self._cache_query["params"]
         code = hashlib.md5(u"%s; %s" % (re.sub("\s+", " ", query).lower(), params)).hexdigest()
-
-        filename = os.path.join(self._data_path, "%s.yaml" % code)
         if self._dbcnx.track_traffic:
             response = super(MockPgdbCursor, self).fetchall()
+
+            # Use default stage or save new stage
+            if self._dbcnx.stage_pos:
+                # first check if default is the same like stage number
+                filename = os.path.join(self._data_path, "%s.yaml" % code)
+                if os.path.exists(filename):
+                    data = yaml.load(open(filename))
+                    refresp = data["response"]
+                    if str(refresp) == str(response):
+                        return response # response is equal with default data, not needed to create new
+
+            pos = ".%d" % self._dbcnx.stage_pos if self._dbcnx.stage_pos else ""
+            filename = os.path.join(self._data_path, "%s%s.yaml" % (code, pos))
             if self._dbcnx.overwrite_existing or (not self._dbcnx.overwrite_existing and not os.path.exists(filename)):
                 data = dict(query=LiteralUnicode(query), params=params, response=response)
                 with open(filename, "w") as handle:
                     yaml.dump(data, handle)
         else:
             response = None
-            with open(filename) as handle:
-                data = yaml.load(handle)
-                response = data["response"]
+            # read from the given data stage or default
+            for pos in (self._dbcnx.stage_pos, 0):
+                filename = os.path.join(self._data_path, "%s%s.yaml" % (code, ".%d" % pos if pos else ""))
+                if os.path.exists(filename):
+                    data = yaml.load(open(filename))
+                    response = data["response"]
+                    break
         return response
 
 
@@ -73,6 +88,8 @@ class MockPgdbCnx(pgdb.pgdbCnx):
     track_traffic = False
     # True - overwrite existing files with query and response.
     overwrite_existing = False
+    # Database stage position is a data snapshot between any updates.
+    stage_pos = 0
 
     def cursor(self):
         "Return a new Cursor Object using the connection."
@@ -89,6 +106,7 @@ class MockDB(DB):
     "Mock database."
     track_traffic = False
     overwrite_existing = False
+    stage_pos = 0
 
     def getConn(self):
         "Obtain connection to database."
@@ -97,6 +115,7 @@ class MockDB(DB):
                 password=self.password)
         contx.track_traffic = self.track_traffic
         contx.overwrite_existing = self.overwrite_existing
+        contx.stage_pos = self.stage_pos
         return contx
 
 

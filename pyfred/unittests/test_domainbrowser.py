@@ -183,6 +183,22 @@ class TestDomainBrowser(DomainBrowserTestCase):
         response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, request_id)
         self.assertTrue(response)
 
+    def test_021(self):
+        "Test setContactDiscloseFlags for KONTAKT with disclose notify_email but no change."
+        self.db.stage_pos = 1 # The db state is after UPDATE contact.disclose_flag.notify_email
+        request_id = 1
+        flags = Registry.DomainBrowser.UpdateContactDiscloseFlags(
+                    email=True,
+                    address=False,
+                    telephone=True,
+                    fax=False,
+                    ident=False,
+                    vat=False,
+                    notify_email=False
+                   )
+        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, request_id)
+        self.assertFalse(response)
+
 
 
 if __name__ == '__main__':
