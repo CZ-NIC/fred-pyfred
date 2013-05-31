@@ -1,0 +1,4 @@
+!!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistrarDetail {address: !!python/str "prvn\xED\
+    \ ulice, druh\xE1 ulice, t\u0159et\xED ulice, 12301, M\u011Bsto, Praha - venkov",
+  fax: '+420.788123050', handle: REG-FRED_A, id: 1, name: Company A l.t.d, phone: '+420.788123456',
+  url: www.nic.cz}

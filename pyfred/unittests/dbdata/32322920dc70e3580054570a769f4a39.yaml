@@ -1,0 +1,11 @@
+params: {handle: REG-FRED_A}
+query: |-
+  SELECT
+                  id, handle, name, telephone, fax, url,
+                  ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
+              FROM registrar
+              WHERE handle = %(handle)s
+response:
+- [1, REG-FRED_A, Company A l.t.d, '+420.788123456', '+420.788123050', www.nic.cz,
+  !!python/str "prvn\xED ulice, druh\xE1 ulice, t\u0159et\xED ulice, 12301, M\u011B\
+    sto, Praha - venkov"]

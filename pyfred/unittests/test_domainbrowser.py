@@ -148,6 +148,15 @@ class TestDomainBrowser(DomainBrowserTestCase):
         self.addTypeEqualityFunc(type(detail), self.compareDomainDetail)
         self.assertEqual(detail, data["detail"])
 
+    def test_018(self):
+        "Test getRegistrarDetail REG-FRED_A"
+        self.maxDiff = None
+        detail = self.interface.getRegistrarDetail(self._regref(30L, "kontakt"), "REG-FRED_A")
+        refdetail = provide_data("registrar_detail_regfreda", detail, self.db.track_traffic)
+        self.assertIsInstance(detail, Registry.DomainBrowser.RegistrarDetail)
+        self.assertIsInstance(refdetail, Registry.DomainBrowser.RegistrarDetail)
+        self.assertDictEqual(detail.__dict__, refdetail.__dict__)
+
 
 
 if __name__ == '__main__':
