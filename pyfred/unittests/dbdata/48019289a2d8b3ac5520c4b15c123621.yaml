@@ -1,0 +1,11 @@
+params:
+  object_id: !!python/long '30'
+  states: [23, 22]
+query: |-
+  SELECT COUNT(*)
+              FROM object_state
+              WHERE object_state.object_id = %(object_id)d
+                  AND state_id IN %(states)s
+                  AND valid_to IS NULL
+response:
+- [!!python/long '1']

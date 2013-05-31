@@ -40,7 +40,9 @@ class MockPgdbCursor(pgdb.pgdbCursor):
     def execute(self, operation, params=None):
         "Prepare and execute a database operation (query or command)."
         self._cache_query = dict(query=operation, params=params)
-        super(MockPgdbCursor, self).execute(operation, params)
+        if self._dbcnx.track_traffic:
+            # do real database access only in tracking mode; otherwise read from dbdata storage
+            super(MockPgdbCursor, self).execute(operation, params)
 
     def fetchall(self):
         """Fetch all (remaining) rows of a query result."""

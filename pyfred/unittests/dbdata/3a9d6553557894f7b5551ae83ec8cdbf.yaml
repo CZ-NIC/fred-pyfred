@@ -1,0 +1,14 @@
+params: {contact_id: !!python/long '30'}
+query: |-
+  SELECT
+                  contact.discloseemail,
+                  contact.discloseaddress,
+                  contact.disclosetelephone,
+                  contact.disclosefax,
+                  contact.discloseident,
+                  contact.disclosevat,
+                  contact.disclosenotifyemail
+              FROM contact
+              WHERE id = %(contact_id)d
+response:
+- [true, false, true, false, false, false, true]

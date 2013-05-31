@@ -168,6 +168,21 @@ class TestDomainBrowser(DomainBrowserTestCase):
         self.addTypeEqualityFunc(type(detail), self.compareKeysetDetail)
         self.assertEqual(detail, data["detail"])
 
+    def test_020(self):
+        "Test setContactDiscloseFlags for KONTAKT with disclose notify_email."
+        request_id = 1
+        flags = Registry.DomainBrowser.UpdateContactDiscloseFlags(
+                    email=True,
+                    address=False,
+                    telephone=True,
+                    fax=False,
+                    ident=False,
+                    vat=False,
+                    notify_email=False
+                   )
+        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, request_id)
+        self.assertTrue(response)
+
 
 
 if __name__ == '__main__':
