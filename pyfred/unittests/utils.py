@@ -110,9 +110,12 @@ class MockDB(DB):
 
     def getConn(self):
         "Obtain connection to database."
-        contx = connect(host=self.host + ":" + self.port,
-                database=self.dbname, user=self.user,
-                password=self.password)
+        if self.track_traffic:
+            contx = connect(host=self.host + ":" + self.port,
+                            database=self.dbname, user=self.user,
+                            password=self.password)
+        else:
+            contx = connect()
         contx.track_traffic = self.track_traffic
         contx.overwrite_existing = self.overwrite_existing
         contx.stage_pos = self.stage_pos
