@@ -5,9 +5,11 @@
 #   python -m unittest --verbose test_domainbrowser
 # pyfred$
 #   python -m unittest --verbose unittests.test_domainbrowser
+#   python -m unittest --verbose unittests.domainbrowser.contact
+#   python -m unittest --verbose unittests.domainbrowser.contact.TestDomainBrowserContact.test_010
 
 # write new dbdata:
-#   TRACK=y python -m unittest --verbose unittests.test_domainbrowser_contact.TestDomainBrowserContact.test_010
+#   TRACK=y python -m unittest --verbose unittests.domainbrowser.contact.TestDomainBrowserContact.test_010
 #   where:
 #       * TRACK=y means write database responses into files
 #       * TRACKW=y means overwrite existing files

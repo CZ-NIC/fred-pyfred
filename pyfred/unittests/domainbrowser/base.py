@@ -35,6 +35,8 @@ class DomainBrowserTestCase(unittest.TestCase):
             conf.get("General", "dbuser"),
             conf.get("General", "dbpassword")
         )
+        cls.db.data_folder_name = "domainbrowser/dbdata"
+        cls.db.refs_folder_name = "domainbrowser/refdata"
 
         # True - store SQL query and response info files.
         if os.environ.get("TRACK"):
