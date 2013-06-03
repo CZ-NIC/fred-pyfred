@@ -13,6 +13,8 @@ from pyfred.idlstubs import Registry
 
 class DomainBrowserTestCase(unittest.TestCase):
 
+    LIST_LIMIT = 50
+
     BLOCK_TRANSFER, UNBLOCK_TRANSFER, \
     BLOCK_UPDATE, UNBLOCK_UPDATE, \
     BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE = range(6)
@@ -43,6 +45,14 @@ class DomainBrowserTestCase(unittest.TestCase):
         corba_refs = CorbaRefs()
         joblist = []
         cls.interface = DomainBrowserServerInterface(log, cls.db, conf, joblist, corba_refs)
+
+
+    def setUp(self):
+        "set default db stage."
+        self.db.stage_pos = 0
+        self.request_id = 1
+        self.user_contact = self._regref(30L, "KONTAKT")
+
 
     @classmethod
     def _regref(cls, object_id, handle, name=""):

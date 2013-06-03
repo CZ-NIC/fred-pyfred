@@ -294,14 +294,16 @@ def main():
           license="GNU GPL",
           platforms=['posix'],
           cmdclass={"install": Install, "build_py": BuildPy},
-          packages=("pyfred", "pyfred.idlstubs", "pyfred.unittests",
+          packages=("pyfred", "pyfred.idlstubs",
+                    "pyfred.unittests", "pyfred.unittests.domainbrowser",
                     "pyfred.modules",
                     "pyfred.registry",
                         "pyfred.registry.interface",
                         "pyfred.registry.utils"
                 ),
           package_data={
-              'pyfred.unittests': ['create_environment.sh', 'README', 'zone-file-check', 'dbdata/*'],
+              'pyfred.unittests': ['create_environment.sh', 'README', 'zone-file-check',
+                                   'dbdata/*', 'refdata/*'],
           },
           scripts=("scripts/fred-pyfred",
                    "scripts/pyfredctl",

@@ -1,0 +1,10 @@
+params: {handle: 'NSSET:FOO', type_id: 2}
+query: |-
+  SELECT
+                  object_registry.id
+              FROM object_registry
+              WHERE
+                  type = %(type_id)d
+                  AND object_registry.name = %(handle)s
+                  AND object_registry.erdate IS NULL
+response: []
