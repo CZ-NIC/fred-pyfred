@@ -14,7 +14,7 @@ from pyfred.unittests.utils import provide_data
 
 class DomainBrowserTestCase(unittest.TestCase):
 
-    LIST_LIMIT = 50
+    LIST_LIMIT = 50 # reduce default limit of lists to increase the speed of tests
 
     BLOCK_TRANSFER, UNBLOCK_TRANSFER, \
     BLOCK_UPDATE, UNBLOCK_UPDATE, \

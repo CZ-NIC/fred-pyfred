@@ -196,9 +196,15 @@ class Install(install):
         content = open(filename).read()
         content = content.replace('sys.path.insert(0, \'\')',
                                   'sys.path.insert(0, \'%s\')' % self.expand_filename('$purelib'))
-        pattern = re.compile(r'configs = .*$', re.MULTILINE)
-        content = pattern.sub('configs = ["%s",' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF),
-                              content)
+        self.announce("File '%s' was updated" % filename)
+
+    def update_pyfred_config_paths(self, filename):
+        """
+        Update paths in fred-pyfred file (path to config file).
+        """
+        content = open(filename).read()
+        pattern = re.compile(r'CONFIGS = .*$', re.MULTILINE)
+        content = pattern.sub('CONFIGS = ("%s",' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF), content)
         open(filename, 'w').write(content)
         self.announce("File '%s' was updated" % filename)
 
@@ -337,6 +343,7 @@ def main():
                         '$scripts/techcheck_admin_client': 'update_script',
                         '$scripts/fred-pyfred': 'update_pyfred_server',
                         '$scripts/pyfredctl': 'update_pyfredctl',
+                        '$purelib/pyfred/runtime_support.py': 'update_pyfred_config_paths',
                         '$purelib/pyfred/unittests/test_filemanager.py': 'update_test_filemanager',
                         '$purelib/pyfred/unittests/test_genzone.py': 'update_test_genzone',
                         '$sysconf/fred/pyfred.conf': 'update_server_config',
