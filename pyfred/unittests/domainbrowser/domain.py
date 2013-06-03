@@ -9,9 +9,8 @@
 #   python -m unittest --verbose unittests.test_domainbrowser_domain.TestDomainBrowserDomain.test_010
 import unittest
 # pyfred
-from pyfred.unittests.utils import provide_data
 from pyfred.idlstubs import Registry
-from pyfred.unittests.domainbrowser_case import DomainBrowserTestCase
+from pyfred.unittests.domainbrowser.base import DomainBrowserTestCase
 
 
 
@@ -50,7 +49,7 @@ class TestDomainBrowserDomain(DomainBrowserTestCase):
         "Test getDomainList; language 'en' and page index 0."
         self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainList(self.user_contact, "en", 0)
-        data = provide_data("domain_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = self.provide_data("domain_list_en_0", dict(table=table, exceeded=exceeded))
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
@@ -58,7 +57,7 @@ class TestDomainBrowserDomain(DomainBrowserTestCase):
         "Test getDomainList; language 'cs' and page index 0."
         self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainList(self.user_contact, "cs", 0)
-        data = provide_data("domain_list_cs_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = self.provide_data("domain_list_cs_0", dict(table=table, exceeded=exceeded))
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
@@ -66,7 +65,7 @@ class TestDomainBrowserDomain(DomainBrowserTestCase):
         "Test getDomainList; language 'en' and page index 1100."
         self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainList(self.user_contact, "en", 1100)
-        data = provide_data("domain_list_en_1100", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = self.provide_data("domain_list_en_1100", dict(table=table, exceeded=exceeded))
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
@@ -74,7 +73,7 @@ class TestDomainBrowserDomain(DomainBrowserTestCase):
         "Test getDomainsForNsset NSSET:102; language 'en' and page index 0."
         self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainsForNsset(self.user_contact, self._regref(31L, "NSSET:102"), "en", 0)
-        data = provide_data("domains_for_nsset102_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = self.provide_data("domains_for_nsset102_en_0", dict(table=table, exceeded=exceeded))
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
@@ -82,7 +81,7 @@ class TestDomainBrowserDomain(DomainBrowserTestCase):
         "Test getDomainsForKeyset KEYSID:102; language 'en' and page index 0."
         self.interface.domain.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getDomainsForKeyset(self.user_contact, self._regref(32L, "KEYSID:102"), "en", 0)
-        data = provide_data("domains_for_keyset102_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = self.provide_data("domains_for_keyset102_en_0", dict(table=table, exceeded=exceeded))
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
@@ -90,7 +89,7 @@ class TestDomainBrowserDomain(DomainBrowserTestCase):
         "Test getDomainDetail fred.cz; language 'en'."
         self.maxDiff = None
         detail, owner = self.interface.getDomainDetail(self.user_contact, self._regref(33L, "FRED.CZ"), "en")
-        data = provide_data("domain_detail_fredcz_en", dict(detail=detail, owner=owner), self.db.track_traffic)
+        data = self.provide_data("domain_detail_fredcz_en", dict(detail=detail, owner=owner))
         self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
         self.assertEqual(owner, data["owner"])
         self.assertIsInstance(detail, Registry.DomainBrowser.DomainDetail)

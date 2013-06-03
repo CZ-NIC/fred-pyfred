@@ -8,6 +8,7 @@ from pyfred.runtime_support import Logger, CorbaRefs, getConfiguration, CONFIGS
 from pyfred.modules.domainbrowser import DomainBrowserServerInterface
 from pyfred.unittests.utils import MockDB
 from pyfred.idlstubs import Registry
+from pyfred.unittests.utils import provide_data
 
 
 
@@ -47,6 +48,12 @@ class DomainBrowserTestCase(unittest.TestCase):
         cls.interface = DomainBrowserServerInterface(log, cls.db, conf, joblist, corba_refs)
 
 
+    @classmethod
+    def _regref(cls, object_id, handle, name=""):
+        "return Registry.DomainBrowser.RegistryReference"
+        return Registry.DomainBrowser.RegistryReference(object_id, handle, name)
+
+
     def setUp(self):
         "set default db stage."
         self.db.stage_pos = 0
@@ -54,10 +61,10 @@ class DomainBrowserTestCase(unittest.TestCase):
         self.user_contact = self._regref(30L, "KONTAKT")
 
 
-    @classmethod
-    def _regref(cls, object_id, handle, name=""):
-        "return Registry.DomainBrowser.RegistryReference"
-        return Registry.DomainBrowser.RegistryReference(object_id, handle, name)
+    def provide_data(self, name, data):
+        "Load (and save) data for asserting db response."
+        return provide_data(name, data, self.db.refs_folder_name, self.db.track_traffic)
+
 
     def compareContactDetail(self, detail1, detail2, msg=None):
         "Compare contact details."

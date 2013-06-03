@@ -9,13 +9,10 @@ import yaml
 from pyfred.runtime_support import DB
 
 
-DATA_FOLDER_NAME = "dbdata"
-REFS_FOLDER_NAME = "refdata"
 
-
-def provide_data(name, data, track_traffic=False):
+def provide_data(name, data, subfolder, track_traffic=False):
     "Load or save data and return result."
-    path = os.path.join(os.path.dirname(__file__), REFS_FOLDER_NAME, "%s.yaml" % name)
+    path = os.path.join(os.path.dirname(__file__), subfolder, "%s.yaml" % name)
 
     if track_traffic:
         with open(path, "w") as handle:
@@ -34,7 +31,7 @@ class MockPgdbCursor(pgdb.pgdbCursor):
 
     def __init__(self, dbcnx):
         super(MockPgdbCursor, self).__init__(dbcnx)
-        self._data_path = os.path.join(os.path.dirname(__file__), DATA_FOLDER_NAME)
+        self._data_path = os.path.join(os.path.dirname(__file__), self._dbcnx.data_folder_name)
         self._cache_query = None
 
     def execute(self, operation, params=None):
@@ -84,6 +81,9 @@ class MockPgdbCursor(pgdb.pgdbCursor):
 class MockPgdbCnx(pgdb.pgdbCnx):
     "Mock Connection Object."
 
+    data_folder_name = "dbdata"
+    refs_folder_name = "refdata"
+
     # True - store SQL query and response info files.
     track_traffic = False
     # True - overwrite existing files with query and response.
@@ -104,6 +104,8 @@ class MockPgdbCnx(pgdb.pgdbCnx):
 
 class MockDB(DB):
     "Mock database."
+    data_folder_name = "dbdata"
+    refs_folder_name = "refdata"
     track_traffic = False
     overwrite_existing = False
     stage_pos = 0
@@ -119,6 +121,8 @@ class MockDB(DB):
         contx.track_traffic = self.track_traffic
         contx.overwrite_existing = self.overwrite_existing
         contx.stage_pos = self.stage_pos
+        contx.data_folder_name = self.data_folder_name
+        contx.refs_folder_name = self.refs_folder_name
         return contx
 
 

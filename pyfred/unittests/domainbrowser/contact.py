@@ -9,9 +9,8 @@
 #   python -m unittest --verbose unittests.test_domainbrowser_contact.TestDomainBrowserContact.test_010
 import unittest
 # pyfred
-from pyfred.unittests.utils import provide_data
 from pyfred.idlstubs import Registry
-from pyfred.unittests.domainbrowser_case import DomainBrowserTestCase
+from pyfred.unittests.domainbrowser.base import DomainBrowserTestCase
 
 
 
@@ -35,7 +34,7 @@ class TestDomainBrowserContact(DomainBrowserTestCase):
         "Test getContactDetail KONTAKT; language 'en'."
         self.maxDiff = None
         detail, owner = self.interface.getContactDetail(self.user_contact, self._regref(30L, "kontakt"), "en")
-        data = provide_data("contact_detail_kontakt_en", dict(detail=detail, owner=owner), self.db.track_traffic)
+        data = self.provide_data("contact_detail_kontakt_en", dict(detail=detail, owner=owner))
         self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
         self.assertEqual(owner, data["owner"])
         self.assertIsInstance(detail, Registry.DomainBrowser.ContactDetail)
@@ -51,7 +50,7 @@ class TestDomainBrowserContact(DomainBrowserTestCase):
         "Test getRegistrarDetail REG-FRED_A"
         self.maxDiff = None
         detail = self.interface.getRegistrarDetail(self._regref(30L, "KONTAKT"), "REG-FRED_A")
-        refdetail = provide_data("registrar_detail_regfreda", detail, self.db.track_traffic)
+        refdetail = self.provide_data("registrar_detail_regfreda", detail)
         self.assertIsInstance(detail, Registry.DomainBrowser.RegistrarDetail)
         self.assertIsInstance(refdetail, Registry.DomainBrowser.RegistrarDetail)
         self.assertDictEqual(detail.__dict__, refdetail.__dict__)
@@ -132,7 +131,7 @@ class TestDomainBrowserContact(DomainBrowserTestCase):
     def test_140(self):
         "Test getPublicStatusDesc; language 'en'."
         response = self.interface.getPublicStatusDesc("en")
-        data = provide_data("public_status_desc_en", response, self.db.track_traffic)
+        data = self.provide_data("public_status_desc_en", response)
         self.assertListEqual(response, data)
 
 

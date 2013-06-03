@@ -9,9 +9,8 @@
 #   python -m unittest --verbose unittests.test_domainbrowser_keyset.TestDomainBrowserKeyset.test_010
 import unittest
 # pyfred
-from pyfred.unittests.utils import provide_data
 from pyfred.idlstubs import Registry
-from pyfred.unittests.domainbrowser_case import DomainBrowserTestCase
+from pyfred.unittests.domainbrowser.base import DomainBrowserTestCase
 
 
 
@@ -30,7 +29,7 @@ class TestDomainBrowserKeyset(DomainBrowserTestCase):
         "Test getKeysetList; language 'en' and page index 0."
         self.interface.keyset.list_limit = self.LIST_LIMIT
         table, exceeded = self.interface.getKeysetList(self.user_contact, "en", 0)
-        data = provide_data("keyset_list_en_0", dict(table=table, exceeded=exceeded), self.db.track_traffic)
+        data = self.provide_data("keyset_list_en_0", dict(table=table, exceeded=exceeded))
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
@@ -38,7 +37,7 @@ class TestDomainBrowserKeyset(DomainBrowserTestCase):
         "Test getKeysetDetail KEYSID:102; language 'en'."
         self.maxDiff = None
         detail, owner = self.interface.getKeysetDetail(self.user_contact, self._regref(32L, "keysid:102"), "en")
-        data = provide_data("keyset_detail_keysid102_en", dict(detail=detail, owner=owner), self.db.track_traffic)
+        data = self.provide_data("keyset_detail_keysid102_en", dict(detail=detail, owner=owner))
         self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
         self.assertEqual(owner, data["owner"])
         self.assertIsInstance(detail, Registry.DomainBrowser.KeysetDetail)
