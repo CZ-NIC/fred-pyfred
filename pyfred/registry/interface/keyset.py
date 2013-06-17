@@ -160,6 +160,7 @@ class KeysetInterface(BaseInterface):
             LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
             LEFT JOIN contact ON contact.id = keyset_contact_map.contactid
             WHERE keysetid = %(obj_id)d
+            ORDER BY object_registry.name
             """, dict(obj_id=keyset_detail[TID])):
             admins.append(Registry.DomainBrowser.RegistryReference(long(row[0]), none2str(row[1]), none2str(row[2])))
             if contact.handle == row[0]:
