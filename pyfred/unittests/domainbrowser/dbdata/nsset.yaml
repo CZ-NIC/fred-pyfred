@@ -12,7 +12,7 @@
       data: {handle: 'NSSET:FOO', type_id: 2}
       response:
       - []
-1ffc316221001efebacf960fef51a8e3:
+18b5172200b6fc1bd581d6167145f810:
   query: |-
     SELECT
                     object_registry.id,
@@ -24,6 +24,7 @@
                 LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
                 LEFT JOIN contact ON contact.id = nsset_contact_map.contactid
                 WHERE nssetid = %(obj_id)d
+                ORDER BY object_registry.name
   values:
     0a6bfe676a9069c75de42ffa085918de:
       data: {obj_id: 8}

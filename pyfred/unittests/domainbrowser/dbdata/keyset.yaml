@@ -57,7 +57,7 @@
       - - [18, KEYID01, K0000000018-CZ, '2013-06-14 13:31:54.616493', null, null,
           oDmfgnip, t#20#linked#Has relation to other records in the registry, null,
           null, null, 1, REG-FRED_A, Company A l.t.d, 1, REG-FRED_A, Company A l.t.d]
-8c8bff2486d4164f55e18884796f3534:
+abf248ca0ffcd2a8b631d7aa7af444d4:
   query: |-
     SELECT
                     object_registry.id,
@@ -69,6 +69,7 @@
                 LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
                 LEFT JOIN contact ON contact.id = keyset_contact_map.contactid
                 WHERE keysetid = %(obj_id)d
+                ORDER BY object_registry.name
   values:
     07d7b42b2e7478d75f1c1f44c6271709:
       data: {obj_id: 18}
