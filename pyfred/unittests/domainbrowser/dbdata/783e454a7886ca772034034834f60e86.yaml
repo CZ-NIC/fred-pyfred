@@ -1,8 +1,0 @@
-params: {object_id: !!python/long '32'}
-query: |-
-  SELECT object_registry.name
-              FROM keyset_contact_map
-              LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
-              WHERE keysetid = %(object_id)d
-response:
-- [KONTAKT]

@@ -1,0 +1,148 @@
+0dad6432fb8bcfa4359e5029fc440dd3:
+  query: |-
+    SELECT
+                    object_registry.id
+                FROM object_registry
+                WHERE
+                    type = %(type_id)d
+                    AND object_registry.name = %(handle)s
+                    AND object_registry.erdate IS NULL
+  values:
+    cca1b3ae763d24d8303813c05cc9ae45:
+      data: {handle: 'NSSET:FOO', type_id: 2}
+      response:
+      - []
+1ffc316221001efebacf960fef51a8e3:
+  query: |-
+    SELECT
+                    object_registry.id,
+                    object_registry.name,
+                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                        contact.organization ELSE contact.name
+                    END
+                FROM nsset_contact_map
+                LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+                LEFT JOIN contact ON contact.id = nsset_contact_map.contactid
+                WHERE nssetid = %(obj_id)d
+  values:
+    0a6bfe676a9069c75de42ffa085918de:
+      data: {obj_id: 8}
+      response:
+      - - [4, ANNA, !!python/str "Anna Proch\xE1zkov\xE1"]
+        - [6, TESTER, !!python/str "Tom\xE1\u0161 Tester"]
+69e58e3f3e4f4606c6308299baa821f6:
+  query: |-
+    SELECT
+                        object_registry.id,
+                        object_registry.name,
+                        domains.number,
+                        registrar.handle,
+                        registrar.name AS registrar_name,
+                        get_state_descriptions(nsset_contact_map.nssetid, %(lang)s) AS states
+                    FROM object_registry
+                        LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
+                        LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
+                        LEFT JOIN object ON object.id = object_registry.id
+                        LEFT JOIN registrar ON registrar.id = object.clid
+                    WHERE object_registry.type = %(objtype)d
+                        AND nsset_contact_map.contactid = %(contact_id)d
+                    LIMIT %(limit)d OFFSET %(offset)d
+  values:
+    7dd065eb10ed1969ae0a8be6dd9b0b29:
+      data: {contact_id: &id002 !!python/long '6', lang: EN, limit: 11, objtype: 2,
+        offset: 0}
+      response:
+      - - [8, NSSID01, !!python/long '31', REG-FRED_A, Company A l.t.d, t#20#linked#Has
+            relation to other records in the registry]
+        - [9, NSSID02, null, REG-FRED_A, Company A l.t.d, '']
+        - [10, NSSID03, null, REG-FRED_A, Company A l.t.d, '']
+        - [11, NSSID04, null, REG-FRED_A, Company A l.t.d, '']
+        - [12, NSSID05, null, REG-FRED_A, Company A l.t.d, '']
+        - [13, NSSID06, null, REG-FRED_A, Company A l.t.d, '']
+        - [14, NSSID07, null, REG-FRED_A, Company A l.t.d, '']
+        - [15, NSSID08, null, REG-FRED_A, Company A l.t.d, '']
+        - [16, NSSID09, null, REG-FRED_A, Company A l.t.d, '']
+        - [17, NSSID10, null, REG-FRED_A, Company A l.t.d, '']
+8c8298ccb160b85c52689aa7a64663d3:
+  query: |-
+    SELECT
+                        MIN(host.fqdn),
+                        array_accum(host_ipaddr_map.ipaddr)
+                    FROM host
+                    LEFT JOIN host_ipaddr_map ON host_ipaddr_map.hostid = host.id
+                    WHERE host.nssetid = %(nsset_id)d
+                    GROUP BY host.id
+  values:
+    8f018ab709f5cbe71e3de666619e7cbb:
+      data: {nsset_id: 8}
+      response:
+      - - [ns1.domain.cz, '{217.31.207.130,217.31.207.129}']
+        - [ns2.domain.cz, '{217.31.206.130,217.31.206.129}']
+91b9b6568cfad202f4fccae020913dbe:
+  query: |-
+    SELECT MAX(importance) * 2 FROM enum_object_states
+  values:
+    6adf97f83acf6453d4a6a4b1070f3754:
+      data: null
+      response:
+      - - [64]
+e3f3b0ee1b42c8507d86f8b6c9f2b5d6:
+  query: |-
+    SELECT
+                    oreg.id AS id,
+                    oreg.name AS handle,
+                    oreg.roid AS roid,
+
+                    oreg.crdate AS create_date,
+                    obj.trdate AS transfer_date,
+                    obj.update AS update_date,
+
+                    obj.authinfopw AS auth_info,
+                    nsset.checklevel,
+                    get_state_descriptions(oreg.id, %(lang)s) AS states,
+
+                    updator.id AS update_registrar_id,
+                    updator.handle AS update_registrar_handle,
+                    updator.name AS update_registrar_name,
+
+                    creator.id AS create_registrar_id,
+                    creator.handle AS create_registrar_handle,
+                    creator.name AS create_registrar_name,
+
+                    current.id AS registrar_id,
+                    current.handle AS registrar_handle,
+                    current.name AS registrar_name
+
+                FROM object_registry oreg
+                    LEFT JOIN object obj ON obj.id = oreg.id
+                    LEFT JOIN nsset ON nsset.id = oreg.id
+
+                    LEFT JOIN registrar creator ON creator.id = oreg.crid
+                    LEFT JOIN registrar current ON current.id = obj.clid
+                    LEFT JOIN registrar updator ON updator.id = obj.upid
+
+                WHERE oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND oreg.type = %(type_id)d
+                    AND oreg.erdate IS NULL
+  values:
+    486b75637438f0996c8729d6779e4870:
+      data: {handle: NSSID01, id: &id001 !!python/long '8', lang: EN, name: '', object_id: *id001,
+        type_id: 2}
+      response:
+      - - [8, NSSID01, N0000000008-CZ, '2013-06-14 13:31:51.700438', null, null, TrgdMfXu,
+          3, t#20#linked#Has relation to other records in the registry, null, null,
+          null, 1, REG-FRED_A, Company A l.t.d, 1, REG-FRED_A, Company A l.t.d]
+f0e311cbd7a0564f1d6e7c8f55da2eb5:
+  query: |-
+    SELECT oreg.id
+                FROM object_registry oreg
+                WHERE oreg.id = %(object_id)d
+                      AND oreg.name = %(handle)s
+                      AND type = %(type_id)d
+                      AND oreg.erdate IS NULL
+  values:
+    2a4810e7e41d8ff5c97f1c3ca4927322:
+      data: {handle: TESTER, id: *id002, name: '', object_id: *id002, type_id: 1}
+      response:
+      - - [6]

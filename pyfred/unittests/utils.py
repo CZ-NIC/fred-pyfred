@@ -2,19 +2,26 @@
 import os
 import re
 import hashlib
+import shutil
 import pgdb
 import _pg
 import yaml
+from copy import deepcopy
 # pyfred
 from pyfred.runtime_support import DB
 
 
 
-def provide_data(name, data, subfolder, track_traffic=False):
+def provide_data(name, data=None, subfolder='', track_traffic=False):
     "Load or save data and return result."
     path = os.path.join(os.path.dirname(__file__), subfolder, "%s.yaml" % name)
 
     if track_traffic:
+        # set unformat for query values
+        if isinstance(data, dict):
+            for key, vals in data.items():
+                if isinstance(vals, dict) and "query" in vals:
+                    vals["query"] = LiteralUnicode(vals["query"])
         with open(path, "w") as handle:
             yaml.dump(data, handle)
         return data
@@ -23,6 +30,20 @@ def provide_data(name, data, subfolder, track_traffic=False):
         data = yaml.load(handle)
 
     return data
+
+
+
+def backup_subfolder(subfolder):
+    "Backup data folder."
+    fldname = lambda path, pos: "%s.bak%d" % (path, pos)
+    path = os.path.join(os.path.dirname(__file__), subfolder)
+    pos = 1
+    # find free subfolder name
+    while os.path.isdir(fldname(path, pos)):
+        pos += 1
+    shutil.move(path, fldname(path, pos))
+    # create new subfolder
+    os.mkdir(path)
 
 
 
@@ -37,7 +58,7 @@ class MockPgdbCursor(pgdb.pgdbCursor):
     def execute(self, operation, params=None):
         "Prepare and execute a database operation (query or command)."
         self._cache_query = dict(query=operation, params=params)
-        if self._dbcnx.track_traffic:
+        if self._dbcnx.use_db or self._dbcnx.track_traffic:
             # do real database access only in tracking mode; otherwise read from dbdata storage
             super(MockPgdbCursor, self).execute(operation, params)
 
@@ -45,35 +66,32 @@ class MockPgdbCursor(pgdb.pgdbCursor):
         """Fetch all (remaining) rows of a query result."""
         query = self._cache_query["query"].strip()
         params = self._cache_query["params"]
-        code = hashlib.md5(u"%s; %s" % (re.sub("\s+", " ", query).lower(), params)).hexdigest()
-        if self._dbcnx.track_traffic:
+        query_code = hashlib.md5(re.sub("\s+", " ", query).lower()).hexdigest()
+        params_code = hashlib.md5(u"%s" % params).hexdigest()
+
+        if self._dbcnx.use_db or self._dbcnx.track_traffic:
             response = super(MockPgdbCursor, self).fetchall()
+            if self._dbcnx.track_traffic:
+                # create data dict
+                ##print "\ncreate data dict:", query_code, params_code #!!!
+                if query_code not in self._dbcnx.db_data:
+                    self._dbcnx.db_data[query_code] = dict(query=query, values={})
+                if params_code not in self._dbcnx.db_data[query_code]["values"]:
+                    self._dbcnx.db_data[query_code]["values"][params_code] = dict(data=params, response=[])
+                if self._dbcnx.stage_pos >= len(self._dbcnx.db_data[query_code]["values"][params_code]["response"]):
+                    self._dbcnx.db_data[query_code]["values"][params_code]["response"].append([])
 
-            # Use default stage or save new stage
-            if self._dbcnx.stage_pos:
-                # first check if default is the same like stage number
-                filename = os.path.join(self._data_path, "%s.yaml" % code)
-                if os.path.exists(filename):
-                    data = yaml.load(open(filename))
-                    refresp = data["response"]
-                    if str(refresp) == str(response):
-                        return response # response is equal with default data, not needed to create new
+                self._dbcnx.db_data[query_code]["values"][params_code]["response"][self._dbcnx.stage_pos] = deepcopy(response)
 
-            pos = ".%d" % self._dbcnx.stage_pos if self._dbcnx.stage_pos else ""
-            filename = os.path.join(self._data_path, "%s%s.yaml" % (code, pos))
-            if self._dbcnx.overwrite_existing or (not self._dbcnx.overwrite_existing and not os.path.exists(filename)):
-                data = dict(query=LiteralUnicode(query), params=params, response=response)
-                with open(filename, "w") as handle:
-                    yaml.dump(data, handle)
+                # Deliberately corrupt data for testing exceptions.
+
+                # TestDomainBrowserContact.test_045 -  detail of contact BOB
+                if query_code == "655fbd9288fd720418d26539d4a8fc25" and params_code == "26bcda2e0343f3f2d86597156d1df6d8":
+                    self._dbcnx.db_data[query_code]["values"][params_code]["response"][self._dbcnx.stage_pos] = [deepcopy(response), deepcopy(response)]
+
         else:
-            response = None
-            # read from the given data stage or default
-            for pos in (self._dbcnx.stage_pos, 0):
-                filename = os.path.join(self._data_path, "%s%s.yaml" % (code, ".%d" % pos if pos else ""))
-                if os.path.exists(filename):
-                    data = yaml.load(open(filename))
-                    response = data["response"]
-                    break
+            response = self._dbcnx.db_data[query_code]["values"][params_code]["response"][self._dbcnx.stage_pos]
+
         return response
 
 
@@ -104,24 +122,29 @@ class MockPgdbCnx(pgdb.pgdbCnx):
 
 class MockDB(DB):
     "Mock database."
-    data_folder_name = "dbdata"
     refs_folder_name = "refdata"
+    db_data = None
+    use_db = False
     track_traffic = False
     overwrite_existing = False
     stage_pos = 0
 
+
     def getConn(self):
         "Obtain connection to database."
-        if self.track_traffic:
+        if self.use_db or self.track_traffic:
+            #print "CONNECTION: %s:%s -U %s %s (pass: %s)" % (self.host, self.port, self.user, self.dbname, self.password)
             contx = connect(host=self.host + ":" + self.port,
                             database=self.dbname, user=self.user,
                             password=self.password)
         else:
             contx = connect() # do not use db connection
+
+        contx.db_data = self.db_data
+        contx.use_db = self.use_db
         contx.track_traffic = self.track_traffic
         contx.overwrite_existing = self.overwrite_existing
         contx.stage_pos = self.stage_pos
-        contx.data_folder_name = self.data_folder_name
         contx.refs_folder_name = self.refs_folder_name
         return contx
 

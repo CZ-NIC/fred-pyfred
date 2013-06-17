@@ -1,5 +1,0 @@
-params: {object_id: !!python/long '30', request_id: 1}
-query: |-
-  INSERT INTO history (request_id, valid_from) VALUES (%(request_id)d, NOW()) RETURNING id
-response:
-- [2390]

@@ -6,21 +6,36 @@ object implementations through extending modules defined in modules.conf.
 Those objects are registered in corba name service and the rest is up to
 a caller (corba client).
 """
-
-import os, sys, time, ConfigParser, os.path, signal
+import sys
+import os
+import time
+import ConfigParser
+import signal
 from omniORB import CORBA, PortableServer
 import CosNaming
-import pgdb
-import logging
-import logging.handlers
-from pyfred.runtime_support import Logger, DB, CorbaRefs, getConfiguration, CONFIGS
 
+# setup.py will add path to reflect changes in prefix
+# and/or root option during install
+PYFRED_INSTALL_PATH = None # Setup.py changes this variable according to the installation path.
+if PYFRED_INSTALL_PATH is not None and PYFRED_INSTALL_PATH not in sys.path:
+    sys.path.insert(0, PYFRED_INSTALL_PATH)
+
+# load pyfred moduels from an installation path:
+from pyfred.runtime_support import Logger, DB, CorbaRefs, getConfiguration, init_logger
 
 # These are global because they are needed in signal handler
 pidfile = None
 fredContext = None # Nameservice reference
 nsnames = [] # Registered names by nameservice
 log = None # Logger
+
+
+# Fisrt item was replaced by setup.py to the path according to installation path.
+CONFIGS = ("/usr/etc/fred/pyfred.conf",
+           "/etc/fred/pyfred.conf",
+           "/usr/local/etc/fred/pyfred.conf",
+           "pyfred.conf",
+          )
 
 
 def job_noop():
@@ -98,6 +113,7 @@ def sighandler(signum, arg):
     # exit the program
     sys.exit(0)
 
+
 #
 # main
 #
@@ -159,42 +175,7 @@ def main(argv):
     logfilename = conf.get("General", "logfilename")
 
     try:
-        # disable console log when we are going to daemonize server
-        if loghandler == "console" and detach:
-            sys.stderr.write("Warning: unable to have console logger when"
-                    " server is going to daemonize, switching to syslog."
-                    " (you can adjust this settings in configuration)\n")
-            loghandler = "syslog"
-
-        # test if syslog facility is valid
-        if loghandler == "syslog":
-            logfacility = logging.handlers.SysLogHandler.facility_names[logfacility]
-
-        # try to set proper handler and formatting style
-        handlers = {"console":
-                        {"handler": [logging.StreamHandler, {}],
-                         "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
-                    "file":
-                        {"handler": [logging.FileHandler, {"filename": logfilename }],
-                         "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
-                    "syslog":
-                        {"handler": [logging.handlers.SysLogHandler,
-                                     {"address": "/dev/log", "facility": logfacility}],
-                         "formatter": logging.Formatter("%(name)s - %(message)s")}}
-
-        log_conf = handlers[loghandler]
-        handler = log_conf["handler"][0](**log_conf["handler"][1])
-        handler.setFormatter(log_conf["formatter"])
-
-        # if file log get its file descriptor
-        if loghandler == "file":
-            logfd = handler.stream.fileno()
-        else:
-            logfd = None
-
-        logging.getLogger('').addHandler(handler)
-        logging.getLogger('').setLevel(Logger.LEVELS[loglevel])
-
+        logfd = init_logger(loghandler, loglevel, logfacility, logfilename, '', detach)
     except Exception, e:
         sys.stderr.write("Logger configuration error: handler=%s level=%s"
                          " [facility=%s filename=%s] (%s)\n" % (loghandler,
@@ -411,9 +392,6 @@ def main(argv):
     #orb.run()
 
 if __name__ == "__main__":
-    # setup.py will add path to reflect changes in prefix
-    # and/or root option during install
-    sys.path.insert(0, '')
     try:
         main(sys.argv)
     except SystemExit, e:

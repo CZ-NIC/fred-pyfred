@@ -1,0 +1,260 @@
+0943a09ef47d29a70daeab6318e8c89c:
+  query: |-
+    SELECT COUNT(*)
+                FROM object_state
+                WHERE object_state.object_id = %(object_id)d
+                    AND state_id IN %(states)s
+                    AND valid_to IS NULL
+  values:
+    0187b0493e5797cb5dfec7f2eb6d99ae:
+      data:
+        object_id: &id005 !!python/long '4'
+        states: [23, 22]
+      response:
+      - - [!!python/long '0']
+    88a4b9e3106135e9333e6d0c636ae5b8:
+      data:
+        object_id: &id003 !!python/long '6'
+        states: [23, 22]
+      response:
+      - - [!!python/long '1']
+      - - [!!python/long '1']
+0dad6432fb8bcfa4359e5029fc440dd3:
+  query: |-
+    SELECT
+                    object_registry.id
+                FROM object_registry
+                WHERE
+                    type = %(type_id)d
+                    AND object_registry.name = %(handle)s
+                    AND object_registry.erdate IS NULL
+  values:
+    7d6e100497fa476702d746ce7f80d25f:
+      data: {handle: FOO, type_id: 1}
+      response:
+      - []
+    9f82f607ccb50204e654ab011c446008:
+      data: {handle: CONTACT, type_id: 1}
+      response:
+      - - [1]
+30a70b2e43cde71fc0dea4d9d3ce0bef:
+  query: |-
+    SELECT
+                    dsc.description
+                FROM enum_object_states ost
+                LEFT JOIN enum_object_states_desc dsc ON dsc.state_id = ost.id
+                WHERE ost.external = 't'
+                    AND dsc.lang = %(lang)s
+                ORDER BY description
+  values:
+    1b9dedf86684e2bf25f000287a0ec37d:
+      data: {lang: EN}
+      response:
+      - - [Contact is conditionally identified]
+        - [Contact is identified]
+        - [Contact is validated]
+        - [Deletion unauthorised]
+        - [Domain blocked]
+        - [Domain expired]
+        - [Domain not validated]
+        - [Has relation to other records in the registry]
+        - [MojeID contact]
+        - [Registrant change unauthorised]
+        - [Registration renewal unauthorised]
+        - [Sponsoring registrar change unauthorised]
+        - [The domain is administratively kept in zone]
+        - [The domain is administratively kept out of zone]
+        - [The domain isn't generated in the zone]
+        - [To be deleted]
+        - [Update unauthorised]
+62be53b30094062de6b6de25be2f9eba:
+  query: |-
+    SELECT
+                    id, handle, name, telephone, fax, url,
+                    ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
+                FROM registrar
+                WHERE handle = %(handle)s
+  values:
+    01d598f46403bfa9bd464817f1bf5ba0:
+      data: {handle: REG-FRED_A}
+      response:
+      - - [1, REG-FRED_A, Company A l.t.d, null, null, www.nic.cz, '']
+655fbd9288fd720418d26539d4a8fc25:
+  query: |-
+    SELECT
+                    oreg.id AS id,
+                    oreg.name AS handle,
+                    oreg.roid AS roid,
+
+                    oreg.crdate AS create_date,
+                    obj.trdate AS transfer_date,
+                    obj.update AS update_date,
+
+                    obj.authinfopw AS auth_info,
+
+                    contact.name,
+                    contact.organization,
+                    contact.street1,
+                    contact.street2,
+                    contact.street3,
+                    contact.stateorprovince,
+                    contact.postalcode,
+                    contact.city,
+                    contact.country,
+                    contact.telephone,
+                    contact.fax,
+                    contact.email,
+                    contact.notifyemail,
+                    contact.ssn,
+                    ssntype.type AS ssntype,
+                    contact.vat,
+
+                    contact.disclosename,
+                    contact.discloseorganization,
+                    contact.discloseemail,
+                    contact.discloseaddress,
+                    contact.disclosetelephone,
+                    contact.disclosefax,
+                    contact.discloseident,
+                    contact.disclosevat,
+                    contact.disclosenotifyemail,
+
+                    get_state_descriptions(oreg.id, %(lang)s) AS states,
+                    current.id AS registrar_id,
+                    current.handle AS registrar_handle,
+                    current.name AS registrar_name
+
+                FROM object_registry oreg
+                    LEFT JOIN object obj ON obj.id = oreg.id
+                    LEFT JOIN registrar current ON current.id = obj.clid
+                    LEFT JOIN contact ON contact.id = oreg.id
+                    LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
+
+                WHERE
+                    oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND oreg.type = %(type_id)d
+                    AND oreg.erdate IS NULL
+  values:
+    26bcda2e0343f3f2d86597156d1df6d8:
+      data: {handle: BOB, id: &id001 !!python/long '7', lang: EN, name: '', object_id: *id001,
+        type_id: 1}
+      response:
+      - - - [7, BOB, C0000000007-CZ, '2013-06-14 13:31:51.297114', null, null, PNhmLTYQ,
+            !!python/str "Bobe\u0161 \u0160ufl\xEDk", null, !!python/str "B\xE1\u0148\
+              sk\xE1 35", null, null, null, '18200', !!python/str "Doma\u017Elice",
+            CZ, '+420.726123461', '+420.726123450', bobes.suflik@nic.czcz, bob+notify@nic.czcz,
+            '84956252', OP, CZ1234567895, true, true, true, true, true, false, false,
+            false, false, t#20#linked#Has relation to other records in the registry,
+            1, REG-FRED_A, Company A l.t.d]
+        - - [7, BOB, C0000000007-CZ, '2013-06-14 13:31:51.297114', null, null, PNhmLTYQ,
+            !!python/str "Bobe\u0161 \u0160ufl\xEDk", null, !!python/str "B\xE1\u0148\
+              sk\xE1 35", null, null, null, '18200', !!python/str "Doma\u017Elice",
+            CZ, '+420.726123461', '+420.726123450', bobes.suflik@nic.czcz, bob+notify@nic.czcz,
+            '84956252', OP, CZ1234567895, true, true, true, true, true, false, false,
+            false, false, t#20#linked#Has relation to other records in the registry,
+            1, REG-FRED_A, Company A l.t.d]
+    b88b90e129ae97a5e6c13d1123939aba:
+      data: {handle: CIHAK, id: &id002 !!python/long '2', lang: EN, name: '', object_id: *id002,
+        type_id: 1}
+      response:
+      - - [2, CIHAK, C0000000002-CZ, '2013-06-14 13:31:49.804755', null, null, ANuUSKZg,
+          !!python/str "\u0158eho\u0159 \u010Cih\xE1k", !!python/str "Firma \u010C\
+            ih\xE1k a spol.", !!python/str "P\u0159\xEDpoto\u010Dn\xED 16/3", null,
+          null, null, '12601', !!python/str "\u0158\xED\u010Dany u Prahy", CZ, '+420.726123456',
+          '+420.726123455', rehor.cihak@nic.czcz, cihak+notify@nic.czcz, '84956251',
+          OP, CZ1234567890, true, true, true, true, true, false, false, false, false,
+          '', 1, REG-FRED_A, Company A l.t.d]
+65c545556786d8a696db1f72c6ea63a8:
+  query: |-
+    SELECT historyid FROM object_registry WHERE id = %(object_id)d
+  values:
+    79306dc5c5973051cab4f3b946e8f58f:
+      data: {history_id: 60, object_id: *id003, prev_history_id: 59, request_id: 1}
+      response:
+      - - [59]
+    8a26c1f2133466c34b6dc4fa43f0dfa4:
+      data: &id004 {history_id: 59, object_id: *id003, prev_history_id: 6, request_id: 1}
+      response:
+      - - [6]
+91b9b6568cfad202f4fccae020913dbe:
+  query: |-
+    SELECT MAX(importance) * 2 FROM enum_object_states
+  values:
+    6adf97f83acf6453d4a6a4b1070f3754:
+      data: null
+      response:
+      - - [64]
+946c30c83722002cf9d3735916824e49:
+  query: |-
+    SELECT
+                    contact.discloseemail,
+                    contact.discloseaddress,
+                    contact.disclosetelephone,
+                    contact.disclosefax,
+                    contact.discloseident,
+                    contact.disclosevat,
+                    contact.disclosenotifyemail
+                FROM contact
+                WHERE id = %(contact_id)d
+  values:
+    b6149dfd560aaa1ef2eede08ef62e963:
+      data: {contact_id: *id003}
+      response:
+      - - [true, true, true, false, false, false, false]
+      - - [true, false, true, false, false, false, true]
+ae47e78f28ec1cfa61c836d618055e3a:
+  query: |-
+    SELECT
+                    object.authinfopw
+                FROM object_registry objreg
+                LEFT JOIN object ON objreg.id = object.id
+                WHERE objreg.id = %(object_id)d
+  values:
+    0e3010a672457cf9ae728e8c9fa27cfc:
+      data: {object_id: !!python/long '6'}
+      response:
+      - - [sMtuUAze]
+      - - [password]
+bd5d09a6814124b4154f61902766a0dd:
+  query: |-
+    INSERT INTO history (request_id, valid_from) VALUES (%(request_id)d, NOW()) RETURNING id
+  values:
+    347bc60cdbcd5ca2798e959f1e2fcc36:
+      data: *id004
+      response:
+      - - [60]
+d8cb94fd935c715074b47d18b9e69a36:
+  query: |-
+    SELECT
+                    object_id
+                FROM object_state
+                WHERE state_id = %(state_id)s
+                    AND object_id IN %(objects)s
+                    AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
+  values:
+    d536efc6743e01f5b654878e24c23c36:
+      data:
+        objects: [*id003]
+        state_id: 7
+      response:
+      - []
+      - []
+f0e311cbd7a0564f1d6e7c8f55da2eb5:
+  query: |-
+    SELECT oreg.id
+                FROM object_registry oreg
+                WHERE oreg.id = %(object_id)d
+                      AND oreg.name = %(handle)s
+                      AND type = %(type_id)d
+                      AND oreg.erdate IS NULL
+  values:
+    2a4810e7e41d8ff5c97f1c3ca4927322:
+      data: {handle: TESTER, id: *id003, name: '', object_id: *id003, type_id: 1}
+      response:
+      - - [6]
+      - - [6]
+    ae20f8a56f252cb6bbb4b866b7fe4eb1:
+      data: {handle: ANNA, id: *id005, name: '', object_id: *id005, type_id: 1}
+      response:
+      - - [4]

@@ -1,21 +1,35 @@
 #!/usr/bin/env python
-
+"""
+Test:
+ * Contact that has not state identifiedContact or validatedContact
+ * Contact that is not owned by REG-MOJEID
+ * Contact with corrupted handle (returns more than one record)
+"""
 # Usage:
 # pyfred/unittests$
-#   python -m unittest --verbose test_domainbrowser_contact
+#   python -m domainbrowser.run --verbose domainbrowser.contact
 # pyfred$
-#   python -m unittest --verbose unittests.test_domainbrowser_contact
+#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.contact
 # only defined test(s):
-#   python -m unittest --verbose unittests.test_domainbrowser_contact.TestDomainBrowserContact.test_010
-import unittest
+#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.contact.TestDomainBrowserContact.test_010
+import os
+try:
+    from unittest.util import safe_repr
+    import unittest
+except ImportError:
+    # backward compatibility with python version < 2.7
+    from unittest2.util import safe_repr
+    import unittest2 as unittest
+
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.unittests.domainbrowser.base import DomainBrowserTestCase
 
 
 
-class TestDomainBrowserContact(DomainBrowserTestCase):
+class Test(DomainBrowserTestCase):
     "Test DomainBrowser contacts"
+    TEST_FILE_NAME = "contact"
 
     def test_010(self):
         "Test getObjectRegistryId with invalid registry object type - INCORRECT_USAGE."
@@ -26,37 +40,49 @@ class TestDomainBrowserContact(DomainBrowserTestCase):
         self.assertRaises(Registry.DomainBrowser.OBJECT_NOT_EXISTS, self.interface.getObjectRegistryId, "contact", "foo")
 
     def test_030(self):
-        "Test getObjectRegistryId with contact KONTAKT returns ID 30."
-        response = self.interface.getObjectRegistryId("contact", "KONTAKT")
-        self.assertEqual(response, 30)
+        "Test getObjectRegistryId with contact CONTACT returns ID 1."
+        response = self.interface.getObjectRegistryId("contact", "CONTACT")
+        self.assertEqual(response, 1)
 
     def test_040(self):
-        "Test getContactDetail KONTAKT; language 'en'."
+        "Test getContactDetail CIHAK; language 'en'."
         self.maxDiff = None
-        detail, owner = self.interface.getContactDetail(self.user_contact, self._regref(30L, "kontakt"), "en")
-        data = self.provide_data("contact_detail_kontakt_en", dict(detail=detail, owner=owner))
+        detail, owner = self.interface.getContactDetail(self.user_contact, self._regref(2L, "cihak"), "en")
+        data = self.provide_data("contact_detail_cihak_en", dict(detail=detail, owner=owner))
         self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
         self.assertEqual(owner, data["owner"])
         self.assertIsInstance(detail, Registry.DomainBrowser.ContactDetail)
         self.addTypeEqualityFunc(type(detail), self.compareContactDetail)
         self.assertEqual(detail, data["detail"])
 
+    @unittest.skipUnless(os.environ.has_key("NODB") or os.environ.has_key("TRACK"), "For artificial data only.")
     def test_045(self):
         "Test getContactDetail when some relation in database is corrupted (returns more than one record)."
-        self.assertRaises(Registry.DomainBrowser.INTERNAL_SERVER_ERROR, self.interface.getContactDetail,
-                          self.user_contact, self._regref(141L, "BOB"), "en")
+        if os.environ.has_key("TRACK"):
+            # only for saving data
+            detail, owner = self.interface.getContactDetail(self.user_contact, self._regref(7L, "BOB"), "en")
+        else:
+            self.assertRaises(Registry.DomainBrowser.INTERNAL_SERVER_ERROR, self.interface.getContactDetail,
+                          self.user_contact, self._regref(7L, "BOB"), "en")
 
     def test_050(self):
         "Test getRegistrarDetail REG-FRED_A"
         self.maxDiff = None
-        detail = self.interface.getRegistrarDetail(self._regref(30L, "KONTAKT"), "REG-FRED_A")
+        detail = self.interface.getRegistrarDetail(self.user_contact, "REG-FRED_A")
         refdetail = self.provide_data("registrar_detail_regfreda", detail)
         self.assertIsInstance(detail, Registry.DomainBrowser.RegistrarDetail)
         self.assertIsInstance(refdetail, Registry.DomainBrowser.RegistrarDetail)
         self.assertDictEqual(detail.__dict__, refdetail.__dict__)
 
     def test_060(self):
-        "Test setContactDiscloseFlags for KONTAKT with disclose notify_email."
+        "Test setContactDiscloseFlags for TESTER with disclose email, telephone, notify_email."
+        #Disclose:                 voice
+        #                          email
+        #                          addr
+        #Hide:                     vat
+        #                          ident
+        #                          fax
+        #                          notify_email
         flags = Registry.DomainBrowser.UpdateContactDiscloseFlags(
                     email=True,
                     address=False,
@@ -64,13 +90,14 @@ class TestDomainBrowserContact(DomainBrowserTestCase):
                     fax=False,
                     ident=False,
                     vat=False,
-                    notify_email=False
+                    notify_email=True
                    )
-        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, self.request_id)
+        response = self.interface.setContactDiscloseFlags(self.user_contact, flags, self.request_id)
         self.assertTrue(response)
 
+
     def test_070(self):
-        "Test setContactDiscloseFlags for KONTAKT with disclose notify_email but no change."
+        "Do setContactDiscloseFlags for TESTER again with no change."
         self.db.stage_pos = 1 # The db state is after UPDATE contact.disclose_flag.notify_email
         flags = Registry.DomainBrowser.UpdateContactDiscloseFlags(
                     email=True,
@@ -79,13 +106,27 @@ class TestDomainBrowserContact(DomainBrowserTestCase):
                     fax=False,
                     ident=False,
                     vat=False,
-                    notify_email=False
+                    notify_email=True
                    )
-        response = self.interface.setContactDiscloseFlags(self._regref(30L, "kontakt"), flags, self.request_id)
+        response = self.interface.setContactDiscloseFlags(self.user_contact, flags, self.request_id)
         self.assertFalse(response)
 
+    def test_075(self):
+        "Set setContactDiscloseFlags for ANNA fails with ACCESS_DENIED."
+        flags = Registry.DomainBrowser.UpdateContactDiscloseFlags(
+                    email=True,
+                    address=False,
+                    telephone=True,
+                    fax=False,
+                    ident=False,
+                    vat=False,
+                    notify_email=True
+                   )
+        self.assertRaises(Registry.DomainBrowser.ACCESS_DENIED, self.interface.setContactDiscloseFlags,
+                          self._regref(4L, "ANNA"), flags, self.request_id)
+
     def test_080(self):
-        "Test setContactDiscloseFlags try to set readlony flags (name, organization)."
+        "setContactDiscloseFlags try to set readlony flags (name, organization)."
         flags = Registry.DomainBrowser.ContactDiscloseFlags(
                     name=True, # this is not a parameter of UpdateContactDiscloseFlags
                     organization=True, # this is not a parameter of UpdateContactDiscloseFlags
@@ -98,35 +139,35 @@ class TestDomainBrowserContact(DomainBrowserTestCase):
                     notify_email=False
                    )
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setContactDiscloseFlags,
-                          self._regref(30L, "kontakt"), flags, self.request_id)
+                          self.user_contact, flags, self.request_id)
 
     def test_090(self):
-        "Test setAuthInfo to KONTAKT."
+        "Test setAuthInfo to TESTER."
         response = self.interface.setAuthInfo(self.user_contact, "contact",
-                                              self._regref(30L, "KONTAKT"), "password", self.request_id)
+                                              self._regref(6L, "TESTER"), "password", self.request_id)
         self.assertTrue(response)
 
     def test_100(self):
-        "Test setAuthInfo to KONTAKT but it is already set."
+        "Test setAuthInfo to TESTER but it is already set."
         self.db.stage_pos = 1
         response = self.interface.setAuthInfo(self.user_contact, "contact",
-                                              self._regref(30L, "KONTAKT"), "password", self.request_id)
+                                              self._regref(6L, "TESTER"), "password", self.request_id)
         self.assertFalse(response)
 
     def test_110(self):
         "Test setAuthInfo but for unsupported type - domain."
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
-                          self.user_contact, "domain", self._regref(33L, "fred.cz"), "password", self.request_id)
+                          self.user_contact, "domain", self._regref(28L, "nic01.cz"), "password", self.request_id)
 
     def test_120(self):
         "Test setAuthInfo but for unsupported type - nsset."
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
-                          self.user_contact, "nsset", self._regref(31L, "NSSET:102"), "password", self.request_id)
+                          self.user_contact, "nsset", self._regref(8L, "NSSID01"), "password", self.request_id)
 
     def test_130(self):
         "Test setAuthInfo but for unsupported type - keyset."
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
-                          self.user_contact, "keyset", self._regref(32L, "KEYSID:102"), "password", self.request_id)
+                          self.user_contact, "keyset", self._regref(18L, "KEYID01"), "password", self.request_id)
 
     def test_140(self):
         "Test getPublicStatusDesc; language 'en'."

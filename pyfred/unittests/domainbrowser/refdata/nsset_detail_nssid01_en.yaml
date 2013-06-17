@@ -1,0 +1,29 @@
+detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.NSSetDetail
+  admins:
+  - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {handle: ANNA,
+    id: !!python/long '4', name: !!python/str "Anna Proch\xE1zkov\xE1"}
+  - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {handle: TESTER,
+    id: !!python/long '6', name: !!python/str "Tom\xE1\u0161 Tester"}
+  auth_info: '********'
+  create_date: '2013-06-14 13:31:51.700438'
+  create_registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: REG-FRED_A, id: 1, name: Company A l.t.d}
+  handle: NSSID01
+  hosts:
+  - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DNSHost {fqdn: ns1.domain.cz,
+    inet: '217.31.207.130, 217.31.207.129'}
+  - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DNSHost {fqdn: ns2.domain.cz,
+    inet: '217.31.206.130, 217.31.206.129'}
+  id: 8
+  registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: REG-FRED_A, id: 1, name: Company A l.t.d}
+  report_level: 3
+  roid: N0000000008-CZ
+  state_codes: linked
+  states: Has relation to other records in the registry
+  transfer_date: ''
+  update_date: ''
+  update_registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: '', id: 0, name: ''}
+owner: !!python/object:omniORB.EnumItem {_n: PUBLIC_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',
+  _v: 0}

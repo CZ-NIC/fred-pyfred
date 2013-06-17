@@ -1,24 +1,44 @@
 #!/usr/bin/env python
 import os
 import logging
-import unittest
-from unittest.util import safe_repr
+try:
+    from unittest.util import safe_repr
+    import unittest
+except ImportError:
+    # backward compatibility with python version < 2.7
+    from unittest2.util import safe_repr
+    import unittest2 as unittest
+
 # pyfred
-from pyfred.runtime_support import Logger, CorbaRefs, getConfiguration, CONFIGS
+from pyfred.runtime_support import Logger, CorbaRefs, getConfiguration, init_logger
 from pyfred.modules.domainbrowser import DomainBrowserServerInterface
-from pyfred.unittests.utils import MockDB
+from pyfred.unittests.utils import MockDB, provide_data, backup_subfolder
 from pyfred.idlstubs import Registry
 from pyfred.unittests.utils import provide_data
+from pyfred.unittests import pgman
 
+
+# Fisrt item was replaced by setup.py to the path according to installation path.
+CONFIGS = ("/usr/etc/fred/pyfred.conf",
+           "/etc/fred/pyfred.conf",
+           "/usr/local/etc/fred/pyfred.conf",
+           "pyfred.conf",
+          )
 
 
 class DomainBrowserTestCase(unittest.TestCase):
 
-    LIST_LIMIT = 50 # reduce default limit of lists to increase the speed of tests
+    LIST_LIMIT = 10 # reduce default limit of lists to increase the speed of tests
 
     BLOCK_TRANSFER, UNBLOCK_TRANSFER, \
     BLOCK_UPDATE, UNBLOCK_UPDATE, \
     BLOCK_TRANSFER_AND_UPDATE, UNBLOCK_TRANSFER_AND_UPDATE = range(6)
+
+    DBDATA_SUBFOLDER = "domainbrowser/dbdata"
+    REFDATA_SUBFOLDER = "domainbrowser/refdata"
+
+    # this name is overwritten by child class
+    TEST_FILE_NAME = "base"
 
     @classmethod
     def setUpClass(cls):
@@ -27,27 +47,58 @@ class DomainBrowserTestCase(unittest.TestCase):
         logging.getLogger('').addHandler(handler)
 
         conf = getConfiguration(CONFIGS)
-        log = Logger("pyfred")
+
+        # logger configuration
+        logger_name = "pyfut"
+        #loghandler = "file" # conf.get("General", "loghandler").lower()
+        #loglevel = "debug" # conf.get("General", "loglevel").lower()
+        #logfacility = conf.get("General", "logfacility").lower()
+        #logfilename = "/tmp/fred-pyfred.log" # conf.get("General", "logfilename")
+        #init_logger(loghandler, loglevel, logfacility, logfilename, logger_name)
+        log = Logger(logger_name)
+
+        # test database configuration
+        pgconf = pgman.get_config()
         cls.db = MockDB(
-            conf.get("General", "dbhost"),
-            conf.get("General", "dbport"),
-            conf.get("General", "dbname"),
-            conf.get("General", "dbuser"),
-            conf.get("General", "dbpassword")
+            pgconf.db_host,
+            str(pgconf.pg_port),
+            pgconf.db_name,
+            pgconf.db_user,
+            pgconf.db_password,
         )
-        cls.db.data_folder_name = "domainbrowser/dbdata"
-        cls.db.refs_folder_name = "domainbrowser/refdata"
+        ##cls.db.data_folder_name = "domainbrowser/dbdata"
+        cls.db.refs_folder_name = cls.REFDATA_SUBFOLDER
 
         # True - store SQL query and response info files.
         if os.environ.get("TRACK"):
             cls.db.track_traffic = True
+            #backup_subfolder(cls.DBDATA_SUBFOLDER)
+            #backup_subfolder(cls.REFDATA_SUBFOLDER)
+
         # True - overwrite existing files with query and response.
-        if os.environ.get("TRACKW"):
-            cls.db.overwrite_existing = True
+        ##if os.environ.get("TRACKW"):
+        cls.db.overwrite_existing = True
+
+        #if os.environ.get("USEDB"):
+        cls.db.use_db = not os.environ.get("NODB")
+
+        if not cls.db.use_db or cls.db.track_traffic:
+            try:
+                cls.db.db_data = provide_data(cls.TEST_FILE_NAME, subfolder=cls.DBDATA_SUBFOLDER)
+            except IOError:
+                cls.db.db_data = dict()
+            if cls.db.db_data is None:
+                cls.db.db_data = dict()
 
         corba_refs = CorbaRefs()
         joblist = []
         cls.interface = DomainBrowserServerInterface(log, cls.db, conf, joblist, corba_refs)
+
+    @classmethod
+    def tearDownClass(cls):
+        "Run once per test."
+        if cls.db.track_traffic:
+            provide_data(cls.TEST_FILE_NAME, cls.db.db_data, cls.DBDATA_SUBFOLDER, track_traffic=True)
 
 
     @classmethod
@@ -60,7 +111,7 @@ class DomainBrowserTestCase(unittest.TestCase):
         "set default db stage."
         self.db.stage_pos = 0
         self.request_id = 1
-        self.user_contact = self._regref(30L, "KONTAKT")
+        self.user_contact = self._regref(6L, "TESTER")
 
 
     def provide_data(self, name, data):

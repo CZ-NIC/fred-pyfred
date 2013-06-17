@@ -194,17 +194,12 @@ class Install(install):
         path for modules).
         """
         content = open(filename).read()
-        content = content.replace('sys.path.insert(0, \'\')',
-                                  'sys.path.insert(0, \'%s\')' % self.expand_filename('$purelib'))
-        self.announce("File '%s' was updated" % filename)
-
-    def update_pyfred_config_paths(self, filename):
-        """
-        Update paths in fred-pyfred file (path to config file).
-        """
-        content = open(filename).read()
-        pattern = re.compile(r'CONFIGS = .*$', re.MULTILINE)
-        content = pattern.sub('CONFIGS = ("%s",' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF), content)
+        content = re.compile('^PYFRED_INSTALL_PATH\s*=.*', re.MULTILINE).sub(
+                         'PYFRED_INSTALL_PATH = "%s" # replaced by setup.py' % self.expand_filename('$purelib'),
+                         content, 1)
+        content = re.compile('^CONFIGS\s*=\s*\(.*', re.MULTILINE).sub(
+                         'CONFIGS = ("%s", # replaced by setup.py' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF),
+                         content, 1)
         open(filename, 'w').write(content)
         self.announce("File '%s' was updated" % filename)
 
@@ -236,6 +231,33 @@ class Install(install):
                                   '\'%s\'' % self.expand_filename('$sysconf/fred/pyfred.conf'))
         content = content.replace('\'/etc/fred/genzone.conf\'',
                                   '\'%s\'' % self.expand_filename('$sysconf/fred/genzone.conf'))
+        open(filename, 'w').write(content)
+        self.announce("File '%s' was updated" % filename)
+
+    def update_test_domainbrowser(self, filename):
+        content = open(filename).read()
+        #FREDDB_PORT=26300 - set to port number
+        #FREDDB_HOST - set to: FREDDB_HOST=/var/opt/fred/root/nofred/pg_sockets
+        #FREDDB - set to: FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred"
+        #FRED_CLIENT - set to: FRED_CLIENT="fred-client -f /var/opt/fred/root/etc/fred/fred-client.conf"
+        #FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred"
+        #FRED_CLIENT="fred-client -f /var/opt/fred/root/etc/fred/fred-client.conf"
+        bin_path = self.expand_filename('$scripts')
+        conf_path = self.expand_filename('$sysconf/fred/fred-client.conf')
+        content = re.compile("^#FRED_CLIENT=.*", re.MULTILINE).sub("FRED_CLIENT='%s/fred-client -f %s' # set by setup.py" % (bin_path, conf_path), content, 1)
+        content = re.compile("^#FREDDB_PORT=.*", re.MULTILINE).sub("FREDDB_PORT=%s # set by setup.py" % self.dbport, content, 1)
+        content = re.compile("^#FREDDB_HOST=.*", re.MULTILINE).sub("FREDDB_HOST=%s # set by setup.py" % self.dbhost, content, 1)
+        content = re.compile("^#FREDDB=.*", re.MULTILINE).sub('FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U %s %s" # set by setup.py' % (
+                            self.dbuser, self.dbname), content, 1)
+        open(filename, 'w').write(content)
+        self.announce("File '%s' was updated" % filename)
+
+    def update_test_domainbrowser_base(self, filename):
+        content = open(filename).read()
+        # CONFIGS = ("/usr/etc/fred/pyfred.conf",
+        content = re.compile('^CONFIGS\s*=\s*\(.*', re.MULTILINE).sub(
+                         'CONFIGS = ("%s", # replaced by setup.py' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF),
+                         content, 1)
         open(filename, 'w').write(content)
         self.announce("File '%s' was updated" % filename)
 
@@ -308,8 +330,8 @@ def main():
                         "pyfred.registry.utils"
                 ),
           package_data={
-              'pyfred.unittests': ['create_environment.sh', 'README', 'zone-file-check'],
-              'pyfred.unittests.domainbrowser': ['dbdata/*', 'refdata/*'],
+              'pyfred.unittests': ['create_environment.sh', 'run_test_domainbrowser', 'README', 'zone-file-check', 'dbdata/*'],
+              'pyfred.unittests.domainbrowser': ['create-db-objects.sh', 'dbdata/*', 'refdata/*'],
           },
           scripts=("scripts/fred-pyfred",
                    "scripts/pyfredctl",
@@ -343,9 +365,10 @@ def main():
                         '$scripts/techcheck_admin_client': 'update_script',
                         '$scripts/fred-pyfred': 'update_pyfred_server',
                         '$scripts/pyfredctl': 'update_pyfredctl',
-                        '$purelib/pyfred/runtime_support.py': 'update_pyfred_config_paths',
                         '$purelib/pyfred/unittests/test_filemanager.py': 'update_test_filemanager',
                         '$purelib/pyfred/unittests/test_genzone.py': 'update_test_genzone',
+                        '$purelib/pyfred/unittests/domainbrowser/base.py': 'update_test_domainbrowser_base',
+                        '$purelib/pyfred/unittests/domainbrowser/create-db-objects.sh': 'update_test_domainbrowser',
                         '$sysconf/fred/pyfred.conf': 'update_server_config',
                         '$sysconf/fred/genzone.conf': 'update_genzone_config',
                         })

@@ -1,9 +1,0 @@
-params: {object_id: !!python/long '30'}
-query: |-
-  SELECT
-                  object.authinfopw
-              FROM object_registry objreg
-              LEFT JOIN object ON objreg.id = object.id
-              WHERE objreg.id = %(object_id)d
-response:
-- [hesloheslo]

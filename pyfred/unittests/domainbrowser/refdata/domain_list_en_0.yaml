@@ -1,103 +1,22 @@
 exceeded: true
 table:
-- ['1302', 1.1.2.8.4.5.2.2.2.0.2.4.e164.arpa, '38', N/A, '', t, holder, REG-FRED_A,
-  Company A l.t.d, Expired|Domain is not generated into zone|Domain blocked|To be
-    deleted]
-- ['1202', 1.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '6', N/A, '', t, holder, REG-FRED_A,
-  Company A l.t.d, Expired|Domain is not generated into zone|To be deleted]
-- ['1204', 3.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '6', N/A, '', t, holder, REG-FRED_A,
-  Company A l.t.d, Expired|Domain is not generated into zone|To be deleted]
-- ['183', domenove-jmeno-02.cz, '6', N/A, '', t, admin, REG-FRED_A, Company A l.t.d,
-  Expired|Domain is not generated into zone|To be deleted]
-- ['135', zkouska.cz, '38', N/A, '', f, holder, REG-FRED_A, Company A l.t.d, Expired|Domain
-    is not generated into zone|Domain blocked]
-- ['72', domena-kontaktu.cz, '38', expired, '2013-11-16', f, holder, REG-FRED_A, Company
-    A l.t.d, Domain is not generated into zone|Domain blocked]
-- ['1246', 5.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1247', 6.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1248', 7.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1229', 8.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1239', 8.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1238', 7.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1242', 1.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1245', 4.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1222', 1.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1230', 9.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1214', 3.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1210', 9.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1218', 7.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1221', 0.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1225', 4.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1228', 7.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1233', 2.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1235', 4.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1236', 5.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1237', 6.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1240', 9.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1241', 0.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1243', 2.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1244', 3.5.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1215', 4.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1205', 4.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1206', 5.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1203', 2.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1208', 7.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1209', 8.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1212', 1.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1213', 2.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1207', 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1217', 6.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1219', 8.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1220', 9.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1223', 2.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1224', 3.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1226', 5.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1227', 6.3.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1216', 5.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1232', 1.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1234', 3.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
-- ['1231', 0.4.1.8.4.5.2.2.2.0.2.4.e164.arpa, '30', expired, '2014-01-22', t, holder,
-  REG-FRED_A, Company A l.t.d, Update prohibited|Sponsoring registrar change prohibited]
+- ['53', 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['56', 9.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['50', 3.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['52', 5.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['54', 7.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['55', 8.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['48', 1.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['49', 2.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['51', 4.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']
+- ['58', 1.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, '64', expired, '2014-06-14', t, holder,
+  REG-FRED_A, Company A l.t.d, '']

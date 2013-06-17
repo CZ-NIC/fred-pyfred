@@ -2,24 +2,31 @@
 
 # Usage:
 # pyfred/unittests$
-#   python -m unittest --verbose test_domainbrowser_nsset
+#   python -m domainbrowser.run --verbose domainbrowser.nsset
 # pyfred$
-#   python -m unittest --verbose unittests.test_domainbrowser_nsset
+#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.nsset
 # only defined test(s):
-#   python -m unittest --verbose unittests.test_domainbrowser_nsset.TestDomainBrowserNsset.test_010
-import unittest
+#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.nsset.TestDomainBrowserNsset.test_010
+try:
+    from unittest.util import safe_repr
+    import unittest
+except ImportError:
+    # backward compatibility with python version < 2.7
+    from unittest2.util import safe_repr
+    import unittest2 as unittest
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.unittests.domainbrowser.base import DomainBrowserTestCase
 
 
 
-class TestDomainBrowserNsset(DomainBrowserTestCase):
+class Test(DomainBrowserTestCase):
     "Test DomainBrowser NSSET"
+    TEST_FILE_NAME = "nsset"
 
     def test_010(self):
         "Test getObjectRegistryId for INCORRECT_USAGE."
-        self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.getObjectRegistryId, "foo", "NSSET:102")
+        self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.getObjectRegistryId, "foo", "NSSID01")
 
     def test_020(self):
         "Test getObjectRegistryId nsset NSSET:FOO does not exist and raise OBJECT_NOT_EXISTS."
@@ -34,10 +41,10 @@ class TestDomainBrowserNsset(DomainBrowserTestCase):
         self.assertListEqual(table, data["table"])
 
     def test_040(self):
-        "Test getNssetDetail NSSET:102; language 'en'."
+        "Test getNssetDetail NSSID01; language 'en'."
         self.maxDiff = None
-        detail, owner = self.interface.getNssetDetail(self.user_contact, self._regref(31L, "nsset:102"), "en")
-        data = self.provide_data("nsset_detail_nsset102_en", dict(detail=detail, owner=owner))
+        detail, owner = self.interface.getNssetDetail(self.user_contact, self._regref(8L, "NSSID01"), "en")
+        data = self.provide_data("nsset_detail_nssid01_en", dict(detail=detail, owner=owner))
         self.addTypeEqualityFunc(type(owner), self.compareEnumItem)
         self.assertEqual(owner, data["owner"])
         self.assertIsInstance(detail, Registry.DomainBrowser.NSSetDetail)
@@ -47,7 +54,7 @@ class TestDomainBrowserNsset(DomainBrowserTestCase):
     def test_050(self):
         "Test setAuthInfo but for unsupported type - nsset."
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
-                          self.user_contact, "nsset", self._regref(31L, "NSSET:102"), "password", self.request_id)
+                          self.user_contact, "nsset", self._regref(8L, "NSSID01"), "password", self.request_id)
 
 
 

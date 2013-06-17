@@ -4,8 +4,10 @@ Classes required by runtime sctript or tests.
 
 # Example of usage:
 
-from pyfred.runtime_support import Logger, DB, CorbaRefs, getConfiguration, CONFIGS
+from pyfred.runtime_support import Logger, DB, CorbaRefs, getConfiguration
 from pyfred.modules.domainbrowser import DomainBrowserServerInterface
+
+CONFIGS = (...) # set path by setup.py
 
 conf = getConfiguration(CONFIGS)
 log = Logger("domainbrowser")
@@ -25,15 +27,10 @@ response = inst.getObjectRegistryId("domain", "fred.cz")
 """
 import sys
 import logging
+import logging.handlers
 import pgdb
 import ConfigParser
 
-
-CONFIGS = ("/usr/etc/fred/pyfred.conf",
-           "/etc/fred/pyfred.conf",
-           "/usr/local/etc/fred/pyfred.conf",
-           "pyfred.conf",
-          )
 
 
 class Logger(object):
@@ -162,3 +159,43 @@ def getConfiguration(configs):
     if not confparser.has_section("General"):
         confparser.add_section("General")
     return confparser
+
+
+def init_logger(loghandler, loglevel, logfacility, logfilename, logger_name='', detach=False):
+    "Init Logger."
+    # disable console log when we are going to daemonize server
+    if loghandler == "console" and detach:
+        sys.stderr.write("Warning: unable to have console logger when"
+                " server is going to daemonize, switching to syslog."
+                " (you can adjust this settings in configuration)\n")
+        loghandler = "syslog"
+
+    # test if syslog facility is valid
+    if loghandler == "syslog":
+        logfacility = logging.handlers.SysLogHandler.facility_names[logfacility]
+
+    # try to set proper handler and formatting style
+    handlers = {"console":
+                    {"handler": [logging.StreamHandler, {}],
+                     "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
+                "file":
+                    {"handler": [logging.FileHandler, {"filename": logfilename }],
+                     "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
+                "syslog":
+                    {"handler": [logging.handlers.SysLogHandler,
+                                 {"address": "/dev/log", "facility": logfacility}],
+                     "formatter": logging.Formatter("%(name)s - %(message)s")}}
+
+    log_conf = handlers[loghandler]
+    handler = log_conf["handler"][0](**log_conf["handler"][1])
+    handler.setFormatter(log_conf["formatter"])
+
+    # if file log get its file descriptor
+    if loghandler == "file":
+        logfd = handler.stream.fileno()
+    else:
+        logfd = None
+
+    logging.getLogger(logger_name).addHandler(handler)
+    logging.getLogger(logger_name).setLevel(Logger.LEVELS[loglevel])
+    return logfd
