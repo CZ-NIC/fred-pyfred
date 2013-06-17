@@ -61,6 +61,8 @@ class Logger(object):
     INFO = LEVELS["info"]
     DEBUG = LEVELS["debug"]
 
+    thread_ident = None
+
     def __init__(self, prefix):
         """
         Initialize the prefix which will be used for every message logged
@@ -72,6 +74,8 @@ class Logger(object):
         """
         Wrapper around logging.Logger.log method.
         """
+        if self.thread_ident is not None:
+            msg = "%s %s" % (self.thread_ident, msg)
         self._log.log(level, msg)
 
 

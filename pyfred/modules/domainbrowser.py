@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import random
 import ConfigParser
 # pyfred
 from pyfred.idlstubs import Registry, Registry__POA
@@ -302,5 +303,6 @@ def init(logger, db, conf, joblist, corba_refs):
     """
     Function which creates, initializes and returns servant DomainBrowser.
     """
+    random.seed() # init random for thread identifier when threading.current_thread().ident is None
     servant = DomainBrowserServerInterface(logger, db, conf, joblist, corba_refs)
     return servant, "DomainBrowser"

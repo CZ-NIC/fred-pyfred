@@ -55,7 +55,7 @@ class ContactInterface(BaseInterface):
         self._verify_user_contact(contact)
 
         detail.lang = lang
-        results = self.source.fetchall("""
+        results = self.browser.threading_local.source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.name AS handle,
@@ -174,7 +174,7 @@ class ContactInterface(BaseInterface):
                 raise Registry.DomainBrowser.INCORRECT_USAGE
 
         # cannot change flags: contact.disclosename, contact.discloseorganization,
-        results = self.source.fetchall("""
+        results = self.browser.threading_local.source.fetchall("""
             SELECT
                 contact.discloseemail,
                 contact.discloseaddress,
@@ -203,7 +203,7 @@ class ContactInterface(BaseInterface):
             return False
 
         # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
-        with TransactionLevelRead(self.source, self.logger) as transaction:
+        with TransactionLevelRead(self.browser.threading_local.source, self.logger) as transaction:
             self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
                     contact.id, contact.handle,
                     ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
@@ -214,7 +214,7 @@ class ContactInterface(BaseInterface):
             # "name" and "organization" cannot change:
             # disclosename = %(name)s,
             # discloseorganization = %(organization)s,
-            self.source.execute("""
+            self.browser.threading_local.source.execute("""
                 UPDATE contact SET
                     discloseemail = %(email)s,
                     discloseaddress = %(address)s,

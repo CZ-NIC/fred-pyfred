@@ -26,7 +26,7 @@ class BaseInterface(object):
         self.database = database
         self.logger = logger
         self.list_limit = list_limit
-        self.source = None
+        self.threading_local = None # locals unique in the thread (thread.ident, database cursor)
         self.enum_object_states = None # cache
         self.ignore_server_blocked = False
         self.minimal_importance = None # minimal state.importance
@@ -39,7 +39,7 @@ class BaseInterface(object):
     def owner_has_required_status(self, contact_id, names):
         "Check if contact has a required status."
         states = [ENUM_OBJECT_STATES[key] for key in names]
-        results = self.source.fetchall("""
+        results = self.browser.threading_local.source.fetchall("""
             SELECT COUNT(*)
             FROM object_state
             WHERE object_state.object_id = %(object_id)d
@@ -73,7 +73,7 @@ class BaseInterface(object):
         # OBJECT_BLOCKED:
         self.check_if_object_is_blocked(objref.id)
 
-        authinfopw = self.source.getval("""
+        authinfopw = self.browser.threading_local.source.getval("""
             SELECT
                 object.authinfopw
             FROM object_registry objreg
@@ -86,8 +86,8 @@ class BaseInterface(object):
             return False
 
         self.logger.log(self.logger.INFO, 'Change %s auth info.' % objref)
-        with TransactionLevelRead(self.source, self.logger) as transaction:
-            self.source.execute("""
+        with TransactionLevelRead(self.browser.threading_local.source, self.logger) as transaction:
+            self.browser.threading_local.source.execute("""
                 UPDATE object SET authinfopw = %(auth_info)s
                 WHERE id = %(object_id)d""", dict(auth_info=auth_info, object_id=objref.id))
             self._update_history(contact.id, objref.handle, objtype, request_id)
@@ -96,7 +96,7 @@ class BaseInterface(object):
 
     def _objects_with_state(self, object_ids, state_name):
         "Return objects only with given states."
-        return self.source.fetch_array("""
+        return self.browser.threading_local.source.fetch_array("""
             SELECT
                 object_id
             FROM object_state
@@ -134,7 +134,7 @@ class BaseInterface(object):
 
         # find all object belongs to contact
         object_ids = [] # object_ids: (11256, 4566, ...)
-        for registry_id, handle in self.source.fetchall(query_object_registry,
+        for registry_id, handle in self.browser.threading_local.source.fetchall(query_object_registry,
                     dict(objtype=OBJECT_REGISTRY_TYPES[objtype], contact_id=contact.id, selections=selections)):
             # response: [[11256, "domain.cz"], [4566, "fred.cz"], ...]
             if object_dict.get(registry_id) != handle:
@@ -216,16 +216,16 @@ class BaseInterface(object):
         params = dict(state_id=state_id, object_id=object_id)
         attrs = dict(state_id=ENUM_OBJECT_STATES["serverBlocked"], object_id=object_id)
 
-        with TransactionLevelRead(self.source, self.logger) as transaction:
-            self.source.execute("INSERT INTO object_state_request_lock (state_id, object_id) VALUES %s" %
+        with TransactionLevelRead(self.browser.threading_local.source, self.logger) as transaction:
+            self.browser.threading_local.source.execute("INSERT INTO object_state_request_lock (state_id, object_id) VALUES %s" %
                                 ", ".join(("(%(state_id)d, %(object_id)d)" % attrs,
                                            "(%(state_id)d, %(object_id)d)" % params)))
 
         # run the change of object in the transaction
-        with TransactionLevelRead(self.source, self.logger) as transaction:
+        with TransactionLevelRead(self.browser.threading_local.source, self.logger) as transaction:
 
             # lock add/remove state 'serverBlocked' for object state_id
-            self.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", attrs)
+            self.browser.threading_local.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", attrs)
             object_with_server_blocked = self._objects_with_state([object_id], "serverBlocked")
             if len(object_with_server_blocked):
                 self.logger.log(self.logger.INFO, "Change state ID %(state_id)d canceled. Object ID %(object_id)d has state 'serverBlocked'." % params)
@@ -233,11 +233,11 @@ class BaseInterface(object):
                     return False # object is blocked
 
             # activate lock for the object and state
-            self.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", params)
+            self.browser.threading_local.source.execute("SELECT lock_object_state_request_lock(%(state_id)d, %(object_id)d)", params)
             # insert request for change object state
-            self.source.execute(query, params)
+            self.browser.threading_local.source.execute(query, params)
             # execute the change
-            self.source.execute("SELECT update_object_states(%(object_id)d)", params)
+            self.browser.threading_local.source.execute("SELECT update_object_states(%(object_id)d)", params)
 
         return True # object is NOT blocked
 
@@ -264,7 +264,7 @@ class BaseInterface(object):
 
     def _get_handle_id(self, objtype, handle):
         "Returns ID of handle."
-        return self.source.getval("""
+        return self.browser.threading_local.source.getval("""
             SELECT
                 object_registry.id
             FROM object_registry
@@ -280,7 +280,7 @@ class BaseInterface(object):
         Verify if object ID and HANDLE are valid - object exists and is active.
         Raise OBJECT_NOT_EXISTS or USER_NOT_EXISTS if not.
         """
-        response = self.source.fetchall("""
+        response = self.browser.threading_local.source.fetchall("""
             SELECT oreg.id
             FROM object_registry oreg
             WHERE oreg.id = %(object_id)d
@@ -304,7 +304,7 @@ class BaseInterface(object):
     def _dict_of_object_states(self):
         "Group objecst states into VIEW."
         if self.enum_object_states is None:
-            self.enum_object_states = dict(self.source.fetchall("SELECT id, name FROM enum_object_states"))
+            self.enum_object_states = dict(self.browser.threading_local.source.fetchall("SELECT id, name FROM enum_object_states"))
         return self.enum_object_states
 
     def _map_object_states(self, states, dictkeys=None):
@@ -322,25 +322,25 @@ class BaseInterface(object):
         params = dict(object_id=object_id, request_id=request_id)
 
         # remember timestamp of update
-        self.source.execute("UPDATE object SET update = NOW() WHERE id = %(object_id)d", params)
+        self.browser.threading_local.source.execute("UPDATE object SET update = NOW() WHERE id = %(object_id)d", params)
 
         # create new "history" record
-        params["history_id"] = history_id = self.source.getval("INSERT INTO history (request_id, valid_from) VALUES (%(request_id)d, NOW()) RETURNING id", params)
+        params["history_id"] = history_id = self.browser.threading_local.source.getval("INSERT INTO history (request_id, valid_from) VALUES (%(request_id)d, NOW()) RETURNING id", params)
         self.logger.log(self.logger.INFO, 'Next history ID %d for object ID %d with handle "%s".' % (history_id, object_id, handle))
 
         # read previous history ID
-        params["prev_history_id"] = prev_history_id = self.source.getval("SELECT historyid FROM object_registry WHERE id = %(object_id)d", params)
+        params["prev_history_id"] = prev_history_id = self.browser.threading_local.source.getval("SELECT historyid FROM object_registry WHERE id = %(object_id)d", params)
         self.logger.log(self.logger.INFO, 'Previous history ID %d for object ID %d with handle "%s".' % (prev_history_id, object_id, handle))
 
         # make backup of table 'object' (authinfopw)
-        self.source.execute("INSERT INTO object_history SELECT %(history_id)d, * FROM object WHERE id = %(object_id)d", params)
+        self.browser.threading_local.source.execute("INSERT INTO object_history SELECT %(history_id)d, * FROM object WHERE id = %(object_id)d", params)
 
         # make backup of table $OBJECT (contact, domain, nsset, keyset)
         # INSERT INTO object_history ...
-        self.source.execute(self._get_history_query(), params)
+        self.browser.threading_local.source.execute(self._get_history_query(), params)
 
         # refresh history pointer in "object_registry"
-        self.source.execute("UPDATE object_registry SET historyid = %(history_id)d WHERE id = %(object_id)d", params)
+        self.browser.threading_local.source.execute("UPDATE object_registry SET historyid = %(history_id)d WHERE id = %(object_id)d", params)
 
 
     def _get_history_query(self):
@@ -365,7 +365,7 @@ class BaseInterface(object):
 
         if state_importance == 0:
             if self.minimal_importance is None:
-                self.minimal_importance = self.source.getval("SELECT MAX(importance) * 2 FROM enum_object_states")
+                self.minimal_importance = self.browser.threading_local.source.getval("SELECT MAX(importance) * 2 FROM enum_object_states")
             state_importance = self.minimal_importance
 
         return ",".join(state_codes), str(state_importance), "|".join(state_descriptions)

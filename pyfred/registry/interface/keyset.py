@@ -19,7 +19,7 @@ class KeysetInterface(BaseInterface):
         KEYSET_ID, KEYSET_HANDLE, NUM_OF_DOMAINS = range(3)
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result, counter, limit_exceeded = [], 0, False
-        for row in self.source.fetchall("""
+        for row in self.browser.threading_local.source.fetchall("""
                 SELECT
                     object_registry.id,
                     object_registry.name,
@@ -97,7 +97,7 @@ class KeysetInterface(BaseInterface):
         self._verify_user_contact(contact)
 
         keyset.lang = lang
-        results = self.source.fetchall("""
+        results = self.browser.threading_local.source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.name AS handle,
@@ -149,7 +149,7 @@ class KeysetInterface(BaseInterface):
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
-        for row in self.source.fetchall("""
+        for row in self.browser.threading_local.source.fetchall("""
             SELECT
                 object_registry.id,
                 object_registry.name,
@@ -175,7 +175,7 @@ class KeysetInterface(BaseInterface):
 
         dsrecords = []
         columns = ("key_tag", "alg", "digest_type", "digest", "max_sig_life")
-        for row_dsrec in self.source.fetchall("""
+        for row_dsrec in self.browser.threading_local.source.fetchall("""
                 SELECT
                     keytag, alg, digesttype, digest, maxsiglife
                 FROM dsrecord
@@ -186,7 +186,7 @@ class KeysetInterface(BaseInterface):
 
         dnskeys = []
         columns = ("flags", "protocol", "alg", "key")
-        for row_dsrec in self.source.fetchall("""
+        for row_dsrec in self.browser.threading_local.source.fetchall("""
                 SELECT
                     flags, protocol, alg, key
                 FROM dnskey
@@ -232,7 +232,7 @@ class KeysetInterface(BaseInterface):
     def _object_belongs_to_contact(self, contact_id, contact_handle, object_id, source=None):
         "Check if object belongs to the contact."
         if source is None:
-            source = self.source
+            source = self.browser.threading_local.source
         admins = source.fetch_array("""
             SELECT object_registry.name
             FROM keyset_contact_map

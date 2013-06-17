@@ -28,7 +28,7 @@ class DomainInterface(BaseInterface):
         Provide domain list for interface functions.
         """
 
-        enum_parameters = dict(self.source.fetchall("SELECT name, val FROM enum_parameters"))
+        enum_parameters = dict(self.browser.threading_local.source.fetchall("SELECT name, val FROM enum_parameters"))
         #self.logger.log(self.logger.DEBUG, "enum_parameters = %s" % enum_parameters) # TEST
 
         domain_list = []
@@ -39,7 +39,7 @@ class DomainInterface(BaseInterface):
         # domain_row: [33, 'fred.cz', 'REG-FRED_A', 'Company A l.t.d', '2015-10-12', 30, True, 't',
         #       't\\t22\\tserverUpdateProhibited\\tUpdate prohibited\\nt\\t24\\tserverTransferProh' \
         #       'ibited\\tSponsoring registrar change prohibited']
-        for domain_row in self.source.fetchall(sql_query, sql_params): #, self.logger.INFO
+        for domain_row in self.browser.threading_local.source.fetchall(sql_query, sql_params): #, self.logger.INFO
 
             counter += 1
             if counter > self.list_limit:
@@ -151,7 +151,7 @@ class DomainInterface(BaseInterface):
         self._verify(nsset)
 
         # throw ACCESS_DENIED - when contact is not owner of nsset
-        self.browser.nsset._object_belongs_to_contact(contact.id, contact.handle, nsset.id, self.source)
+        self.browser.nsset._object_belongs_to_contact(contact.id, contact.handle, nsset.id, self.browser.threading_local.source)
 
         sql_query = """
             SELECT
@@ -190,7 +190,7 @@ class DomainInterface(BaseInterface):
         self._verify(keyset)
 
         # throw ACCESS_DENIED - when contact is not owner of keyset
-        self.browser.keyset._object_belongs_to_contact(contact.id, contact.handle, keyset.id, self.source)
+        self.browser.keyset._object_belongs_to_contact(contact.id, contact.handle, keyset.id, self.browser.threading_local.source)
 
         sql_query = """
             SELECT
@@ -253,7 +253,7 @@ class DomainInterface(BaseInterface):
         self._verify_user_contact(contact)
 
         domain.lang = lang
-        results = self.source.fetchall("""
+        results = self.browser.threading_local.source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.roid AS roid,
@@ -369,7 +369,7 @@ class DomainInterface(BaseInterface):
 
         admins = [] # Registry.DomainBrowser.CoupleSeq
         admin_handles = []
-        for row in self.source.fetchall("""
+        for row in self.browser.threading_local.source.fetchall("""
                 SELECT
                     object_registry.id,
                     object_registry.name,
@@ -423,7 +423,7 @@ class DomainInterface(BaseInterface):
         self._verify_user_contact(contact)
 
         columns = ("id", "handle", "name", "phone", "fax", "url", "address")
-        results = self.source.fetchall("""
+        results = self.browser.threading_local.source.fetchall("""
             SELECT
                 id, handle, name, telephone, fax, url,
                 ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
@@ -460,7 +460,7 @@ class DomainInterface(BaseInterface):
 
     def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
-        registrant_handle = self.source.getval("""
+        registrant_handle = self.browser.threading_local.source.getval("""
             SELECT
                 registrant.name
             FROM object_registry oreg
@@ -478,7 +478,7 @@ class DomainInterface(BaseInterface):
     def getPublicStatusDesc(self, lang):
         "Public status descriptions in the language."
         # return: ["text", "another text", ...]
-        return self.source.fetch_array("""
+        return self.browser.threading_local.source.fetch_array("""
             SELECT
                 dsc.description
             FROM enum_object_states ost

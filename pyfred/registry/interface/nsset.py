@@ -18,7 +18,7 @@ class NssetInterface(BaseInterface):
 
         NSSET_ID, NSSET_HANDLE, NUM_OF_DOMAINS = range(3)
         result, counter, limit_exceeded = [], 0, False
-        for row in self.source.fetchall("""
+        for row in self.browser.threading_local.source.fetchall("""
                 SELECT
                     object_registry.id,
                     object_registry.name,
@@ -78,7 +78,7 @@ class NssetInterface(BaseInterface):
         self._verify_user_contact(contact)
 
         nsset.lang = lang
-        results = self.source.fetchall("""
+        results = self.browser.threading_local.source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.name AS handle,
@@ -132,7 +132,7 @@ class NssetInterface(BaseInterface):
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
-        for row in self.source.fetchall("""
+        for row in self.browser.threading_local.source.fetchall("""
             SELECT
                 object_registry.id,
                 object_registry.name,
@@ -157,7 +157,7 @@ class NssetInterface(BaseInterface):
             nsset_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
 
         hosts = []
-        for row_host in self.source.fetchall("""
+        for row_host in self.browser.threading_local.source.fetchall("""
                 SELECT
                     MIN(host.fqdn),
                     array_accum(host_ipaddr_map.ipaddr)
@@ -209,7 +209,7 @@ class NssetInterface(BaseInterface):
     def _object_belongs_to_contact(self, contact_id, contact_handle, object_id, source=None):
         "Check if object belongs to the contact."
         if source is None:
-            source = self.source
+            source = self.browser.threading_local.source
         admins = source.fetch_array("""
             SELECT object_registry.name
             FROM nsset_contact_map
