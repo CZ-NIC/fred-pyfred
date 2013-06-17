@@ -40,6 +40,9 @@ class DomainBrowserTestCase(unittest.TestCase):
     # this name is overwritten by child class
     TEST_FILE_NAME = "base"
 
+    # None means do not short differences
+    #maxDiff = None
+
     @classmethod
     def setUpClass(cls):
         "Run once per test."

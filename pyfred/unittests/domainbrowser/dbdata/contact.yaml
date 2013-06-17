@@ -14,7 +14,7 @@
       - - [!!python/long '0']
     88a4b9e3106135e9333e6d0c636ae5b8:
       data:
-        object_id: &id003 !!python/long '6'
+        object_id: &id001 !!python/long '6'
         states: [23, 22]
       response:
       - - [!!python/long '1']
@@ -37,12 +37,12 @@
       data: {handle: CONTACT, type_id: 1}
       response:
       - - [1]
-30a70b2e43cde71fc0dea4d9d3ce0bef:
+376743d27d5abb518958bca218b0811f:
   query: |-
     SELECT
                     dsc.description
                 FROM enum_object_states ost
-                LEFT JOIN enum_object_states_desc dsc ON dsc.state_id = ost.id
+                JOIN enum_object_states_desc dsc ON dsc.state_id = ost.id
                 WHERE ost.external = 't'
                     AND dsc.lang = %(lang)s
                 ORDER BY description
@@ -79,7 +79,82 @@
       data: {handle: REG-FRED_A}
       response:
       - - [1, REG-FRED_A, Company A l.t.d, null, null, www.nic.cz, '']
-655fbd9288fd720418d26539d4a8fc25:
+65c545556786d8a696db1f72c6ea63a8:
+  query: |-
+    SELECT historyid FROM object_registry WHERE id = %(object_id)d
+  values:
+    79306dc5c5973051cab4f3b946e8f58f:
+      data: {history_id: 60, object_id: *id001, prev_history_id: 59, request_id: 1}
+      response:
+      - - [59]
+    8a26c1f2133466c34b6dc4fa43f0dfa4:
+      data: &id002 {history_id: 59, object_id: *id001, prev_history_id: 6, request_id: 1}
+      response:
+      - - [6]
+91b9b6568cfad202f4fccae020913dbe:
+  query: |-
+    SELECT MAX(importance) * 2 FROM enum_object_states
+  values:
+    6adf97f83acf6453d4a6a4b1070f3754:
+      data: null
+      response:
+      - - [64]
+946c30c83722002cf9d3735916824e49:
+  query: |-
+    SELECT
+                    contact.discloseemail,
+                    contact.discloseaddress,
+                    contact.disclosetelephone,
+                    contact.disclosefax,
+                    contact.discloseident,
+                    contact.disclosevat,
+                    contact.disclosenotifyemail
+                FROM contact
+                WHERE id = %(contact_id)d
+  values:
+    b6149dfd560aaa1ef2eede08ef62e963:
+      data: {contact_id: *id001}
+      response:
+      - - [true, true, true, false, false, false, false]
+      - - [true, false, true, false, false, false, true]
+a91c5dcb1da3942ff5508b7cc24e0136:
+  query: |-
+    SELECT
+                    object.authinfopw
+                FROM object_registry objreg
+                JOIN object ON objreg.id = object.id
+                WHERE objreg.id = %(object_id)d
+  values:
+    0e3010a672457cf9ae728e8c9fa27cfc:
+      data: {object_id: !!python/long '6'}
+      response:
+      - - [sMtuUAze]
+      - - [password]
+bd5d09a6814124b4154f61902766a0dd:
+  query: |-
+    INSERT INTO history (request_id, valid_from) VALUES (%(request_id)d, NOW()) RETURNING id
+  values:
+    347bc60cdbcd5ca2798e959f1e2fcc36:
+      data: *id002
+      response:
+      - - [60]
+d8cb94fd935c715074b47d18b9e69a36:
+  query: |-
+    SELECT
+                    object_id
+                FROM object_state
+                WHERE state_id = %(state_id)s
+                    AND object_id IN %(objects)s
+                    AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
+  values:
+    d536efc6743e01f5b654878e24c23c36:
+      data:
+        objects: [*id001]
+        state_id: 7
+      response:
+      - []
+      - []
+eae01d3cbe8449e693d70d92e36ed142:
   query: |-
     SELECT
                     oreg.id AS id,
@@ -125,10 +200,10 @@
                     current.name AS registrar_name
 
                 FROM object_registry oreg
-                    LEFT JOIN object obj ON obj.id = oreg.id
-                    LEFT JOIN registrar current ON current.id = obj.clid
-                    LEFT JOIN contact ON contact.id = oreg.id
-                    LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
+                    JOIN object obj ON obj.id = oreg.id
+                    JOIN registrar current ON current.id = obj.clid
+                    JOIN contact ON contact.id = oreg.id
+                    JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
                 WHERE
                     oreg.id = %(object_id)d
@@ -137,7 +212,7 @@
                     AND oreg.erdate IS NULL
   values:
     26bcda2e0343f3f2d86597156d1df6d8:
-      data: {handle: BOB, id: &id001 !!python/long '7', lang: EN, name: '', object_id: *id001,
+      data: {handle: BOB, id: &id003 !!python/long '7', lang: EN, name: '', object_id: *id003,
         type_id: 1}
       response:
       - - - [7, BOB, C0000000007-CZ, '2013-06-14 13:31:51.297114', null, null, PNhmLTYQ,
@@ -155,7 +230,7 @@
             false, false, t#20#linked#Has relation to other records in the registry,
             1, REG-FRED_A, Company A l.t.d]
     b88b90e129ae97a5e6c13d1123939aba:
-      data: {handle: CIHAK, id: &id002 !!python/long '2', lang: EN, name: '', object_id: *id002,
+      data: {handle: CIHAK, id: &id004 !!python/long '2', lang: EN, name: '', object_id: *id004,
         type_id: 1}
       response:
       - - [2, CIHAK, C0000000002-CZ, '2013-06-14 13:31:49.804755', null, null, ANuUSKZg,
@@ -165,81 +240,6 @@
           '+420.726123455', rehor.cihak@nic.czcz, cihak+notify@nic.czcz, '84956251',
           OP, CZ1234567890, true, true, true, true, true, false, false, false, false,
           '', 1, REG-FRED_A, Company A l.t.d]
-65c545556786d8a696db1f72c6ea63a8:
-  query: |-
-    SELECT historyid FROM object_registry WHERE id = %(object_id)d
-  values:
-    79306dc5c5973051cab4f3b946e8f58f:
-      data: {history_id: 60, object_id: *id003, prev_history_id: 59, request_id: 1}
-      response:
-      - - [59]
-    8a26c1f2133466c34b6dc4fa43f0dfa4:
-      data: &id004 {history_id: 59, object_id: *id003, prev_history_id: 6, request_id: 1}
-      response:
-      - - [6]
-91b9b6568cfad202f4fccae020913dbe:
-  query: |-
-    SELECT MAX(importance) * 2 FROM enum_object_states
-  values:
-    6adf97f83acf6453d4a6a4b1070f3754:
-      data: null
-      response:
-      - - [64]
-946c30c83722002cf9d3735916824e49:
-  query: |-
-    SELECT
-                    contact.discloseemail,
-                    contact.discloseaddress,
-                    contact.disclosetelephone,
-                    contact.disclosefax,
-                    contact.discloseident,
-                    contact.disclosevat,
-                    contact.disclosenotifyemail
-                FROM contact
-                WHERE id = %(contact_id)d
-  values:
-    b6149dfd560aaa1ef2eede08ef62e963:
-      data: {contact_id: *id003}
-      response:
-      - - [true, true, true, false, false, false, false]
-      - - [true, false, true, false, false, false, true]
-ae47e78f28ec1cfa61c836d618055e3a:
-  query: |-
-    SELECT
-                    object.authinfopw
-                FROM object_registry objreg
-                LEFT JOIN object ON objreg.id = object.id
-                WHERE objreg.id = %(object_id)d
-  values:
-    0e3010a672457cf9ae728e8c9fa27cfc:
-      data: {object_id: !!python/long '6'}
-      response:
-      - - [sMtuUAze]
-      - - [password]
-bd5d09a6814124b4154f61902766a0dd:
-  query: |-
-    INSERT INTO history (request_id, valid_from) VALUES (%(request_id)d, NOW()) RETURNING id
-  values:
-    347bc60cdbcd5ca2798e959f1e2fcc36:
-      data: *id004
-      response:
-      - - [60]
-d8cb94fd935c715074b47d18b9e69a36:
-  query: |-
-    SELECT
-                    object_id
-                FROM object_state
-                WHERE state_id = %(state_id)s
-                    AND object_id IN %(objects)s
-                    AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
-  values:
-    d536efc6743e01f5b654878e24c23c36:
-      data:
-        objects: [*id003]
-        state_id: 7
-      response:
-      - []
-      - []
 f0e311cbd7a0564f1d6e7c8f55da2eb5:
   query: |-
     SELECT oreg.id
@@ -250,7 +250,7 @@ f0e311cbd7a0564f1d6e7c8f55da2eb5:
                       AND oreg.erdate IS NULL
   values:
     2a4810e7e41d8ff5c97f1c3ca4927322:
-      data: {handle: TESTER, id: *id003, name: '', object_id: *id003, type_id: 1}
+      data: {handle: TESTER, id: *id001, name: '', object_id: *id001, type_id: 1}
       response:
       - - [6]
       - - [6]

@@ -59,7 +59,8 @@ class Test(DomainBrowserTestCase):
     def test_045(self):
         "Test getContactDetail when some relation in database is corrupted (returns more than one record)."
         if os.environ.has_key("TRACK"):
-            # only for saving data
+            # For saving data only. Do not forget change hash codes if query or params were changed!
+            # pyfred/unittests/utils.py: MockPgdbCursor.fetchall() # Deliberately corrupt data for testing exceptions.
             detail, owner = self.interface.getContactDetail(self.user_contact, self._regref(7L, "BOB"), "en")
         else:
             self.assertRaises(Registry.DomainBrowser.INTERNAL_SERVER_ERROR, self.interface.getContactDetail,

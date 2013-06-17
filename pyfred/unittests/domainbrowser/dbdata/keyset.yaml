@@ -12,7 +12,7 @@
       data: {handle: 'KEYSID:FOO', type_id: 4}
       response:
       - []
-2b9af400116c965c7ac64a61c77f530e:
+57545a629ba91b98f1cb1abab23b3eee:
   query: |-
     SELECT
                     oreg.id AS id,
@@ -39,10 +39,10 @@
                     current.name AS registrar_name
 
                 FROM object_registry oreg
-                    LEFT JOIN object obj ON obj.id = oreg.id
+                    JOIN object obj ON obj.id = oreg.id
 
-                    LEFT JOIN registrar creator ON creator.id = oreg.crid
-                    LEFT JOIN registrar current ON current.id = obj.clid
+                    JOIN registrar creator ON creator.id = oreg.crid
+                    JOIN registrar current ON current.id = obj.clid
                     LEFT JOIN registrar updator ON updator.id = obj.upid
 
                 WHERE oreg.id = %(object_id)d
@@ -57,25 +57,6 @@
       - - [18, KEYID01, K0000000018-CZ, '2013-06-14 13:31:54.616493', null, null,
           oDmfgnip, t#20#linked#Has relation to other records in the registry, null,
           null, null, 1, REG-FRED_A, Company A l.t.d, 1, REG-FRED_A, Company A l.t.d]
-abf248ca0ffcd2a8b631d7aa7af444d4:
-  query: |-
-    SELECT
-                    object_registry.id,
-                    object_registry.name,
-                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
-                        contact.organization ELSE contact.name
-                    END
-                FROM keyset_contact_map
-                LEFT JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
-                LEFT JOIN contact ON contact.id = keyset_contact_map.contactid
-                WHERE keysetid = %(obj_id)d
-                ORDER BY object_registry.name
-  values:
-    07d7b42b2e7478d75f1c1f44c6271709:
-      data: {obj_id: 18}
-      response:
-      - - [4, ANNA, !!python/str "Anna Proch\xE1zkov\xE1"]
-        - [6, TESTER, !!python/str "Tom\xE1\u0161 Tester"]
 ac758d55f144d383a8e02377ed0a5bd9:
   query: |-
     SELECT
@@ -98,6 +79,25 @@ ebb94d622533b12f593667bd14497bf8:
       data: {keyset_id: 18}
       response:
       - - [257, 3, 5, AwEAAddt2AkLfYGKgiEZB5SmIF8EvrjxNMH6HtxWEA4RJ9Ao6LCWheg8]
+f0ba681213e8106d5c888473922a46c2:
+  query: |-
+    SELECT
+                    object_registry.id,
+                    object_registry.name,
+                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                        contact.organization ELSE contact.name
+                    END
+                FROM keyset_contact_map
+                JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
+                JOIN contact ON contact.id = keyset_contact_map.contactid
+                WHERE keysetid = %(obj_id)d
+                ORDER BY object_registry.name
+  values:
+    07d7b42b2e7478d75f1c1f44c6271709:
+      data: {obj_id: 18}
+      response:
+      - - [4, ANNA, !!python/str "Anna Proch\xE1zkov\xE1"]
+        - [6, TESTER, !!python/str "Tom\xE1\u0161 Tester"]
 f0e311cbd7a0564f1d6e7c8f55da2eb5:
   query: |-
     SELECT oreg.id

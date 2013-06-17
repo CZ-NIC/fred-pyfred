@@ -18,6 +18,8 @@ class NssetInterface(BaseInterface):
 
         NSSET_ID, NSSET_HANDLE, NUM_OF_DOMAINS = range(3)
         result, counter, limit_exceeded = [], 0, False
+        #CREATE OR REPLACE VIEW domains_by_nsset_view AS
+        #    SELECT nsset, COUNT(nsset) AS number FROM domain WHERE nsset IS NOT NULL GROUP BY nsset
         for row in self.browser.threading_local.source.fetchall("""
                 SELECT
                     object_registry.id,
@@ -27,10 +29,10 @@ class NssetInterface(BaseInterface):
                     registrar.name AS registrar_name,
                     get_state_descriptions(nsset_contact_map.nssetid, %(lang)s) AS states
                 FROM object_registry
+                    JOIN object ON object.id = object_registry.id
+                    JOIN registrar ON registrar.id = object.clid
+                    JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
                     LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
-                    LEFT JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
-                    LEFT JOIN object ON object.id = object_registry.id
-                    LEFT JOIN registrar ON registrar.id = object.clid
                 WHERE object_registry.type = %(objtype)d
                     AND nsset_contact_map.contactid = %(contact_id)d
                 LIMIT %(limit)d OFFSET %(offset)d
@@ -105,11 +107,11 @@ class NssetInterface(BaseInterface):
                 current.name AS registrar_name
 
             FROM object_registry oreg
-                LEFT JOIN object obj ON obj.id = oreg.id
-                LEFT JOIN nsset ON nsset.id = oreg.id
+                JOIN object obj ON obj.id = oreg.id
+                JOIN nsset ON nsset.id = oreg.id
 
-                LEFT JOIN registrar creator ON creator.id = oreg.crid
-                LEFT JOIN registrar current ON current.id = obj.clid
+                JOIN registrar creator ON creator.id = oreg.crid
+                JOIN registrar current ON current.id = obj.clid
                 LEFT JOIN registrar updator ON updator.id = obj.upid
 
             WHERE oreg.id = %(object_id)d
@@ -140,8 +142,8 @@ class NssetInterface(BaseInterface):
                     contact.organization ELSE contact.name
                 END
             FROM nsset_contact_map
-            LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
-            LEFT JOIN contact ON contact.id = nsset_contact_map.contactid
+            JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+            JOIN contact ON contact.id = nsset_contact_map.contactid
             WHERE nssetid = %(obj_id)d
             ORDER BY object_registry.name
             """, dict(obj_id=nsset_detail[TID])):
@@ -199,7 +201,7 @@ class NssetInterface(BaseInterface):
                 objreg.id,
                 objreg.name
             FROM object_registry objreg
-            LEFT JOIN nsset_contact_map map ON map.nssetid = objreg.id
+            JOIN nsset_contact_map map ON map.nssetid = objreg.id
             WHERE type = %(objtype)d
                 AND map.contactid = %(contact_id)d
                 AND objreg.id IN %(selections)s
@@ -213,7 +215,7 @@ class NssetInterface(BaseInterface):
         admins = source.fetch_array("""
             SELECT object_registry.name
             FROM nsset_contact_map
-            LEFT JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+            JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
             WHERE nssetid = %(object_id)d
             """, dict(object_id=object_id))
 

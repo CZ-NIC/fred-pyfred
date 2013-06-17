@@ -128,12 +128,12 @@ class DomainInterface(BaseInterface):
                 't',
                 get_state_descriptions(object_registry.id, %(lang)s) AS states
             FROM object_registry
-            LEFT JOIN domain ON object_registry.id = domain.id
+            JOIN domain ON object_registry.id = domain.id
+            JOIN object ON object.id = object_registry.id
+            JOIN registrar ON registrar.id = object.clid
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
                       AND domain_contact_map.contactid = %(contact_id)d
-            LEFT JOIN object ON object.id = object_registry.id
-            LEFT JOIN registrar ON registrar.id = object.clid
             WHERE domain_contact_map.contactid = %(contact_id)d
                 OR domain.registrant = %(contact_id)d
             ORDER BY domain.exdate
@@ -167,12 +167,12 @@ class DomainInterface(BaseInterface):
                 THEN 't' ELSE 'f' END,
                 get_state_descriptions(object_registry.id, %(lang)s) AS states
             FROM object_registry
-            LEFT JOIN domain ON domain.id = object_registry.id
+            JOIN domain ON domain.id = object_registry.id
+            JOIN object_history ON object_history.historyid = object_registry.historyid
+            JOIN registrar ON registrar.id = object_history.clid
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
                       AND domain_contact_map.contactid = %(contact_id)d
-            LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
-            LEFT JOIN registrar ON registrar.id = object_history.clid
             WHERE object_registry.type = %(objtype)d
                 AND domain.nsset = %(nsset_id)d
             ORDER BY domain.exdate
@@ -206,12 +206,12 @@ class DomainInterface(BaseInterface):
                 THEN 't' ELSE 'f' END,
                 get_state_descriptions(object_registry.id, %(lang)s) AS states
             FROM object_registry
-            LEFT JOIN domain ON domain.id = object_registry.id
+            JOIN domain ON domain.id = object_registry.id
+            JOIN object_history ON object_history.historyid = object_registry.historyid
+            JOIN registrar ON registrar.id = object_history.clid
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
                       AND domain_contact_map.contactid = %(contact_id)d
-            LEFT JOIN object_history ON object_history.historyid = object_registry.historyid
-            LEFT JOIN registrar ON registrar.id = object_history.clid
             WHERE object_registry.type = %(objtype)d
                 AND domain.keyset = %(keyset_id)d
             ORDER BY domain.exdate
@@ -282,14 +282,14 @@ class DomainInterface(BaseInterface):
                 current.name AS registrar_name
 
             FROM object_registry oreg
-                LEFT JOIN object obj ON obj.id = oreg.id
+                JOIN object obj ON obj.id = oreg.id
 
-                LEFT JOIN domain ON oreg.id = domain.id
-                LEFT JOIN zone ON domain.zone = zone.id
-                LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
-                LEFT JOIN contact ON contact.id = registrant.id
+                JOIN domain ON oreg.id = domain.id
+                JOIN zone ON domain.zone = zone.id
+                JOIN object_registry registrant ON registrant.id = domain.registrant
+                JOIN contact ON contact.id = registrant.id
 
-                LEFT JOIN registrar current ON current.id = obj.clid
+                JOIN registrar current ON current.id = obj.clid
 
                 LEFT JOIN object_registry regnsset ON regnsset.id = domain.nsset
                 LEFT JOIN object_registry regkeyset ON regkeyset.id = domain.keyset
@@ -377,8 +377,8 @@ class DomainInterface(BaseInterface):
                         contact.organization ELSE contact.name
                     END AS contact_name
                 FROM domain_contact_map
-                LEFT JOIN object_registry ON object_registry.id = domain_contact_map.contactid
-                LEFT JOIN contact ON contact.id = object_registry.id
+                JOIN object_registry ON object_registry.id = domain_contact_map.contactid
+                JOIN contact ON contact.id = object_registry.id
                 WHERE domain_contact_map.role = %(role_id)d
                     AND domainid = %(obj_id)d
                 """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[Col.TID])):
@@ -450,8 +450,8 @@ class DomainInterface(BaseInterface):
                 objreg.id,
                 objreg.name
             FROM object_registry objreg
-            LEFT JOIN domain_contact_map map ON map.domainid = objreg.id
-            LEFT JOIN domain ON objreg.id = domain.id
+            JOIN domain_contact_map map ON map.domainid = objreg.id
+            JOIN domain ON objreg.id = domain.id
             WHERE type = %(objtype)d
                 AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
                 AND objreg.id IN %(selections)s
@@ -464,8 +464,8 @@ class DomainInterface(BaseInterface):
             SELECT
                 registrant.name
             FROM object_registry oreg
-                LEFT JOIN domain ON oreg.id = domain.id
-                LEFT JOIN object_registry registrant ON registrant.id = domain.registrant
+            JOIN domain ON oreg.id = domain.id
+            JOIN object_registry registrant ON registrant.id = domain.registrant
             WHERE oreg.id = %(object_id)d
         """, dict(object_id=object_id))
 
@@ -482,7 +482,7 @@ class DomainInterface(BaseInterface):
             SELECT
                 dsc.description
             FROM enum_object_states ost
-            LEFT JOIN enum_object_states_desc dsc ON dsc.state_id = ost.id
+            JOIN enum_object_states_desc dsc ON dsc.state_id = ost.id
             WHERE ost.external = 't'
                 AND dsc.lang = %(lang)s
             ORDER BY description""", dict(lang=lang))

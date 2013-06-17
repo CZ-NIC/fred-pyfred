@@ -77,7 +77,7 @@ class BaseInterface(object):
             SELECT
                 object.authinfopw
             FROM object_registry objreg
-            LEFT JOIN object ON objreg.id = object.id
+            JOIN object ON objreg.id = object.id
             WHERE objreg.id = %(object_id)d
             """, dict(object_id=objref.id))
 
