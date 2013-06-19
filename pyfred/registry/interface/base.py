@@ -364,11 +364,16 @@ class BaseInterface(object):
                 state_descriptions.append(data[3])
 
         if state_importance == 0:
-            if self.minimal_importance is None:
-                self.minimal_importance = self.browser.threading_local.source.getval("SELECT MAX(importance) * 2 FROM enum_object_states")
-            state_importance = self.minimal_importance
+            state_importance = self.get_status_minimal_importance()
 
         return ",".join(state_codes), str(state_importance), "|".join(state_descriptions)
+
+
+    def get_status_minimal_importance(self):
+        "Get minimal status importance."
+        if self.minimal_importance is None:
+            self.minimal_importance = self.browser.threading_local.source.getval("SELECT MAX(importance) * 2 FROM enum_object_states")
+        return self.minimal_importance
 
 
     def _pop_registrars_from_detail(self, detail):

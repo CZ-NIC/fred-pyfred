@@ -12,39 +12,77 @@
       data: {handle: 'NSSET:FOO', type_id: 2}
       response:
       - []
-3eb5274d6c5c9539f27ca901b41b18e4:
+49cc25297968bce8db8599167b8517ba:
   query: |-
     SELECT
-                        object_registry.id,
-                        object_registry.name,
+                    reg.id,
+                    reg.name,
+                    reg.number,
+                    reg.handle,
+                    reg.registrar_name,
+                    ARRAY[]::integer[],
+                    ARRAY[]::varchar[]
+                FROM (
+                    SELECT
+                        oreg.id,
+                        oreg.name,
                         domains.number,
                         registrar.handle,
-                        registrar.name AS registrar_name,
-                        get_state_descriptions(nsset_contact_map.nssetid, %(lang)s) AS states
-                    FROM object_registry
-                        JOIN object ON object.id = object_registry.id
+                        registrar.name AS registrar_name
+                    FROM object_registry oreg
+                        JOIN object ON object.id = oreg.id
                         JOIN registrar ON registrar.id = object.clid
-                        JOIN nsset_contact_map ON nsset_contact_map.nssetid = object_registry.id
-                        LEFT JOIN domains_by_nsset_view domains ON domains.nsset = object_registry.id
-                    WHERE object_registry.type = %(objtype)d
+                        JOIN nsset_contact_map ON nsset_contact_map.nssetid = oreg.id
+                        LEFT JOIN domains_by_nsset_view domains ON domains.nsset = oreg.id
+                    WHERE oreg.type = %(objtype)d
                         AND nsset_contact_map.contactid = %(contact_id)d
                     LIMIT %(limit)d OFFSET %(offset)d
+                ) AS reg
+
+                    UNION ALL
+
+                SELECT
+                    stat.id,
+                    NULL::varchar,
+                    NULL::integer,
+                    NULL::varchar,
+                    NULL::varchar,
+                    stat.importance,
+                    stat.description
+                FROM (
+                    SELECT
+                        oreg.id,
+                        array_agg(es.importance) AS importance,
+                        array_agg(des.description) AS description
+                    FROM object_registry oreg
+                        JOIN object ON object.id = oreg.id
+                        JOIN nsset_contact_map ON nsset_contact_map.nssetid = oreg.id
+                        LEFT JOIN object_state os ON os.object_id = oreg.id
+                            AND os.valid_from <= CURRENT_TIMESTAMP
+                            AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
+                        JOIN enum_object_states es ON os.state_id = es.id AND es.external = 't'
+                        JOIN enum_object_states_desc des ON os.state_id = des.state_id AND des.lang = %(lang)s
+                    WHERE oreg.type = %(objtype)d
+                        AND nsset_contact_map.contactid = %(contact_id)d
+                    GROUP BY oreg.id
+                ) AS stat
   values:
     7dd065eb10ed1969ae0a8be6dd9b0b29:
       data: {contact_id: &id002 !!python/long '6', lang: EN, limit: 11, objtype: 2,
         offset: 0}
       response:
-      - - [8, NSSID01, !!python/long '31', REG-FRED_A, Company A l.t.d, t#20#linked#Has
-            relation to other records in the registry]
-        - [9, NSSID02, null, REG-FRED_A, Company A l.t.d, '']
-        - [10, NSSID03, null, REG-FRED_A, Company A l.t.d, '']
-        - [11, NSSID04, null, REG-FRED_A, Company A l.t.d, '']
-        - [12, NSSID05, null, REG-FRED_A, Company A l.t.d, '']
-        - [13, NSSID06, null, REG-FRED_A, Company A l.t.d, '']
-        - [14, NSSID07, null, REG-FRED_A, Company A l.t.d, '']
-        - [15, NSSID08, null, REG-FRED_A, Company A l.t.d, '']
-        - [16, NSSID09, null, REG-FRED_A, Company A l.t.d, '']
-        - [17, NSSID10, null, REG-FRED_A, Company A l.t.d, '']
+      - - [8, NSSID01, !!python/long '31', REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [9, NSSID02, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [10, NSSID03, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [11, NSSID04, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [12, NSSID05, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [13, NSSID06, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [14, NSSID07, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [15, NSSID08, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [16, NSSID09, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [17, NSSID10, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
+        - [8, null, null, null, null, '{20}', '{"Has relation to other records in
+            the registry"}']
 8c8298ccb160b85c52689aa7a64663d3:
   query: |-
     SELECT

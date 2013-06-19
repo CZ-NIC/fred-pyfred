@@ -682,6 +682,13 @@ $_$
 
 ALTER FUNCTION public.get_state_descriptions(object_id bigint, lang_code character varying) OWNER TO fred;
 
+-- For PostgreSQL versions < 8.4
+CREATE AGGREGATE array_agg(anyelement) (
+    SFUNC=array_append,
+    STYPE=anyarray,
+    INITCOND='{}'
+);
+
 --
 -- Name: lock_object_state_request(); Type: FUNCTION; Schema: public; Owner: fred
 --

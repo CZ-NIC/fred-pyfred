@@ -3,6 +3,8 @@
 import re
 import sys
 import traceback
+import csv
+from StringIO import StringIO
 # pyfred
 from pyfred.registry.utils.constants import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED, \
                                 DOMAIN_NAME_REGEX, LANGUAGES, OBJECT_REGISTRY_TYPES
@@ -123,3 +125,17 @@ def get_exception():
         msg.append('    %s' % trace[3])
     msg.append('%s: %s' % (ex[0], ex[1]))
     return '\n'.join(msg)
+
+
+def parse_pg_array(value, integers=False):
+    """Parse value into array.
+    Attr value can be like '{"Text","Text \"and\\\" text."} or {10,20,23} or {NULL}'.
+    """
+    body = value[1:-1]
+    if body == "NULL":
+        return []
+    if integers:
+        retval = [(0 if row == "NULL" else int(row)) for row in body.split(",")]
+    else:
+        retval = ([row for row in csv.reader(StringIO(body))])[0]
+    return retval

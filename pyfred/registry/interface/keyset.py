@@ -2,7 +2,7 @@
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
-from pyfred.registry.utils import none2str
+from pyfred.registry.utils import none2str, parse_pg_array
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES, ENUM_OBJECT_STATES
 
@@ -16,45 +16,108 @@ class KeysetInterface(BaseInterface):
         "List of keysets"
         self._verify_user_contact(contact)
 
-        KEYSET_ID, KEYSET_HANDLE, NUM_OF_DOMAINS = range(3)
+        minimal_status_importance = self.get_status_minimal_importance()
+        str_minimal_status_importance = str(minimal_status_importance)
+
+        class Cols:
+            OBJECT_ID, HANDLE, NUM_OF_DOMAINS, REG_HANDLE, REG_NAME, STATUS_IMPORTANCE, STATUS_DESC = range(7)
+
         UPDATE_PROHIBITED, TRANSFER_PROHIBITED = 2, 3
         result, counter, limit_exceeded = [], 0, False
         #CREATE OR REPLACE VIEW domains_by_keyset_view AS
         #    SELECT keyset, COUNT(keyset) AS number FROM domain WHERE keyset IS NOT NULL GROUP BY keyset
+        position = {}
         for row in self.browser.threading_local.source.fetchall("""
+            SELECT
+                reg.id,
+                reg.name,
+                reg.number,
+                reg.handle,
+                reg.registrar_name,
+                NULL::integer[],
+                NULL::varchar[]
+            FROM (
                 SELECT
-                    object_registry.id,
-                    object_registry.name,
+                    oreg.id,
+                    oreg.name,
                     domains.number,
                     registrar.handle,
-                    registrar.name AS registrar_name,
-                    get_state_descriptions(keyset_contact_map.keysetid, %(lang)s) AS states
-                FROM object_registry
-                    JOIN object ON object.id = object_registry.id
-                    JOIN keyset_contact_map ON keyset_contact_map.keysetid = object_registry.id
+                    registrar.name AS registrar_name
+                FROM object_registry oreg
+                    JOIN object ON object.id = oreg.id
+                    JOIN keyset_contact_map ON keyset_contact_map.keysetid = oreg.id
                     JOIN registrar ON registrar.id = object.clid
-                    LEFT JOIN domains_by_keyset_view domains ON domains.keyset = object_registry.id
-                WHERE object_registry.type = %(objtype)d
+                    LEFT JOIN domains_by_keyset_view domains ON domains.keyset = oreg.id
+                WHERE oreg.type = %(objtype)d
                     AND keyset_contact_map.contactid = %(contact_id)d
+                ORDER BY oreg.id
                 LIMIT %(limit)d OFFSET %(offset)d
-                """,
+            ) AS reg
+
+                UNION ALL
+
+            SELECT
+                stat.id,
+                NULL::varchar,
+                NULL::integer,
+                NULL::varchar,
+                NULL::varchar,
+                stat.importance,
+                stat.description
+            FROM (
+                SELECT
+                    oreg.id,
+                    array_agg(es.importance) AS importance,
+                    array_agg(des.description) AS description
+                FROM object_registry oreg
+                    JOIN object ON object.id = oreg.id
+                    JOIN keyset_contact_map ON keyset_contact_map.keysetid = oreg.id
+                    LEFT JOIN object_state os ON os.object_id = oreg.id
+                        AND os.valid_from <= CURRENT_TIMESTAMP
+                        AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
+                    JOIN enum_object_states es ON os.state_id = es.id AND es.external = 't'
+                    JOIN enum_object_states_desc des ON os.state_id = des.state_id AND des.lang = %(lang)s
+                WHERE oreg.type = %(objtype)d
+                    AND keyset_contact_map.contactid = %(contact_id)d
+                GROUP BY oreg.id
+            ) AS stat
+            """,
                 dict(objtype=OBJECT_REGISTRY_TYPES['keyset'], contact_id=contact.id,
                      lang=lang, limit=self.list_limit + 1, offset=offset)):
 
-            counter += 1
-            if counter > self.list_limit:
-                limit_exceeded = True
-                break
-
-            row[KEYSET_ID] = str(row[KEYSET_ID])
-            row[NUM_OF_DOMAINS] = "0" if row[NUM_OF_DOMAINS] is None else "%d" % row[NUM_OF_DOMAINS]
-            state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
-            row.append(state_importance)
-            row.append(state_descriptions)
-            result.append(row)
+            if row[Cols.HANDLE] is not None:
+                if counter < self.list_limit:
+                    position[row[Cols.OBJECT_ID]] = len(result)
+                    row[Cols.OBJECT_ID] = str(row[Cols.OBJECT_ID])
+                    row[Cols.NUM_OF_DOMAINS] = "0" if row[Cols.NUM_OF_DOMAINS] is None else "%d" % row[Cols.NUM_OF_DOMAINS]
+                    row[Cols.STATUS_IMPORTANCE] = str_minimal_status_importance
+                    row[Cols.STATUS_DESC] = ""
+                    result.append(row)
+                counter += 1
+            else:
+                try:
+                    pos = position[row[Cols.OBJECT_ID]]
+                except KeyError:
+                    pass
+                else:
+                    importances = parse_pg_array(row[Cols.STATUS_IMPORTANCE], True)
+                    descriptions = parse_pg_array(row[Cols.STATUS_DESC])
+                    if len(importances):
+                        imps = [(minimal_status_importance if num == 0 else num) for num in importances]
+                        status_sorted_by_importance = [desc for num, desc in sorted(zip(imps, descriptions))]
+                    else:
+                        status_sorted_by_importance = []
+                    importance = 0
+                    for num in importances:
+                        importance |= num
+                    if importance == 0:
+                        importance = minimal_status_importance
+                    record = result[pos]
+                    record[Cols.STATUS_IMPORTANCE] = str(importance)
+                    record[Cols.STATUS_DESC] = "|".join(status_sorted_by_importance)
 
         self.logger.log(self.logger.INFO, 'KeysetInterface.getKeysetList(id=%d and handle="%s") has %d rows.' % (contact.id, contact.handle, len(result)))
-        return result, limit_exceeded
+        return result, counter > self.list_limit
 
         return []
 

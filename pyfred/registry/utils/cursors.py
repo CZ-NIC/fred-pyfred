@@ -39,6 +39,7 @@ class DatabaseCursor(object):
         private_params = make_params_private(params)
         self.logger.log(self.logging_level if logging_level is None else logging_level, 'Execute "%s"; %s' % (normalize_spaces(sql), private_params))
         # InterfaceError (quote), OperationalError, DatabaseError (executemany)
+        #print (sql % params if params else sql) # DEBUG
         try:
             self.cursor.execute(sql, params)
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError, pgdb.InterfaceError), msg:
