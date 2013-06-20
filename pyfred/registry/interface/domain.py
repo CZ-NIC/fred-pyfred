@@ -14,7 +14,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.utils.constants import DOMAIN_ROLE, OBJECT_REGISTRY_TYPES
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
-from pyfred.registry.utils import none2str, parse_pg_array
+from pyfred.registry.utils import none2str
 
 
 
@@ -23,15 +23,12 @@ class DomainInterface(BaseInterface):
     This class implements DomainBrowser Domain interface.
     """
 
-    def __provideDomainList(self, contact_id, sql_query, sql_params):
+    def __provideDomainList(self, contact_id, sql_query, sql_params, lang):
         """
         Provide domain list for interface functions.
         """
-
         enum_parameters = dict(self.browser.threading_local.source.fetchall("SELECT name, val FROM enum_parameters"))
-        #self.logger.log(self.logger.DEBUG, "enum_parameters = %s" % enum_parameters) # TEST
-        minimal_status_importance = self.get_status_minimal_importance()
-        str_minimal_status_importance = str(minimal_status_importance)
+        str_minimal_status_importance = str(self.get_status_minimal_importance())
 
         class Cols(object):
             OBJECT_ID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, \
@@ -41,94 +38,70 @@ class DomainInterface(BaseInterface):
             STATUS_IMPORTANCE = 2
             STATUS_DESC = 9
 
-        result, position, counter, limit_exceeded = [], {}, 0, False
+        result, found, counter = [], {}, 0
         for row in self.browser.threading_local.source.fetchall(sql_query, sql_params): #, self.logger.INFO
-
             object_id = row[Cols.OBJECT_ID]
-            if row[Cols.DOMAIN_NAME] is not None:
+            if counter < self.list_limit:
+                found[object_id] = len(result)
 
-                if counter < self.list_limit:
-                    position[object_id] = len(result)
+                # expiration_dns_protection_period, expiration_registration_protection_period
+                exdate = datetime.strptime(row[Cols.EXDATE], '%Y-%m-%d').date()
+                outzone_date = exdate + timedelta(days=int(enum_parameters["expiration_dns_protection_period"])) # 30
+                delete_date  = exdate + timedelta(days=int(enum_parameters["expiration_registration_protection_period"])) # 61
+                #self.logger.log(self.logger.DEBUG, 'Contact %d "%s": exdate=%s; outzone_date=%s; delete_date=%s' % (contact_id, handle, exdate, outzone_date, delete_date))
 
-                    # expiration_dns_protection_period, expiration_registration_protection_period
-                    exdate = datetime.strptime(row[Cols.EXDATE], '%Y-%m-%d').date()
-                    outzone_date = exdate + timedelta(days=int(enum_parameters["expiration_dns_protection_period"])) # 30
-                    delete_date  = exdate + timedelta(days=int(enum_parameters["expiration_registration_protection_period"])) # 61
-                    #self.logger.log(self.logger.DEBUG, 'Contact %d "%s": exdate=%s; outzone_date=%s; delete_date=%s' % (contact_id, handle, exdate, outzone_date, delete_date))
+                # resolve next domain state:
+                #    today   exdate         protected period
+                #      |       |<- - - - - - - - - - - - - - - - - - ->|
+                # |------------|-------------------|-------------------|------------>
+                #             0|                +30|                +61|
+                #          expiration           outzone              delete
 
-                    # resolve next domain state:
-                    #    today   exdate         protected period
-                    #      |       |<- - - - - - - - - - - - - - - - - - ->|
-                    # |------------|-------------------|-------------------|------------>
-                    #             0|                +30|                +61|
-                    #          expiration           outzone              delete
-
-                    next_state, next_state_date = "N/A", ""
-                    today = datetime.today().date()
-                    if today < exdate:
-                        # domain still has not been expired, so next state will be 'expired'
-                        next_state, next_state_date = "expired", exdate
-                    else:
-                        # domain is over an expiration date...
-                        if today < delete_date or today < outzone_date:
-                            # ...but still inside of "Protected period":
-                            if outzone_date < delete_date:
-                                # outzone date is always less than delete date
-                                if today < outzone_date:
-                                    next_state, next_state_date = "outzone", outzone_date
-                                else:
-                                    next_state, next_state_date = "deleteCandidate", delete_date
-                            else:
-                                # this situation should not never occur
-                                if today < delete_date:
-                                    next_state, next_state_date = "deleteCandidate", delete_date
-                                else:
-                                    next_state, next_state_date = "outzone", outzone_date
-
-                    role = ""
-                    if row[Cols.CAN_UPDATE]:
-                        if row[Cols.REGISTRANT] == contact_id:
-                            role = "holder"
-                        else:
-                            role = "admin"
-
-                    result.append([
-                        str(object_id),
-                        row[Cols.DOMAIN_NAME], # domain_name TEXT
-                        str_minimal_status_importance, # Resp.STATUS_IMPORTANCE
-                        next_state,              # next_state TEXT
-                        str(next_state_date),    # next_state_date DATE
-                        "t" if row[Cols.DNSSEC] else "f", # dnssec_available BOOL
-                        role, # your_role TEXT
-                        row[Cols.REG_HANDLE],  # registrar_handle TEXT
-                        row[Cols.REGISTRAR],   # registrar name
-                        "", # state description Resp.STATUS_DESC
-                        ])
-
-                counter += 1
-
-            else:
-                try:
-                    pos = position[object_id]
-                except KeyError:
-                    pass
+                next_state, next_state_date = "N/A", ""
+                today = datetime.today().date()
+                if today < exdate:
+                    # domain still has not been expired, so next state will be 'expired'
+                    next_state, next_state_date = "expired", exdate
                 else:
-                    importances = parse_pg_array(row[Cols.STATUS_IMPORTANCE], True)
-                    descriptions = parse_pg_array(row[Cols.STATUS_DESC])
-                    if len(importances):
-                        imps = [(minimal_status_importance if num == 0 else num) for num in importances]
-                        status_sorted_by_importance = [desc for num, desc in sorted(zip(imps, descriptions))]
-                    else:
-                        status_sorted_by_importance = []
-                    importance = 0
-                    for num in importances:
-                        importance |= num
-                    if importance == 0:
-                        importance = minimal_status_importance
-                    record = result[pos]
-                    record[Resp.STATUS_IMPORTANCE] = str(importance)
-                    record[Resp.STATUS_DESC] = "|".join(status_sorted_by_importance)
+                    # domain is over an expiration date...
+                    if today < delete_date or today < outzone_date:
+                        # ...but still inside of "Protected period":
+                        if outzone_date < delete_date:
+                            # outzone date is always less than delete date
+                            if today < outzone_date:
+                                next_state, next_state_date = "outzone", outzone_date
+                            else:
+                                next_state, next_state_date = "deleteCandidate", delete_date
+                        else:
+                            # this situation should not never occur
+                            if today < delete_date:
+                                next_state, next_state_date = "deleteCandidate", delete_date
+                            else:
+                                next_state, next_state_date = "outzone", outzone_date
 
+                role = ""
+                if row[Cols.CAN_UPDATE]:
+                    if row[Cols.REGISTRANT] == contact_id:
+                        role = "holder"
+                    else:
+                        role = "admin"
+
+                result.append([
+                    str(object_id),
+                    row[Cols.DOMAIN_NAME], # domain_name TEXT
+                    str_minimal_status_importance, # Resp.STATUS_IMPORTANCE
+                    next_state,              # next_state TEXT
+                    str(next_state_date),    # next_state_date DATE
+                    "t" if row[Cols.DNSSEC] else "f", # dnssec_available BOOL
+                    role, # your_role TEXT
+                    row[Cols.REG_HANDLE],  # registrar_handle TEXT
+                    row[Cols.REGISTRAR],   # registrar name
+                    "", # state description Resp.STATUS_DESC
+                    ])
+
+            counter += 1
+
+        self.appendStatus(result, found, lang, Resp.STATUS_IMPORTANCE, Resp.STATUS_DESC)
         #self.logger.log(self.logger.INFO, "domain_list.length=%d limit_exceeded=%s" % (len(domain_list), limit_exceeded)) # TEST
         return result, counter > self.list_limit
 
@@ -140,76 +113,30 @@ class DomainInterface(BaseInterface):
 
         sql_query = """
             SELECT
-                reg.id,
-                reg.name,
-                reg.handle,
-                reg.registrar_name,
-                reg.exdate,
-                reg.registrant,
-                reg.is_keyset,
-                reg.is_owner,
-                NULL::integer[],
-                NULL::varchar[]
-            FROM (
-                SELECT
-                    oreg.id,
-                    oreg.name,
-                    registrar.handle,
-                    registrar.name AS registrar_name,
-                    domain.exdate,
-                    domain.registrant,
-                    domain.keyset IS NOT NULL AS is_keyset,
-                    't'::boolean AS is_owner
-                FROM object_registry oreg
-                JOIN domain ON oreg.id = domain.id
-                JOIN object ON object.id = oreg.id
-                JOIN registrar ON registrar.id = object.clid
-                LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                          AND domain_contact_map.role = %(role_id)d
-                          AND domain_contact_map.contactid = %(contact_id)d
-                WHERE domain_contact_map.contactid = %(contact_id)d
-                    OR domain.registrant = %(contact_id)d
-                ORDER BY domain.exdate
-                LIMIT %(limit)d OFFSET %(offset)d
-            ) AS reg
-
-                UNION ALL
-
-            SELECT
-                stat.id,
-                NULL::varchar,
-                NULL::varchar,
-                NULL::varchar,
-                NULL::date,
-                NULL::integer,
-                NULL::boolean,
-                NULL::boolean,
-                stat.importance,
-                stat.description
-            FROM (
-                SELECT
-                    oreg.id,
-                    array_agg(es.importance) AS importance,
-                    array_agg(des.description) AS description
-                FROM object_registry oreg
-                    JOIN domain ON domain.id = oreg.id
-                    LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                              AND domain_contact_map.role = %(role_id)d
-                              AND domain_contact_map.contactid = %(contact_id)d
-                    LEFT JOIN object_state os ON os.object_id = oreg.id
-                        AND os.valid_from <= CURRENT_TIMESTAMP
-                        AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
-                    JOIN enum_object_states es ON os.state_id = es.id AND es.external = 't'
-                    JOIN enum_object_states_desc des ON os.state_id = des.state_id AND des.lang = %(lang)s
-                WHERE domain_contact_map.contactid = %(contact_id)d
-                    OR domain.registrant = %(contact_id)d
-                GROUP BY oreg.id
-            ) AS stat
-        """
+                oreg.id,
+                oreg.name,
+                registrar.handle,
+                registrar.name AS registrar_name,
+                domain.exdate,
+                domain.registrant,
+                domain.keyset IS NOT NULL AS is_keyset,
+                't'::boolean AS is_owner
+            FROM object_registry oreg
+            JOIN domain ON oreg.id = domain.id
+            JOIN object ON object.id = oreg.id
+            JOIN registrar ON registrar.id = object.clid
+            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                      AND domain_contact_map.role = %(role_id)d
+                      AND domain_contact_map.contactid = %(contact_id)d
+            WHERE domain_contact_map.contactid = %(contact_id)d
+                OR domain.registrant = %(contact_id)d
+            ORDER BY domain.exdate
+            LIMIT %(limit)d OFFSET %(offset)d
+            """
         sql_params = dict(contact_id=contact.id, role_id=DOMAIN_ROLE["admin"],
                           lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact.id, sql_query, sql_params)
+        return self.__provideDomainList(contact.id, sql_query, sql_params, lang)
 
 
     @furnish_database_cursor_m
@@ -223,73 +150,30 @@ class DomainInterface(BaseInterface):
 
         sql_query = """
             SELECT
-                reg.id,
-                reg.name,
-                reg.handle,
-                reg.registrar_name,
-                reg.exdate,
-                reg.registrant,
-                reg.is_keyset,
-                reg.is_owner,
-                NULL::integer[],
-                NULL::varchar[]
-            FROM (
-                SELECT
-                    oreg.id,
-                    oreg.name,
-                    registrar.handle,
-                    registrar.name AS registrar_name,
-                    domain.exdate,
-                    domain.registrant,
-                    domain.keyset IS NOT NULL AS is_keyset,
-                    domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
-                FROM object_registry oreg
-                JOIN domain ON domain.id = oreg.id
-                JOIN object_history ON object_history.historyid = oreg.historyid
-                JOIN registrar ON registrar.id = object_history.clid
-                LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                          AND domain_contact_map.role = %(role_id)d
-                          AND domain_contact_map.contactid = %(contact_id)d
-                WHERE oreg.type = %(objtype)d
-                    AND domain.nsset = %(nsset_id)d
-                ORDER BY domain.exdate
-                LIMIT %(limit)d OFFSET %(offset)d
-            ) AS reg
-
-                UNION ALL
-
-            SELECT
-                stat.id,
-                NULL::varchar,
-                NULL::varchar,
-                NULL::varchar,
-                NULL::date,
-                NULL::integer,
-                NULL::boolean,
-                NULL::boolean,
-                stat.importance,
-                stat.description
-            FROM (
-                SELECT
-                    oreg.id,
-                    array_agg(es.importance) AS importance,
-                    array_agg(des.description) AS description
-                FROM object_registry oreg
-                    JOIN domain ON domain.id = oreg.id
-                    LEFT JOIN object_state os ON os.object_id = oreg.id
-                        AND os.valid_from <= CURRENT_TIMESTAMP
-                        AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
-                    JOIN enum_object_states es ON os.state_id = es.id
-                    JOIN enum_object_states_desc des ON os.state_id = des.state_id AND des.lang = %(lang)s
-                WHERE oreg.type = %(objtype)d
-                    AND domain.nsset = %(nsset_id)d
-                GROUP BY oreg.id
-            ) AS stat
+                oreg.id,
+                oreg.name,
+                registrar.handle,
+                registrar.name AS registrar_name,
+                domain.exdate,
+                domain.registrant,
+                domain.keyset IS NOT NULL AS is_keyset,
+                domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
+            FROM object_registry oreg
+            JOIN domain ON domain.id = oreg.id
+            JOIN object_history ON object_history.historyid = oreg.historyid
+            JOIN registrar ON registrar.id = object_history.clid
+            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                      AND domain_contact_map.role = %(role_id)d
+                      AND domain_contact_map.contactid = %(contact_id)d
+            WHERE oreg.type = %(objtype)d
+                AND domain.nsset = %(nsset_id)d
+            ORDER BY domain.exdate
+            LIMIT %(limit)d OFFSET %(offset)d
             """
         sql_params = dict(contact_id=contact.id, nsset_id=nsset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact.id, sql_query, sql_params)
+        return self.__provideDomainList(contact.id, sql_query, sql_params, lang)
 
 
     @furnish_database_cursor_m
@@ -303,73 +187,30 @@ class DomainInterface(BaseInterface):
 
         sql_query = """
             SELECT
-                reg.id,
-                reg.name,
-                reg.handle,
-                reg.registrar_name,
-                reg.exdate,
-                reg.registrant,
-                reg.is_keyset,
-                reg.is_owner,
-                NULL::integer[],
-                NULL::varchar[]
-            FROM (
-                SELECT
-                    oreg.id,
-                    oreg.name,
-                    registrar.handle,
-                    registrar.name AS registrar_name,
-                    domain.exdate,
-                    domain.registrant,
-                    domain.keyset IS NOT NULL AS is_keyset,
-                    domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
-                FROM object_registry oreg
-                JOIN domain ON domain.id = oreg.id
-                JOIN object_history ON object_history.historyid = oreg.historyid
-                JOIN registrar ON registrar.id = object_history.clid
-                LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
-                          AND domain_contact_map.role = %(role_id)d
-                          AND domain_contact_map.contactid = %(contact_id)d
-                WHERE oreg.type = %(objtype)d
-                    AND domain.keyset = %(keyset_id)d
-                ORDER BY domain.exdate
-                LIMIT %(limit)d OFFSET %(offset)d
-            ) AS reg
-
-                UNION ALL
-
-            SELECT
-                stat.id,
-                NULL::varchar,
-                NULL::varchar,
-                NULL::varchar,
-                NULL::date,
-                NULL::integer,
-                NULL::boolean,
-                NULL::boolean,
-                stat.importance,
-                stat.description
-            FROM (
-                SELECT
-                    oreg.id,
-                    array_agg(es.importance) AS importance,
-                    array_agg(des.description) AS description
-                FROM object_registry oreg
-                    JOIN domain ON domain.id = oreg.id
-                    LEFT JOIN object_state os ON os.object_id = oreg.id
-                        AND os.valid_from <= CURRENT_TIMESTAMP
-                        AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
-                    JOIN enum_object_states es ON os.state_id = es.id
-                    JOIN enum_object_states_desc des ON os.state_id = des.state_id AND des.lang = %(lang)s
-                WHERE oreg.type = %(objtype)d
-                    AND domain.keyset = %(keyset_id)d
-                GROUP BY oreg.id
-            ) AS stat
+                oreg.id,
+                oreg.name,
+                registrar.handle,
+                registrar.name AS registrar_name,
+                domain.exdate,
+                domain.registrant,
+                domain.keyset IS NOT NULL AS is_keyset,
+                domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
+            FROM object_registry oreg
+            JOIN domain ON domain.id = oreg.id
+            JOIN object_history ON object_history.historyid = oreg.historyid
+            JOIN registrar ON registrar.id = object_history.clid
+            LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                      AND domain_contact_map.role = %(role_id)d
+                      AND domain_contact_map.contactid = %(contact_id)d
+            WHERE oreg.type = %(objtype)d
+                AND domain.keyset = %(keyset_id)d
+            ORDER BY domain.exdate
+            LIMIT %(limit)d OFFSET %(offset)d
             """
         sql_params = dict(contact_id=contact.id, keyset_id=keyset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact.id, sql_query, sql_params)
+        return self.__provideDomainList(contact.id, sql_query, sql_params, lang)
 
 
     @furnish_database_cursor_m

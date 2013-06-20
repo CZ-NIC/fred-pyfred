@@ -3,7 +3,6 @@
 import re
 import sys
 import traceback
-import csv
 from StringIO import StringIO
 # pyfred
 from pyfred.registry.utils.constants import CONTACT_REGEX, CONTACT_REGEX_RESTRICTED, \
@@ -127,15 +126,25 @@ def get_exception():
     return '\n'.join(msg)
 
 
-def parse_pg_array(value, integers=False):
-    """Parse value into array.
-    Attr value can be like '{"Text","Text \"and\\\" text."} or {10,20,23} or {NULL}'.
-    """
-    body = value[1:-1]
-    if body == "NULL":
-        return []
-    if integers:
-        retval = [(0 if row == "NULL" else int(row)) for row in body.split(",")]
-    else:
-        retval = ([row for row in csv.reader(StringIO(body))])[0]
-    return retval
+class StateItem(object):
+    "Represent number of State imporance"
+
+    def __init__(self, item):
+        # state = (importance, description)
+        self.state = [item]
+
+    def add(self, item):
+        "Add state"
+        self.state.append(item)
+
+    def strImportance(self):
+        importance = 0
+        for num, desc in self.state:
+            importance |= num
+        return str(importance)
+
+    def strDescription(self):
+        return "|".join([item[1] for item in sorted(self.state)])
+
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__, self.state)

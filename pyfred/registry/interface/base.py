@@ -3,7 +3,7 @@ from pyfred.idlstubs import Registry
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES, AUTH_INFO_LENGTH
 from pyfred.registry.utils.cursors import TransactionLevelRead
-from pyfred.registry.utils import none2str
+from pyfred.registry.utils import none2str, StateItem
 
 
 
@@ -29,7 +29,7 @@ class BaseInterface(object):
         self.threading_local = None # locals unique in the thread (thread.ident, database cursor)
         self.enum_object_states = None # cache
         self.ignore_server_blocked = False
-        self.minimal_importance = None # minimal state.importance
+        self._cache = dict(states=dict(), minimal_importance=None)
 
     def setObjectBlockStatus(self, handle, objtype, selections, action):
         "Set object block status."
@@ -371,9 +371,85 @@ class BaseInterface(object):
 
     def get_status_minimal_importance(self):
         "Get minimal status importance."
-        if self.minimal_importance is None:
-            self.minimal_importance = self.browser.threading_local.source.getval("SELECT MAX(importance) * 2 FROM enum_object_states")
-        return self.minimal_importance
+        if self._cache["minimal_importance"] is None:
+            self._cache["minimal_importance"] = self.browser.threading_local.source.getval("SELECT MAX(importance) * 2 FROM enum_object_states")
+        return self._cache["minimal_importance"]
+
+
+    def get_enum_external_states_desc(self, lang):
+        """Get states of selected lang code.
+        self._cache["states"][lang] = {
+            status_id: (importance, description),
+        }
+        """
+        if lang not in self._cache["states"]:
+            # load states for language
+            self._cache["states"][lang] = dict()
+            minimal_importance = self.get_status_minimal_importance()
+            for row in self.browser.threading_local.source.fetchall("""
+                SELECT
+                    stat.id,
+                    stat.importance,
+                    des.description
+                FROM enum_object_states stat
+                JOIN enum_object_states_desc des
+                    ON stat.id = des.state_id
+                    AND des.lang = %(lang)s
+                WHERE stat.external = 't'
+                """, dict(lang=lang)):
+                staste_id, importace, description = row
+                if importace is None:
+                    importace = minimal_importance
+                self._cache["states"][lang][staste_id] = (importace, description)
+
+        return self._cache["states"][lang]
+
+
+    def appendStatus(self, result, found, lang, importance_column_pos, description_column_pos):
+        "Append status into result."
+        def convert():
+            prev_rec = result[prev_pos]
+            state = prev_rec[importance_column_pos]
+            prev_rec[importance_column_pos] = state.strImportance()
+            prev_rec[description_column_pos] = state.strDescription()
+
+        minimal_status_importance = self.get_status_minimal_importance()
+        states = self.get_enum_external_states_desc(lang)
+
+        previous_id, prev_pos = None, None
+        for row in self.browser.threading_local.source.fetchall("""
+            SELECT
+                os.object_id,
+                os.state_id
+            FROM object_state os
+            WHERE os.object_id IN %(keys)s
+                AND os.valid_from <= CURRENT_TIMESTAMP
+                AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
+            ORDER BY os.object_id
+            """, dict(keys=found.keys())):
+
+            object_id, state_id = row
+            if state_id not in states:
+                continue # state ID is not external status
+
+            state_item = states[state_id]
+            pos = found[object_id]
+            rec = result[pos]
+
+            if object_id != previous_id:
+                # convert instace StateItem to strings
+                if previous_id is not None:
+                    convert()
+                # create instace StateItem
+                rec[importance_column_pos] = StateItem(state_item)
+            else:
+                rec[importance_column_pos].add(state_item)
+
+            previous_id = object_id
+            prev_pos = pos
+
+        if previous_id is not None:
+            convert()
 
 
     def _pop_registrars_from_detail(self, detail):
