@@ -442,11 +442,10 @@ class BaseInterface(object):
                     convert()
                 # create instace StateItem
                 rec[importance_column_pos] = StateItem(state_item)
+                previous_id = object_id
+                prev_pos = pos
             else:
                 rec[importance_column_pos].add(state_item)
-
-            previous_id = object_id
-            prev_pos = pos
 
         if previous_id is not None:
             convert()
