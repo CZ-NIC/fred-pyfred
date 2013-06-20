@@ -12,77 +12,52 @@
       data: {handle: 'NSSET:FOO', type_id: 2}
       response:
       - []
-49cc25297968bce8db8599167b8517ba:
+2da22a6cba65fc21eb96a1eef31a4f85:
   query: |-
     SELECT
-                    reg.id,
-                    reg.name,
-                    reg.number,
-                    reg.handle,
-                    reg.registrar_name,
-                    ARRAY[]::integer[],
-                    ARRAY[]::varchar[]
-                FROM (
-                    SELECT
-                        oreg.id,
-                        oreg.name,
-                        domains.number,
-                        registrar.handle,
-                        registrar.name AS registrar_name
-                    FROM object_registry oreg
-                        JOIN object ON object.id = oreg.id
-                        JOIN registrar ON registrar.id = object.clid
-                        JOIN nsset_contact_map ON nsset_contact_map.nssetid = oreg.id
-                        LEFT JOIN domains_by_nsset_view domains ON domains.nsset = oreg.id
-                    WHERE oreg.type = %(objtype)d
-                        AND nsset_contact_map.contactid = %(contact_id)d
-                    LIMIT %(limit)d OFFSET %(offset)d
-                ) AS reg
-
-                    UNION ALL
-
-                SELECT
-                    stat.id,
-                    NULL::varchar,
-                    NULL::integer,
-                    NULL::varchar,
-                    NULL::varchar,
-                    stat.importance,
-                    stat.description
-                FROM (
-                    SELECT
-                        oreg.id,
-                        array_agg(es.importance) AS importance,
-                        array_agg(des.description) AS description
-                    FROM object_registry oreg
-                        JOIN object ON object.id = oreg.id
-                        JOIN nsset_contact_map ON nsset_contact_map.nssetid = oreg.id
-                        LEFT JOIN object_state os ON os.object_id = oreg.id
-                            AND os.valid_from <= CURRENT_TIMESTAMP
-                            AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
-                        JOIN enum_object_states es ON os.state_id = es.id AND es.external = 't'
-                        JOIN enum_object_states_desc des ON os.state_id = des.state_id AND des.lang = %(lang)s
-                    WHERE oreg.type = %(objtype)d
-                        AND nsset_contact_map.contactid = %(contact_id)d
-                    GROUP BY oreg.id
-                ) AS stat
+                    os.object_id,
+                    os.state_id
+                FROM object_state os
+                WHERE os.object_id IN %(keys)s
+                    AND os.valid_from <= CURRENT_TIMESTAMP
+                    AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
+                ORDER BY os.object_id
   values:
-    7dd065eb10ed1969ae0a8be6dd9b0b29:
-      data: {contact_id: &id002 !!python/long '6', lang: EN, limit: 11, objtype: 2,
-        offset: 0}
+    03b9db3b5f3da6cf9b35d216f6672fef:
+      data:
+        keys: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
       response:
-      - - [8, NSSID01, !!python/long '31', REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [9, NSSID02, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [10, NSSID03, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [11, NSSID04, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [12, NSSID05, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [13, NSSID06, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [14, NSSID07, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [15, NSSID08, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [16, NSSID09, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [17, NSSID10, null, REG-FRED_A, Company A l.t.d, '{}', '{}']
-        - [8, null, null, null, null, '{20}', '{"Has relation to other records in
-            the registry"}']
+      - - [8, 16]
+877c282278511617a249a217f2691c10:
+  query: |-
+    SELECT
+                    oreg.id,
+                    oreg.name,
+                    domains.number,
+                    registrar.handle,
+                    registrar.name AS registrar_name
+                FROM object_registry oreg
+                    JOIN object ON object.id = oreg.id
+                    JOIN registrar ON registrar.id = object.clid
+                    JOIN nsset_contact_map ON nsset_contact_map.nssetid = oreg.id
+                    LEFT JOIN domains_by_nsset_view domains ON domains.nsset = oreg.id
+                WHERE oreg.type = %(objtype)d
+                    AND nsset_contact_map.contactid = %(contact_id)d
+                LIMIT %(limit)d OFFSET %(offset)d
+  values:
+    0180babc3faa5633e186e4b48958c55d:
+      data: {contact_id: &id002 !!python/long '6', limit: 11, objtype: 2, offset: 0}
+      response:
+      - - [8, NSSID01, !!python/long '31', REG-FRED_A, Company A l.t.d]
+        - [9, NSSID02, null, REG-FRED_A, Company A l.t.d]
+        - [10, NSSID03, null, REG-FRED_A, Company A l.t.d]
+        - [11, NSSID04, null, REG-FRED_A, Company A l.t.d]
+        - [12, NSSID05, null, REG-FRED_A, Company A l.t.d]
+        - [13, NSSID06, null, REG-FRED_A, Company A l.t.d]
+        - [14, NSSID07, null, REG-FRED_A, Company A l.t.d]
+        - [15, NSSID08, null, REG-FRED_A, Company A l.t.d]
+        - [16, NSSID09, null, REG-FRED_A, Company A l.t.d]
+        - [17, NSSID10, null, REG-FRED_A, Company A l.t.d]
 8c8298ccb160b85c52689aa7a64663d3:
   query: |-
     SELECT
@@ -153,6 +128,38 @@
       - - [8, NSSID01, N0000000008-CZ, '2013-06-14 13:31:51.700438', null, null, TrgdMfXu,
           3, t#20#linked#Has relation to other records in the registry, null, null,
           null, 1, REG-FRED_A, Company A l.t.d, 1, REG-FRED_A, Company A l.t.d]
+c83c383266533e515a379cace781f53f:
+  query: |-
+    SELECT
+                        stat.id,
+                        stat.importance,
+                        des.description
+                    FROM enum_object_states stat
+                    JOIN enum_object_states_desc des
+                        ON stat.id = des.state_id
+                        AND des.lang = %(lang)s
+                    WHERE stat.external = 't'
+  values:
+    1b9dedf86684e2bf25f000287a0ec37d:
+      data: {lang: EN}
+      response:
+      - - [2, 28, Registration renewal unauthorised]
+        - [5, 14, The domain is administratively kept out of zone]
+        - [6, 16, The domain is administratively kept in zone]
+        - [7, 32, Domain blocked]
+        - [9, 2, Domain expired]
+        - [13, 18, Domain not validated]
+        - [15, 6, The domain isn't generated in the zone]
+        - [18, 26, Registrant change unauthorised]
+        - [1, 30, Deletion unauthorised]
+        - [3, 24, Sponsoring registrar change unauthorised]
+        - [4, 22, Update unauthorised]
+        - [16, 20, Has relation to other records in the registry]
+        - [17, null, To be deleted]
+        - [21, 10, Contact is conditionally identified]
+        - [22, 8, Contact is identified]
+        - [23, 12, Contact is validated]
+        - [24, 4, MojeID contact]
 e369d233e8d8b7f59672dc394f58c246:
   query: |-
     SELECT
