@@ -12,10 +12,10 @@ class NssetInterface(BaseInterface):
     "NSSET corba interface."
 
     @furnish_database_cursor_m
-    def getNssetList(self, contact, lang, offset):
+    def getNssetList(self, contact, lang, offset, source=None):
         "List of nssets"
-        self._verify_user_contact(contact)
-        str_minimal_status_importance = str(self.get_status_minimal_importance())
+        self._verify_user_contact(source, contact)
+        str_minimal_status_importance = str(self.get_status_minimal_importance(source))
 
         class Cols:
             OBJECT_ID, HANDLE, NUM_OF_DOMAINS, REG_HANDLE, REG_NAME, STATUS_IMPORTANCE, STATUS_DESC = range(7)
@@ -24,7 +24,7 @@ class NssetInterface(BaseInterface):
         #CREATE OR REPLACE VIEW domains_by_nsset_view AS
         #    SELECT nsset, COUNT(nsset) AS number FROM domain WHERE nsset IS NOT NULL GROUP BY nsset
         found = {}
-        for row in self.browser.threading_local.source.fetchall("""
+        for row in source.fetchall("""
             SELECT
                 oreg.id,
                 oreg.name,
@@ -52,14 +52,14 @@ class NssetInterface(BaseInterface):
                 result.append(row)
             counter += 1
 
-        self.appendStatus(result, found, lang, Cols.STATUS_IMPORTANCE, Cols.STATUS_DESC)
+        self.appendStatus(source, result, found, lang, Cols.STATUS_IMPORTANCE, Cols.STATUS_DESC)
 
         self.logger.log(self.logger.INFO, 'NssetInterface.getNssetList(id=%d and handle="%s") has %d rows.' % (contact.id, contact.handle, len(result)))
         return result, counter > self.list_limit
 
 
     @furnish_database_cursor_m
-    def getNssetDetail(self, contact, nsset, lang):
+    def getNssetDetail(self, contact, nsset, lang, source=None):
         """
         struct NSSetDetail {
             TID id;
@@ -79,10 +79,10 @@ class NssetInterface(BaseInterface):
             short report_level;
         };
         """
-        self._verify_user_contact(contact)
+        self._verify_user_contact(source, contact)
 
         nsset.lang = lang
-        results = self.browser.threading_local.source.fetchall("""
+        results = source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.name AS handle,
@@ -132,11 +132,11 @@ class NssetInterface(BaseInterface):
         TID, PASSWORD = 0, 6
         nsset_detail = results[0]
         registrars = self._pop_registrars_from_detail(nsset_detail) # pop some columns from the detail here
-        state_codes, state_importance, state_descriptions = self.parse_states(nsset_detail.pop())
+        state_codes, state_importance, state_descriptions = self.parse_states(source, nsset_detail.pop())
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
-        for row in self.browser.threading_local.source.fetchall("""
+        for row in source.fetchall("""
             SELECT
                 object_registry.id,
                 object_registry.name,
@@ -161,7 +161,7 @@ class NssetInterface(BaseInterface):
             nsset_detail[PASSWORD] = self.PASSWORD_SUBSTITUTION
 
         hosts = []
-        for row_host in self.browser.threading_local.source.fetchall("""
+        for row_host in source.fetchall("""
                 SELECT
                     MIN(host.fqdn),
                     array_accum(host_ipaddr_map.ipaddr)
@@ -210,10 +210,8 @@ class NssetInterface(BaseInterface):
             """)
 
 
-    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id, source=None):
+    def _object_belongs_to_contact(self, source, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
-        if source is None:
-            source = self.browser.threading_local.source
         admins = source.fetch_array("""
             SELECT object_registry.name
             FROM nsset_contact_map

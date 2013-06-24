@@ -5,7 +5,7 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils import none2str
-from pyfred.registry.utils.decorators import furnish_database_cursor_m, transaction_isolation_level_read_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m ##, transaction_isolation_level_read_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES
 from pyfred.registry.utils.cursors import TransactionLevelRead
 
@@ -14,12 +14,12 @@ class ContactInterface(BaseInterface):
     "Contact corba interface."
 
     @furnish_database_cursor_m
-    def getObjectRegistryId(self, objtype, handle):
+    def getObjectRegistryId(self, objtype, handle, source=None):
         "Return ID of object."
-        return self._get_handle_id(objtype, handle)
+        return self._get_handle_id(source, objtype, handle)
 
     @furnish_database_cursor_m
-    def getContactDetail(self, contact, detail, lang):
+    def getContactDetail(self, contact, detail, lang, source=None):
         """Return detail of contact.
 
         struct ContactDetail {
@@ -52,10 +52,10 @@ class ContactInterface(BaseInterface):
             string state_codes;
         };
         """
-        self._verify_user_contact(contact)
+        self._verify_user_contact(source, contact)
 
         detail.lang = lang
-        results = self.browser.threading_local.source.fetchall("""
+        results = source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.name AS handle,
@@ -124,7 +124,7 @@ class ContactInterface(BaseInterface):
         registrar_name = none2str(row.pop())
         registrar_handle = none2str(row.pop())
         registrar_id = none2str(row.pop())
-        state_codes, state_importance, state_descriptions = self.parse_states(row.pop())
+        state_codes, state_importance, state_descriptions = self.parse_states(source, row.pop())
 
         TID, HANDLE, PASSWORD = 0, 1, 6
         contact_detail = row[:-9]
@@ -160,11 +160,11 @@ class ContactInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def setContactDiscloseFlags(self, contact, flags, request_id):
+    def setContactDiscloseFlags(self, contact, flags, request_id, source=None):
         "Set contact disclose flags."
-        self._verify_user_contact(contact)
-        self.owner_has_required_status(contact.id, ["validatedContact", "identifiedContact"])
-        self.check_if_object_is_blocked(contact.id)
+        self._verify_user_contact(source, contact)
+        self.owner_has_required_status(source, contact.id, ["validatedContact", "identifiedContact"])
+        self.check_if_object_is_blocked(source, contact.id)
 
         # "name" and "organization" cannot change
         columns = ("email", "address", "telephone", "fax", "ident", "vat", "notify_email")
@@ -174,7 +174,7 @@ class ContactInterface(BaseInterface):
                 raise Registry.DomainBrowser.INCORRECT_USAGE
 
         # cannot change flags: contact.disclosename, contact.discloseorganization,
-        results = self.browser.threading_local.source.fetchall("""
+        results = source.fetchall("""
             SELECT
                 contact.discloseemail,
                 contact.discloseaddress,
@@ -203,7 +203,7 @@ class ContactInterface(BaseInterface):
             return False
 
         # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
-        with TransactionLevelRead(self.browser.threading_local.source, self.logger) as transaction:
+        with TransactionLevelRead(source, self.logger) as transaction:
             self.logger.log(self.logger.INFO, 'CHANGE contact[%d] "%s" FROM disclose flags (%s) TO (%s).' % (
                     contact.id, contact.handle,
                     ", ".join(["%s=%s" % item for item in disclose_flags.items()]),
@@ -214,7 +214,7 @@ class ContactInterface(BaseInterface):
             # "name" and "organization" cannot change:
             # disclosename = %(name)s,
             # discloseorganization = %(organization)s,
-            self.browser.threading_local.source.execute("""
+            source.execute("""
                 UPDATE contact SET
                     discloseemail = %(email)s,
                     discloseaddress = %(address)s,
@@ -224,7 +224,7 @@ class ContactInterface(BaseInterface):
                     disclosevat = %(vat)s,
                     disclosenotifyemail = %(notify_email)s
                 WHERE id = %(contact_id)d""", params)
-            self._update_history(contact.id, contact.handle, "contact", request_id)
+            self._update_history(source, contact.id, contact.handle, "contact", request_id)
 
         self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact.id, contact.handle))
         return True
@@ -242,7 +242,7 @@ class ContactInterface(BaseInterface):
             """)
 
 
-    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+    def _object_belongs_to_contact(self, source, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
         if contact_id != object_id:
             self.logger.log(self.logger.INFO, "Contact ID %d does not belong to the handle '%s' with ID %d." % (object_id, contact_handle, contact_id))

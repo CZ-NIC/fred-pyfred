@@ -12,10 +12,10 @@ class KeysetInterface(BaseInterface):
     "Keyset corba interface."
 
     @furnish_database_cursor_m
-    def getKeysetList(self, contact, lang, offset):
+    def getKeysetList(self, contact, lang, offset, source=None):
         "List of keysets"
-        self._verify_user_contact(contact)
-        str_minimal_status_importance = str(self.get_status_minimal_importance())
+        self._verify_user_contact(source, contact)
+        str_minimal_status_importance = str(self.get_status_minimal_importance(source))
 
         class Cols:
             OBJECT_ID, HANDLE, NUM_OF_DOMAINS, REG_HANDLE, REG_NAME, STATUS_IMPORTANCE, STATUS_DESC = range(7)
@@ -25,7 +25,7 @@ class KeysetInterface(BaseInterface):
         #CREATE OR REPLACE VIEW domains_by_keyset_view AS
         #    SELECT keyset, COUNT(keyset) AS number FROM domain WHERE keyset IS NOT NULL GROUP BY keyset
         found = {}
-        for row in self.browser.threading_local.source.fetchall("""
+        for row in source.fetchall("""
             SELECT
                 oreg.id,
                 oreg.name,
@@ -53,7 +53,7 @@ class KeysetInterface(BaseInterface):
                 result.append(row)
             counter += 1
 
-        self.appendStatus(result, found, lang, Cols.STATUS_IMPORTANCE, Cols.STATUS_DESC)
+        self.appendStatus(source, result, found, lang, Cols.STATUS_IMPORTANCE, Cols.STATUS_DESC)
 
         self.logger.log(self.logger.INFO, 'KeysetInterface.getKeysetList(id=%d and handle="%s") has %d rows.' % (contact.id, contact.handle, len(result)))
         return result, counter > self.list_limit
@@ -61,7 +61,7 @@ class KeysetInterface(BaseInterface):
         return []
 
     @furnish_database_cursor_m
-    def getKeysetDetail(self, contact, keyset, lang):
+    def getKeysetDetail(self, contact, keyset, lang, source=None):
         """
         struct KeysetDetail {
             TID id;
@@ -98,10 +98,10 @@ class KeysetInterface(BaseInterface):
             string         key;
         };
         """
-        self._verify_user_contact(contact)
+        self._verify_user_contact(source, contact)
 
         keyset.lang = lang
-        results = self.browser.threading_local.source.fetchall("""
+        results = source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.name AS handle,
@@ -149,11 +149,11 @@ class KeysetInterface(BaseInterface):
         TID, PASSWORD = 0, 6
         keyset_detail = results[0]
         registrars = self._pop_registrars_from_detail(keyset_detail) # pop some columns from the detail here
-        state_codes, state_importance, state_descriptions = self.parse_states(keyset_detail.pop())
+        state_codes, state_importance, state_descriptions = self.parse_states(source, keyset_detail.pop())
 
         owner = False
         admins = [] # Registry.DomainBrowser.CoupleSeq
-        for row in self.browser.threading_local.source.fetchall("""
+        for row in source.fetchall("""
             SELECT
                 object_registry.id,
                 object_registry.name,
@@ -179,7 +179,7 @@ class KeysetInterface(BaseInterface):
 
         dsrecords = []
         columns = ("key_tag", "alg", "digest_type", "digest", "max_sig_life")
-        for row_dsrec in self.browser.threading_local.source.fetchall("""
+        for row_dsrec in source.fetchall("""
                 SELECT
                     keytag, alg, digesttype, digest, maxsiglife
                 FROM dsrecord
@@ -190,7 +190,7 @@ class KeysetInterface(BaseInterface):
 
         dnskeys = []
         columns = ("flags", "protocol", "alg", "key")
-        for row_dsrec in self.browser.threading_local.source.fetchall("""
+        for row_dsrec in source.fetchall("""
                 SELECT
                     flags, protocol, alg, key
                 FROM dnskey
@@ -233,10 +233,8 @@ class KeysetInterface(BaseInterface):
             """)
 
 
-    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id, source=None):
+    def _object_belongs_to_contact(self, source, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
-        if source is None:
-            source = self.browser.threading_local.source
         admins = source.fetch_array("""
             SELECT object_registry.name
             FROM keyset_contact_map

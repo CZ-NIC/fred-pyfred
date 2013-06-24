@@ -23,12 +23,12 @@ class DomainInterface(BaseInterface):
     This class implements DomainBrowser Domain interface.
     """
 
-    def __provideDomainList(self, contact_id, sql_query, sql_params, lang):
+    def __provideDomainList(self, source, contact_id, sql_query, sql_params, lang):
         """
         Provide domain list for interface functions.
         """
-        enum_parameters = dict(self.browser.threading_local.source.fetchall("SELECT name, val FROM enum_parameters"))
-        str_minimal_status_importance = str(self.get_status_minimal_importance())
+        enum_parameters = dict(source.fetchall("SELECT name, val FROM enum_parameters"))
+        str_minimal_status_importance = str(self.get_status_minimal_importance(source))
 
         class Cols(object):
             OBJECT_ID, DOMAIN_NAME, REG_HANDLE, REGISTRAR, EXDATE, REGISTRANT, \
@@ -39,7 +39,7 @@ class DomainInterface(BaseInterface):
             STATUS_DESC = 9
 
         result, found, counter = [], {}, 0
-        for row in self.browser.threading_local.source.fetchall(sql_query, sql_params): #, self.logger.INFO
+        for row in source.fetchall(sql_query, sql_params): #, self.logger.INFO
             object_id = row[Cols.OBJECT_ID]
             if counter < self.list_limit:
                 found[object_id] = len(result)
@@ -101,15 +101,15 @@ class DomainInterface(BaseInterface):
 
             counter += 1
 
-        self.appendStatus(result, found, lang, Resp.STATUS_IMPORTANCE, Resp.STATUS_DESC)
+        self.appendStatus(source, result, found, lang, Resp.STATUS_IMPORTANCE, Resp.STATUS_DESC)
         #self.logger.log(self.logger.INFO, "domain_list.length=%d limit_exceeded=%s" % (len(domain_list), limit_exceeded)) # TEST
         return result, counter > self.list_limit
 
 
     @furnish_database_cursor_m
-    def getDomainList(self, contact, lang, offset):
+    def getDomainList(self, contact, lang, offset, source=None):
         "Return list of domains."
-        self._verify_user_contact(contact)
+        self._verify_user_contact(source, contact)
 
         sql_query = """
             SELECT
@@ -136,17 +136,17 @@ class DomainInterface(BaseInterface):
         sql_params = dict(contact_id=contact.id, role_id=DOMAIN_ROLE["admin"],
                           lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact.id, sql_query, sql_params, lang)
+        return self.__provideDomainList(source, contact.id, sql_query, sql_params, lang)
 
 
     @furnish_database_cursor_m
-    def getDomainsForNsset(self, contact, nsset, lang, offset):
+    def getDomainsForNsset(self, contact, nsset, lang, offset, source=None):
         "Domains for nsset"
-        self._verify_user_contact(contact)
-        self._verify(nsset)
+        self._verify_user_contact(source, contact)
+        self._verify(source, nsset)
 
         # throw ACCESS_DENIED - when contact is not owner of nsset
-        self.browser.nsset._object_belongs_to_contact(contact.id, contact.handle, nsset.id, self.browser.threading_local.source)
+        self.browser.nsset._object_belongs_to_contact(source, contact.id, contact.handle, nsset.id)
 
         sql_query = """
             SELECT
@@ -173,17 +173,17 @@ class DomainInterface(BaseInterface):
         sql_params = dict(contact_id=contact.id, nsset_id=nsset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact.id, sql_query, sql_params, lang)
+        return self.__provideDomainList(source, contact.id, sql_query, sql_params, lang)
 
 
     @furnish_database_cursor_m
-    def getDomainsForKeyset(self, contact, keyset, lang, offset):
+    def getDomainsForKeyset(self, contact, keyset, lang, offset, source=None):
         "Domains for keyset"
-        self._verify_user_contact(contact)
-        self._verify(keyset)
+        self._verify_user_contact(source, contact)
+        self._verify(source, keyset)
 
         # throw ACCESS_DENIED - when contact is not owner of keyset
-        self.browser.keyset._object_belongs_to_contact(contact.id, contact.handle, keyset.id, self.browser.threading_local.source)
+        self.browser.keyset._object_belongs_to_contact(source, contact.id, contact.handle, keyset.id)
 
         sql_query = """
             SELECT
@@ -210,11 +210,11 @@ class DomainInterface(BaseInterface):
         sql_params = dict(contact_id=contact.id, keyset_id=keyset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
                           role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
 
-        return self.__provideDomainList(contact.id, sql_query, sql_params, lang)
+        return self.__provideDomainList(source, contact.id, sql_query, sql_params, lang)
 
 
     @furnish_database_cursor_m
-    def getDomainDetail(self, contact, domain, lang):
+    def getDomainDetail(self, contact, domain, lang, source=None):
         """
         struct DomainDetail {
             TID id;
@@ -241,10 +241,10 @@ class DomainInterface(BaseInterface):
             3 - domain
             4 - keyset
         """
-        self._verify_user_contact(contact)
+        self._verify_user_contact(source, contact)
 
         domain.lang = lang
-        results = self.browser.threading_local.source.fetchall("""
+        results = source.fetchall("""
             SELECT
                 oreg.id AS id,
                 oreg.roid AS roid,
@@ -353,14 +353,14 @@ class DomainInterface(BaseInterface):
         registrant_handle = none2str(domain_detail.pop())
         registrant_id = domain_detail.pop()
 
-        state_codes, state_importance, state_descriptions = self.parse_states(domain_detail.pop())
+        state_codes, state_importance, state_descriptions = self.parse_states(source, domain_detail.pop())
 
         if domain_detail[Col.PUBLISH] is None:
             domain_detail[Col.PUBLISH] = False
 
         admins = [] # Registry.DomainBrowser.CoupleSeq
         admin_handles = []
-        for row in self.browser.threading_local.source.fetchall("""
+        for row in source.fetchall("""
                 SELECT
                     object_registry.id,
                     object_registry.name,
@@ -399,7 +399,7 @@ class DomainInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def getRegistrarDetail(self, contact, handle):
+    def getRegistrarDetail(self, contact, handle, source=None):
         """
         struct RegistrarDetail {
             TID id;
@@ -411,10 +411,10 @@ class DomainInterface(BaseInterface):
             string address;
         };
         """
-        self._verify_user_contact(contact)
+        self._verify_user_contact(source, contact)
 
         columns = ("id", "handle", "name", "phone", "fax", "url", "address")
-        results = self.browser.threading_local.source.fetchall("""
+        results = source.fetchall("""
             SELECT
                 id, handle, name, telephone, fax, url,
                 ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
@@ -449,9 +449,9 @@ class DomainInterface(BaseInterface):
             """)
 
 
-    def _object_belongs_to_contact(self, contact_id, contact_handle, object_id):
+    def _object_belongs_to_contact(self, source, contact_id, contact_handle, object_id):
         "Check if object belongs to the contact."
-        registrant_handle = self.browser.threading_local.source.getval("""
+        registrant_handle = source.getval("""
             SELECT
                 registrant.name
             FROM object_registry oreg
@@ -466,10 +466,10 @@ class DomainInterface(BaseInterface):
 
 
     @furnish_database_cursor_m
-    def getPublicStatusDesc(self, lang):
+    def getPublicStatusDesc(self, lang, source=None):
         "Public status descriptions in the language."
         # return: ["text", "another text", ...]
-        return self.browser.threading_local.source.fetch_array("""
+        return source.fetch_array("""
             SELECT
                 dsc.description
             FROM enum_object_states ost
