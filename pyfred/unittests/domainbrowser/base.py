@@ -69,7 +69,6 @@ class DomainBrowserTestCase(unittest.TestCase):
             pgconf.db_user,
             pgconf.db_password,
         )
-        ##cls.db.data_folder_name = "domainbrowser/dbdata"
         cls.db.refs_folder_name = cls.REFDATA_SUBFOLDER
 
         # True - store SQL query and response info files.
@@ -79,7 +78,7 @@ class DomainBrowserTestCase(unittest.TestCase):
             #backup_subfolder(cls.REFDATA_SUBFOLDER)
 
         # True - overwrite existing files with query and response.
-        ##if os.environ.get("TRACKW"):
+        #if os.environ.get("TRACKW"):
         cls.db.overwrite_existing = True
 
         #if os.environ.get("USEDB"):

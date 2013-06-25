@@ -5,7 +5,7 @@
 from pyfred.idlstubs import Registry
 from pyfred.registry.interface.base import BaseInterface
 from pyfred.registry.utils import none2str
-from pyfred.registry.utils.decorators import furnish_database_cursor_m ##, transaction_isolation_level_read_m
+from pyfred.registry.utils.decorators import furnish_database_cursor_m
 from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES
 from pyfred.registry.utils.cursors import TransactionLevelRead
 

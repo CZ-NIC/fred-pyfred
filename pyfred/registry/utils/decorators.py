@@ -17,7 +17,6 @@ def furnish_database_cursor_m(interface_function):
         retval = None
         with DatabaseCursor(self.database, self.logger, self.INTERNAL_SERVER_ERROR) as source:
             kwargs["source"] = source
-            self.logger.thread_ident = id(source)
             retval = interface_function(self, *args, **kwargs)
         return retval
 

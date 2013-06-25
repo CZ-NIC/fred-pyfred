@@ -73,7 +73,6 @@ class MockPgdbCursor(pgdb.pgdbCursor):
             response = super(MockPgdbCursor, self).fetchall()
             if self._dbcnx.track_traffic:
                 # create data dict
-                ##print "\ncreate data dict:", query_code, params_code #!!!
                 if query_code not in self._dbcnx.db_data:
                     self._dbcnx.db_data[query_code] = dict(query=query, values={})
                 if params_code not in self._dbcnx.db_data[query_code]["values"]:

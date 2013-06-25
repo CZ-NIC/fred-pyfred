@@ -61,7 +61,6 @@ class Logger(object):
     INFO = LEVELS["info"]
     DEBUG = LEVELS["debug"]
 
-    thread_ident = None
 
     def __init__(self, prefix):
         """
@@ -70,12 +69,12 @@ class Logger(object):
         """
         self._log = logging.getLogger(prefix)
 
-    def log(self, level, msg):
+    def log(self, level, msg, ident=None):
         """
         Wrapper around logging.Logger.log method.
         """
-        if self.thread_ident is not None:
-            msg = "%s %s" % (self.thread_ident, msg)
+        if ident is not None:
+            msg = "IID:%s %s" % (ident, msg) # IID is Instance ID
         self._log.log(level, msg)
 
 

@@ -24,7 +24,7 @@ class DatabaseCursor(object):
             self.connection = self.database.getConn()
             self.cursor = self.connection.cursor()
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError), msg:
-            self.logger.log(self.logger.ERROR, "Open connection and cursor. %s" % msg)
+            self.logger.log(self.logger.ERROR, "Open connection and cursor. %s" % msg, ident=id(self))
             raise self.INTERNAL_SERVER_ERROR
         return self
 
@@ -37,14 +37,13 @@ class DatabaseCursor(object):
     def execute(self, sql, params=None, logging_level=None):
         "Execute SQL query."
         private_params = make_params_private(params)
-        self.logger.log(self.logging_level if logging_level is None else logging_level, 'Execute "%s"; %s' % (normalize_spaces(sql), private_params))
+        self.logger.log(self.logging_level if logging_level is None else logging_level, 'Execute "%s"; %s' % (normalize_spaces(sql), private_params), ident=id(self))
         # InterfaceError (quote), OperationalError, DatabaseError (executemany)
         #print (sql % params if params else sql) # DEBUG
-        print "### self.connection=", self.connection, "self.cursor=", self.cursor #!!!
         try:
             self.cursor.execute(sql, params)
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError, pgdb.InterfaceError), msg:
-            self.logger.log(self.logger.ERROR, 'cursor.excecute("%s", %s) %s' % (normalize_spaces(sql), private_params, msg))
+            self.logger.log(self.logger.ERROR, 'cursor.excecute("%s", %s) %s' % (normalize_spaces(sql), private_params, msg), ident=id(self))
             raise self.INTERNAL_SERVER_ERROR
 
     def fetchall(self, sql, params=None, logging_level=None):
@@ -53,7 +52,7 @@ class DatabaseCursor(object):
         try:
             return self.cursor.fetchall()
         except pgdb.DatabaseError, msg:
-            self.logger.log(self.logger.ERROR, 'cursor.fetchall("%s", %s) %s' % (normalize_spaces(sql), make_params_private(params), msg))
+            self.logger.log(self.logger.ERROR, 'cursor.fetchall("%s", %s) %s' % (normalize_spaces(sql), make_params_private(params), msg), ident=id(self))
             raise self.INTERNAL_SERVER_ERROR
 
     def fetchallstr(self, sql, params=None, logging_level=None):
