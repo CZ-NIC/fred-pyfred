@@ -85,7 +85,7 @@ class MockPgdbCursor(pgdb.pgdbCursor):
                 # Deliberately corrupt data for testing exceptions.
 
                 # TestDomainBrowserContact.test_045 -  detail of contact BOB
-                if query_code == "eae01d3cbe8449e693d70d92e36ed142" and params_code == "26bcda2e0343f3f2d86597156d1df6d8":
+                if query_code == "f88ac281b0e5a8afe2febb920b55add0" and params_code == "26bcda2e0343f3f2d86597156d1df6d8":
                     self._dbcnx.db_data[query_code]["values"][params_code]["response"][self._dbcnx.stage_pos] = [deepcopy(response), deepcopy(response)]
 
         else:

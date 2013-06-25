@@ -258,3 +258,89 @@ f0e311cbd7a0564f1d6e7c8f55da2eb5:
       data: {handle: ANNA, id: *id005, name: '', object_id: *id005, type_id: 1}
       response:
       - - [4]
+f88ac281b0e5a8afe2febb920b55add0:
+  query: |-
+    SELECT
+                    oreg.id AS id,
+                    oreg.name AS handle,
+                    oreg.roid AS roid,
+
+                    oreg.crdate AS create_date,
+                    obj.trdate AS transfer_date,
+                    obj.update AS update_date,
+
+                    obj.authinfopw AS auth_info,
+
+                    contact.name,
+                    contact.organization,
+                    contact.street1,
+                    contact.street2,
+                    contact.street3,
+                    contact.stateorprovince,
+                    contact.postalcode,
+                    contact.city,
+                    contact.country,
+                    contact.telephone,
+                    contact.fax,
+                    contact.email,
+                    contact.notifyemail,
+                    contact.ssn,
+                    ssntype.type AS ssntype,
+                    contact.vat,
+
+                    contact.disclosename,
+                    contact.discloseorganization,
+                    contact.discloseemail,
+                    contact.discloseaddress,
+                    contact.disclosetelephone,
+                    contact.disclosefax,
+                    contact.discloseident,
+                    contact.disclosevat,
+                    contact.disclosenotifyemail,
+
+                    get_state_descriptions(oreg.id, %(lang)s) AS states,
+                    current.id AS registrar_id,
+                    current.handle AS registrar_handle,
+                    current.name AS registrar_name
+
+                FROM object_registry oreg
+                    JOIN object obj ON obj.id = oreg.id
+                    JOIN registrar current ON current.id = obj.clid
+                    JOIN contact ON contact.id = oreg.id
+                    LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
+
+                WHERE
+                    oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND oreg.type = %(type_id)d
+                    AND oreg.erdate IS NULL
+  values:
+    26bcda2e0343f3f2d86597156d1df6d8:
+      data: {handle: BOB, id: &id006 !!python/long '7', lang: EN, name: '', object_id: *id006,
+        type_id: 1}
+      response:
+      - - - [7, BOB, C0000000007-CZ, '2013-06-14 13:31:51.297114', null, null, PNhmLTYQ,
+            !!python/str "Bobe\u0161 \u0160ufl\xEDk", null, !!python/str "B\xE1\u0148\
+              sk\xE1 35", null, null, null, '18200', !!python/str "Doma\u017Elice",
+            CZ, '+420.726123461', '+420.726123450', bobes.suflik@nic.czcz, bob+notify@nic.czcz,
+            '84956252', OP, CZ1234567895, true, true, true, true, true, false, false,
+            false, false, t#20#linked#Has relation to other records in the registry,
+            1, REG-FRED_A, Company A l.t.d]
+        - - [7, BOB, C0000000007-CZ, '2013-06-14 13:31:51.297114', null, null, PNhmLTYQ,
+            !!python/str "Bobe\u0161 \u0160ufl\xEDk", null, !!python/str "B\xE1\u0148\
+              sk\xE1 35", null, null, null, '18200', !!python/str "Doma\u017Elice",
+            CZ, '+420.726123461', '+420.726123450', bobes.suflik@nic.czcz, bob+notify@nic.czcz,
+            '84956252', OP, CZ1234567895, true, true, true, true, true, false, false,
+            false, false, t#20#linked#Has relation to other records in the registry,
+            1, REG-FRED_A, Company A l.t.d]
+    b88b90e129ae97a5e6c13d1123939aba:
+      data: {handle: CIHAK, id: &id007 !!python/long '2', lang: EN, name: '', object_id: *id007,
+        type_id: 1}
+      response:
+      - - [2, CIHAK, C0000000002-CZ, '2013-06-14 13:31:49.804755', null, null, ANuUSKZg,
+          !!python/str "\u0158eho\u0159 \u010Cih\xE1k", !!python/str "Firma \u010C\
+            ih\xE1k a spol.", !!python/str "P\u0159\xEDpoto\u010Dn\xED 16/3", null,
+          null, null, '12601', !!python/str "\u0158\xED\u010Dany u Prahy", CZ, '+420.726123456',
+          '+420.726123455', rehor.cihak@nic.czcz, cihak+notify@nic.czcz, '84956251',
+          OP, CZ1234567890, true, true, true, true, true, false, false, false, false,
+          '', 1, REG-FRED_A, Company A l.t.d]
