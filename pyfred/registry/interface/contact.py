@@ -103,7 +103,7 @@ class ContactInterface(BaseInterface):
                 JOIN object obj ON obj.id = oreg.id
                 JOIN registrar current ON current.id = obj.clid
                 JOIN contact ON contact.id = oreg.id
-                JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
+                LEFT JOIN enum_ssntype ssntype ON contact.ssntype = ssntype.id
 
             WHERE
                 oreg.id = %(object_id)d
