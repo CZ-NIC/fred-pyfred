@@ -402,7 +402,7 @@ class Mailer_i (ccReg__POA.Mailer):
         self.l.log(self.l.DEBUG, "Regular send-emails procedure.")
         conn = self.db.getConn()
         # iterate over all emails from database ready to be sent
-        for (mailid, mail_text, attachs) in self.__dbGetReadyEmailsTypePenalization(conn):
+        for (mailid, mail_text, attachs) in self.__dbGetReadyEmailsTypePriority(conn):
             try:
                 # run email through completion procedure
                 (mail, efrom) = self.__completeEmail(mailid, mail_text, attachs)
@@ -626,6 +626,57 @@ class Mailer_i (ccReg__POA.Mailer):
             else:
                 result[-1][2].append(row[2])
 
+        return result
+
+    def __dbGetReadyEmailsTypePriority(self, conn):
+        """
+        Get all emails from database which are ready to be sent.
+        """
+        self.l.log(self.l.DEBUG, "search for ready messages using mail type priority")
+
+        cur = conn.cursor()
+
+        # QUICK FIX: this is temporary (changing schema need db maintenance window due to replication)
+        cur.execute("CREATE TEMP TABLE mail_type_priority ( "
+                "mail_type_id integer not null primary key, "
+                "priority integer not null)");
+        cur.execute("INSERT INTO mail_type_priority VALUES "
+                "((SELECT id FROM mail_type WHERE name = 'mojeid_identification'), 1), "
+                "((SELECT id FROM mail_type WHERE name = 'mojeid_validation'), 1), "
+                "((SELECT id FROM mail_type WHERE name = 'mojeid_email_change'), 1), "
+                "((SELECT id FROM mail_type WHERE name = 'mojeid_verified_contact_transfer'), 1), "
+                "((SELECT id FROM mail_type WHERE name = 'conditional_contact_identification'), 2), "
+                "((SELECT id FROM mail_type WHERE name = 'contact_identification'), 2), "
+                "((SELECT id FROM mail_type WHERE name = 'sendauthinfo_epp'), 2), "
+                "((SELECT id FROM mail_type WHERE name = 'sendauthinfo_pif'), 2), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_create'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_update'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_transfer'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_renew'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_unused'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'notification_delete'), 3), "
+                "((SELECT id FROM mail_type WHERE name = 'request_block'), 3)")
+        # QUICK FIX
+        cur.execute("SELECT mar.id, mar.message, "
+                "array_filter_null(array_accum(mat.attachid)), "
+                "mtp.priority "
+                "FROM mail_archive mar LEFT JOIN mail_attachments mat "
+                "ON (mar.id = mat.mailid) "
+                "LEFT JOIN mail_type_priority mtp ON mtp.mail_type_id = mar.mailtype "
+                "WHERE mar.status = 1 AND mar.attempt < %d "
+                "GROUP BY mar.id, mar.message, mtp.priority "
+                "ORDER BY mtp.priority ASC NULLS LAST "
+                "LIMIT %d" , [self.maxattempts, self.sendlimit])
+        rows = cur.fetchall()
+        cur.close()
+        # convert db array (attachids) to list
+        prio_stats = {}
+        result = []
+        for m_id, m_body, m_attach_ids, m_prio in rows:
+            result.append([m_id, m_body, [int(i) for i in convArray2List(m_attach_ids)]])
+            prio_stats[m_prio] = prio_stats.get(m_prio, 0) + 1
+
+        self.l.log(self.l.DEBUG, "mail type priority distribution: %s" % str(prio_stats))
         return result
 
     def __dbGetReadyEmailsTypePenalization(self, conn):
