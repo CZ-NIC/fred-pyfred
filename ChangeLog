@@ -1,3 +1,7 @@
+2013-06-27 Jiri Sadek (2.4.3)
+
+    * Removed hardcoded mail type priorities - now loaded from database
+
 2013-04-24 Jiri Sadek (2.4.2)
 
     * Temporary enhancement for email sending - hardcoded mail type priorities
