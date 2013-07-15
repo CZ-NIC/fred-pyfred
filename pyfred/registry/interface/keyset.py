@@ -167,7 +167,7 @@ class KeysetInterface(BaseInterface):
             ORDER BY object_registry.name
             """, dict(obj_id=keyset_detail[TID])):
             admins.append(Registry.DomainBrowser.RegistryReference(long(row[0]), none2str(row[1]), none2str(row[2])))
-            if contact.handle == row[0]:
+            if contact.handle == row[1]:
                 owner = True
 
         if owner:
