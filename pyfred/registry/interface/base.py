@@ -390,8 +390,7 @@ class BaseInterface(object):
 
     def appendStatus(self, source, result, found, lang, importance_column_pos, description_column_pos):
         "Append status into result."
-        keys = found.keys()
-        if not keys:
+        if not found:
             return # no domains
 
         def convert():
@@ -413,7 +412,7 @@ class BaseInterface(object):
                 AND os.valid_from <= CURRENT_TIMESTAMP
                 AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
             ORDER BY os.object_id
-            """, dict(keys=keys)):
+            """, dict(keys=found.keys())):
 
             object_id, state_id = row
             if state_id not in states:

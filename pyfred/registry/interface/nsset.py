@@ -129,7 +129,7 @@ class NssetInterface(BaseInterface):
             self.logger.log(self.logger.CRITICAL, "Nsset detail of '%s' does not have one record: %s" % (nsset, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        TID, PASSWORD = 0, 6
+        TID, HANDLE, NAME, PASSWORD = 0, 1, 2, 6
         nsset_detail = results[0]
         registrars = self._pop_registrars_from_detail(nsset_detail) # pop some columns from the detail here
         state_codes, state_importance, state_descriptions = self.parse_states(source, nsset_detail.pop())
@@ -149,8 +149,8 @@ class NssetInterface(BaseInterface):
             WHERE nssetid = %(obj_id)d
             ORDER BY object_registry.name
             """, dict(obj_id=nsset_detail[TID])):
-            admins.append(Registry.DomainBrowser.RegistryReference(long(row[0]), none2str(row[1]), none2str(row[2])))
-            if contact.handle == row[1]:
+            admins.append(Registry.DomainBrowser.RegistryReference(long(row[TID]), none2str(row[HANDLE]), none2str(row[NAME])))
+            if contact.handle == row[HANDLE]:
                 owner = True
 
         if owner:
