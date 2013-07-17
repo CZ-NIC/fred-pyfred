@@ -1,7 +1,8 @@
 #!/usr/bin/python
 from pyfred.idlstubs import Registry
 from pyfred.registry.utils.decorators import furnish_database_cursor_m
-from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES, AUTH_INFO_LENGTH
+from pyfred.registry.utils.constants import ENUM_OBJECT_STATES, OBJECT_REGISTRY_TYPES, \
+                                            AUTH_INFO_LENGTH, UPDATE_DISABLED_STATE_ID
 from pyfred.registry.utils.cursors import TransactionLevelRead
 from pyfred.registry.utils import none2str, StateItem
 
@@ -388,7 +389,8 @@ class BaseInterface(object):
         return self._cache["states"][lang]
 
 
-    def appendStatus(self, source, result, found, lang, importance_column_pos, description_column_pos):
+    def appendStatus(self, source, result, found, lang, importance_column_pos,
+                     description_column_pos, update_disabled_pos):
         "Append status into result."
         if not found:
             return # no domains
@@ -421,6 +423,9 @@ class BaseInterface(object):
             state_item = states[state_id]
             pos = found[object_id]
             rec = result[pos]
+
+            if state_id == UPDATE_DISABLED_STATE_ID:
+                rec[update_disabled_pos] = 't'
 
             if object_id != previous_id:
                 # convert instace StateItem to strings

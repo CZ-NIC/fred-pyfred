@@ -18,7 +18,7 @@ class NssetInterface(BaseInterface):
         str_minimal_status_importance = str(self.get_status_minimal_importance(source))
 
         class Cols:
-            OBJECT_ID, HANDLE, NUM_OF_DOMAINS, REG_HANDLE, REG_NAME, STATUS_IMPORTANCE, STATUS_DESC = range(7)
+            OBJECT_ID, HANDLE, NUM_OF_DOMAINS, REG_HANDLE, REG_NAME, STATUS_IMPORTANCE, STATUS_DESC, UPDATE_DISABLED = range(8)
 
         result, counter, limit_exceeded = [], 0, False
         #CREATE OR REPLACE VIEW domains_by_nsset_view AS
@@ -49,10 +49,11 @@ class NssetInterface(BaseInterface):
                 row[Cols.NUM_OF_DOMAINS] = "0" if row[Cols.NUM_OF_DOMAINS] is None else "%d" % row[Cols.NUM_OF_DOMAINS]
                 row.append(str_minimal_status_importance) # Cols.STATUS_IMPORTANCE
                 row.append("") # Cols.STATUS_DESC
+                row.append("f") # Cols.UPDATE_DISABLED
                 result.append(row)
             counter += 1
 
-        self.appendStatus(source, result, found, lang, Cols.STATUS_IMPORTANCE, Cols.STATUS_DESC)
+        self.appendStatus(source, result, found, lang, Cols.STATUS_IMPORTANCE, Cols.STATUS_DESC, Cols.UPDATE_DISABLED)
 
         self.logger.log(self.logger.INFO, 'NssetInterface.getNssetList(id=%d and handle="%s") has %d rows.' % (contact.id, contact.handle, len(result)))
         return result, counter > self.list_limit

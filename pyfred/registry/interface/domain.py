@@ -37,6 +37,7 @@ class DomainInterface(BaseInterface):
         class Resp(object):
             STATUS_IMPORTANCE = 2
             STATUS_DESC = 9
+            UPDATE_DISABLED = 10
 
         result, found, counter = [], {}, 0
         for row in source.fetchall(sql_query, sql_params): #, self.logger.INFO
@@ -97,11 +98,12 @@ class DomainInterface(BaseInterface):
                     row[Cols.REG_HANDLE],  # registrar_handle TEXT
                     row[Cols.REGISTRAR],   # registrar name
                     "", # state description Resp.STATUS_DESC
+                    "f" # updating status is disabled
                     ])
 
             counter += 1
 
-        self.appendStatus(source, result, found, lang, Resp.STATUS_IMPORTANCE, Resp.STATUS_DESC)
+        self.appendStatus(source, result, found, lang, Resp.STATUS_IMPORTANCE, Resp.STATUS_DESC, Resp.UPDATE_DISABLED)
         #self.logger.log(self.logger.INFO, "domain_list.length=%d limit_exceeded=%s" % (len(domain_list), limit_exceeded)) # TEST
         return result, counter > self.list_limit
 

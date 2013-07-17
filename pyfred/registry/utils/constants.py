@@ -31,6 +31,7 @@ OBJECT_REGISTRY_TYPES = dict(contact=1, nsset=2, domain=3, keyset=4)
 # authinfopw | character varying(300)      |
 AUTH_INFO_LENGTH = 300
 
+UPDATE_DISABLED_STATE_ID = 7 # serverBlocked
 
 ENUM_OBJECT_STATES = dict(serverTransferProhibited=3,
                           serverUpdateProhibited=4,
