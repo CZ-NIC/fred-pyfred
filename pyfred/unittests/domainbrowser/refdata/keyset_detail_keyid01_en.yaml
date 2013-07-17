@@ -4,7 +4,7 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.KeysetDetail
     id: !!python/long '4', name: !!python/str "Anna Proch\xE1zkov\xE1"}
   - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {handle: TESTER,
     id: !!python/long '6', name: !!python/str "Tom\xE1\u0161 Tester"}
-  auth_info: '********'
+  auth_info: oDmfgnip
   create_date: '2013-06-14 13:31:54.616493'
   create_registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
     handle: REG-FRED_A, id: 1, name: Company A l.t.d}
@@ -23,5 +23,5 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.KeysetDetail
   update_date: ''
   update_registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
     handle: '', id: 0, name: ''}
-owner: !!python/object:omniORB.EnumItem {_n: PUBLIC_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',
-  _v: 0}
+owner: !!python/object:omniORB.EnumItem {_n: PRIVATE_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',
+  _v: 1}

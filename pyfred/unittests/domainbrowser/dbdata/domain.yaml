@@ -285,6 +285,34 @@ bf5735880fe8ef8c4ccc4ee9e42417fa:
       - - [38, D0000000038-CZ, ginger01.cz, '2013-06-14 13:32:00.496137', null, heslo,
           '2016-06-14', null, null, false, NSSID01, KEYID01, '', 4, ANNA, !!python/str "Anna\
             \ Proch\xE1zkov\xE1", 1, REG-FRED_A, Company A l.t.d]
+c665b26ffbf5d2e10115d11f6f44e57e:
+  query: |-
+    SELECT
+                    objreg.id,
+                    objreg.name
+                FROM object_registry objreg
+                LEFT JOIN domain_contact_map map ON map.domainid = objreg.id
+                JOIN domain ON objreg.id = domain.id
+                WHERE type = %(objtype)d
+                    AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
+                    AND objreg.id IN %(selections)s
+  values:
+    db0287d52de8a3edcbfac47ec9ced0c0:
+      data:
+        contact_id: !!python/long '6'
+        objtype: 3
+        selections: [!!python/long '38', !!python/long '28', !!python/long '36']
+      response:
+      - - [28, nic01.cz]
+        - [28, nic01.cz]
+        - [36, nic09.cz]
+        - [36, nic09.cz]
+        - [38, ginger01.cz]
+      - - [28, nic01.cz]
+        - [28, nic01.cz]
+        - [36, nic09.cz]
+        - [36, nic09.cz]
+        - [38, ginger01.cz]
 c83c383266533e515a379cace781f53f:
   query: |-
     SELECT
@@ -491,31 +519,3 @@ f0e311cbd7a0564f1d6e7c8f55da2eb5:
         type_id: 1}
       response:
       - []
-f5564cfafd997f6b16bbe35eb81f3e61:
-  query: |-
-    SELECT
-                    objreg.id,
-                    objreg.name
-                FROM object_registry objreg
-                JOIN domain_contact_map map ON map.domainid = objreg.id
-                JOIN domain ON objreg.id = domain.id
-                WHERE type = %(objtype)d
-                    AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
-                    AND objreg.id IN %(selections)s
-  values:
-    db0287d52de8a3edcbfac47ec9ced0c0:
-      data:
-        contact_id: *id001
-        objtype: 3
-        selections: [!!python/long '38', !!python/long '28', !!python/long '36']
-      response:
-      - - [28, nic01.cz]
-        - [28, nic01.cz]
-        - [36, nic09.cz]
-        - [36, nic09.cz]
-        - [38, ginger01.cz]
-      - - [28, nic01.cz]
-        - [28, nic01.cz]
-        - [36, nic09.cz]
-        - [36, nic09.cz]
-        - [38, ginger01.cz]
