@@ -441,7 +441,7 @@ class DomainInterface(BaseInterface):
                 objreg.id,
                 objreg.name
             FROM object_registry objreg
-            JOIN domain_contact_map map ON map.domainid = objreg.id
+            LEFT JOIN domain_contact_map map ON map.domainid = objreg.id
             JOIN domain ON objreg.id = domain.id
             WHERE type = %(objtype)d
                 AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
