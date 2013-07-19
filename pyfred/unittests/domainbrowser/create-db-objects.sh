@@ -72,5 +72,21 @@ for enum in `seq 420222548111 $((420222548111 + 10))`; do
     $FRED_CLIENT -xd "create_domain $(echo $enum | rev | fold -w1 | tr '\n' '.')e164.arpa $CONTACT NULL nssid01 keyid01 () (anna, bob) $(date -d '5 month' +'%Y-%m-%d')"
 done
 
+# Set serverBlocked to the handles: FRANTA, NSSID05, KEYID05, nic05.cz
+# serverBlocked=7
+STATE_ID=7
+for HANDLE in FRANTA NSSID05 KEYID05 nic05.cz
+do
+    REG_ID=`echo "SELECT id FROM object_registry WHERE name = '$HANDLE';" | $FREDDB -A -t`
+    echo "Registry ID for handle '$HANDLE' is $REG_ID. Set status ID $STATE_ID."
+    # Run insert in the separate transaction:
+    echo "INSERT INTO object_state_request_lock (state_id, object_id) VALUES ($STATE_ID, $REG_ID);" | $FREDDB
+    echo "
+        SELECT lock_object_state_request_lock($STATE_ID, $REG_ID);
+        INSERT INTO object_state_request (object_id, state_id, valid_from) VALUES ($REG_ID, $STATE_ID, CURRENT_TIMESTAMP);
+        SELECT update_object_states($REG_ID);
+    " | $FREDDB
+done
+
 pg_dump -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred > $UNITTEST_PATH/dbdata/fred.dump.sql
 echo "New database dump saved at $UNITTEST_PATH/dbdata/fred.dump.sql"

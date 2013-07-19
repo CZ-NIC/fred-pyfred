@@ -4,8 +4,8 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.NSSetDetail
     id: !!python/long '4', name: !!python/str "Anna Proch\xE1zkov\xE1"}
   - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {handle: TESTER,
     id: !!python/long '6', name: !!python/str "Tom\xE1\u0161 Tester"}
-  auth_info: TrgdMfXu
-  create_date: '2013-06-14 13:31:51.700438'
+  auth_info: dpvvgRnq
+  create_date: '2013-07-19 13:28:59.965814'
   create_registrar: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
     handle: REG-FRED_A, id: 1, name: Company A l.t.d}
   handle: NSSID01

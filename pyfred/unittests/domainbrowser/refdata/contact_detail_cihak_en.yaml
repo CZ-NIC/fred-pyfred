@@ -2,7 +2,7 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.ContactDetail
   auth_info: '********'
   city: !!python/str "\u0158\xED\u010Dany u Prahy"
   country: CZ
-  create_date: '2013-06-14 13:31:49.804755'
+  create_date: '2013-07-19 13:28:58.065064'
   disclose_flags: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.ContactDiscloseFlags {
     address: true, email: true, fax: false, ident: false, name: true, notify_email: false,
     organization: true, telephone: true, vat: false}

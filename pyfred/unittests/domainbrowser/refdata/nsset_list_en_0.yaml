@@ -5,7 +5,7 @@ table:
 - ['9', NSSID02, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
 - ['10', NSSID03, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
 - ['11', NSSID04, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
-- ['12', NSSID05, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['12', NSSID05, '0', REG-FRED_A, Company A l.t.d, '32', Domain blocked, t]
 - ['13', NSSID06, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
 - ['14', NSSID07, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
 - ['15', NSSID08, '0', REG-FRED_A, Company A l.t.d, '64', '', f]

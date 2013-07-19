@@ -54,8 +54,8 @@
       data: {handle: KEYID01, id: &id001 !!python/long '18', lang: EN, name: '', object_id: *id001,
         type_id: 4}
       response:
-      - - [18, KEYID01, K0000000018-CZ, '2013-06-14 13:31:54.616493', null, null,
-          oDmfgnip, t#20#linked#Has relation to other records in the registry, null,
+      - - [18, KEYID01, K0000000018-CZ, '2013-07-19 13:29:02.855337', null, null,
+          WYdFuglW, t#20#linked#Has relation to other records in the registry, null,
           null, null, 1, REG-FRED_A, Company A l.t.d, 1, REG-FRED_A, Company A l.t.d]
 ac758d55f144d383a8e02377ed0a5bd9:
   query: |-

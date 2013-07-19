@@ -3,8 +3,8 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DomainDetail
   - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {handle: TESTER,
     id: !!python/long '6', name: !!python/str "Tom\xE1\u0161 Tester"}
   auth_info: '********'
-  create_date: '2013-06-14 13:32:00.496137'
-  expiration_date: '2016-06-14'
+  create_date: '2013-07-19 13:29:08.717248'
+  expiration_date: '2016-07-19'
   fqdn: ginger01.cz
   id: 38
   is_enum: false
