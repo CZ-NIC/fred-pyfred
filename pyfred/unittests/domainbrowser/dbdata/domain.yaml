@@ -297,6 +297,16 @@ c665b26ffbf5d2e10115d11f6f44e57e:
                     AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
                     AND objreg.id IN %(selections)s
   values:
+    5add68872726e92c69ec8f25457daf09:
+      data:
+        contact_id: !!python/long '6'
+        objtype: 3
+        selections: [!!python/long '32']
+      response:
+      - - [32, nic05.cz]
+        - [32, nic05.cz]
+      - - [32, nic05.cz]
+        - [32, nic05.cz]
     db0287d52de8a3edcbfac47ec9ced0c0:
       data:
         contact_id: !!python/long '6'
@@ -434,6 +444,13 @@ d8cb94fd935c715074b47d18b9e69a36:
       response:
       - []
       - []
+    215e97b0f6a8c2bc72963e5012377687:
+      data:
+        objects: [32, 32]
+        state_id: 3
+      response:
+      - []
+      - []
     2407c6b11967885ee539d8c765f04b7a:
       data:
         objects: &id005 [28, 28, 36, 36, 38]
@@ -457,6 +474,12 @@ d8cb94fd935c715074b47d18b9e69a36:
       response:
       - []
       - []
+    883befeff043c62da0dc20e7381e2b71:
+      data:
+        objects: [32]
+        state_id: 7
+      response:
+      - - [32]
     886b91cf27e90b85a76e9c43fe3b2a5f:
       data:
         objects: *id005
@@ -466,6 +489,13 @@ d8cb94fd935c715074b47d18b9e69a36:
       - - [28]
         - [36]
         - [38]
+    e40b205e3bf0627c4ea14d3e968a38f5:
+      data:
+        objects: [32, 32]
+        state_id: 4
+      response:
+      - []
+      - []
 ee1961b4d945bc39822e6f790ad50f9b:
   query: |-
     SELECT name, val FROM enum_parameters

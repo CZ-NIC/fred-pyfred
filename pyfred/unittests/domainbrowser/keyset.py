@@ -40,7 +40,7 @@ class Test(DomainBrowserTestCase):
         self.assertEqual(exceeded, data["exceeded"])
         self.assertListEqual(table, data["table"])
 
-    def test_030(self):
+    def test_040(self):
         "Test getKeysetDetail KEYID01; language 'en'."
         self.maxDiff = None
         detail, owner = self.interface.getKeysetDetail(self.user_contact, self._regref(18L, "KEYID01"), "en")
@@ -51,11 +51,30 @@ class Test(DomainBrowserTestCase):
         self.addTypeEqualityFunc(type(detail), self.compareKeysetDetail)
         self.assertEqual(detail, data["detail"])
 
-    def test_040(self):
+    def test_050(self):
         "Test setAuthInfo but for unsupported type - keyset."
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
                           self.user_contact, "keyset", self._regref(18L, "KEYID01"), "password", self.request_id)
 
+    def test_060(self):
+        "Test setObjectBlockStatus."
+        selections = (
+            self._regref(18L, "KEYID01"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self.user_contact, "keyset", selections, action)
+        self.assertTrue(status)
+        self.assertTupleEqual(blocked_names, ())
+
+    def test_070(self):
+        "Test setObjectBlockStatus but object has the status serverBlocked."
+        selections = (
+            self._regref(22L, "KEYID05"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self.user_contact, "keyset", selections, action)
+        self.assertFalse(status)
+        self.assertTupleEqual(blocked_names, ('KEYID05',))
 
 
 if __name__ == '__main__':

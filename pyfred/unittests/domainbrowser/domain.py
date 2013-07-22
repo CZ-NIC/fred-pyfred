@@ -189,6 +189,16 @@ class Test(DomainBrowserTestCase):
         self.assertTrue(status)
         self.assertTupleEqual(blocked_names, ())
 
+    def test_210(self):
+        "Test setObjectBlockStatus but object has the status serverBlocked."
+        self.db.stage_pos = 0
+        selections = (
+            self._regref(32L, "nic05.cz"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self.user_contact, "domain", selections, action)
+        self.assertFalse(status)
+        self.assertTupleEqual(blocked_names, ('nic05.cz',))
 
 
 if __name__ == '__main__':

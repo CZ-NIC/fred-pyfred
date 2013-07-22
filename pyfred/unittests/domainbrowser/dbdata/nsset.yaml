@@ -1,3 +1,17 @@
+0943a09ef47d29a70daeab6318e8c89c:
+  query: |-
+    SELECT COUNT(*)
+                FROM object_state
+                WHERE object_state.object_id = %(object_id)d
+                    AND state_id IN %(states)s
+                    AND valid_to IS NULL
+  values:
+    2b3bcc919f859be6a181ecd0be140072:
+      data:
+        object_id: &id004 !!python/long '6'
+        states: [23]
+      response:
+      - - [!!python/long '1']
 0dad6432fb8bcfa4359e5029fc440dd3:
   query: |-
     SELECT
@@ -47,7 +61,7 @@
                 LIMIT %(limit)d OFFSET %(offset)d
   values:
     0180babc3faa5633e186e4b48958c55d:
-      data: {contact_id: &id002 !!python/long '6', limit: 11, objtype: 2, offset: 0}
+      data: {contact_id: &id005 !!python/long '6', limit: 11, objtype: 2, offset: 0}
       response:
       - - [8, NSSID01, !!python/long '31', REG-FRED_A, Company A l.t.d]
         - [9, NSSID02, null, REG-FRED_A, Company A l.t.d]
@@ -161,6 +175,51 @@ c83c383266533e515a379cace781f53f:
         - [22, 8, Contact is identified]
         - [23, 12, Contact is validated]
         - [24, 4, MojeID contact]
+d8cb94fd935c715074b47d18b9e69a36:
+  query: |-
+    SELECT
+                    object_id
+                FROM object_state
+                WHERE state_id = %(state_id)s
+                    AND object_id IN %(objects)s
+                    AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
+  values:
+    21ac807c3b37609062c7d332196728fe:
+      data:
+        objects: [8]
+        state_id: 7
+      response:
+      - []
+    494866429141817874167c66455ed6b2:
+      data:
+        objects: &id002 [12]
+        state_id: 3
+      response:
+      - []
+    826210562c2e2701fb34b8090dd5b922:
+      data:
+        objects: *id002
+        state_id: 4
+      response:
+      - []
+    a6ec5f8708ad995f81dbcd18779f1526:
+      data:
+        objects: &id003 [8]
+        state_id: 4
+      response:
+      - []
+    aee14931097586ae3b52e14a53ef7cdb:
+      data:
+        objects: *id003
+        state_id: 3
+      response:
+      - []
+    e94175a9a1ce334d12ef9bcfe2b97983:
+      data:
+        objects: [12]
+        state_id: 7
+      response:
+      - - [12]
 e369d233e8d8b7f59672dc394f58c246:
   query: |-
     SELECT
@@ -180,6 +239,31 @@ e369d233e8d8b7f59672dc394f58c246:
       response:
       - - [4, ANNA, !!python/str "Anna Proch\xE1zkov\xE1"]
         - [6, TESTER, !!python/str "Tom\xE1\u0161 Tester"]
+eeeb7637ba71c70c810805800b3f189f:
+  query: |-
+    SELECT
+                    objreg.id,
+                    objreg.name
+                FROM object_registry objreg
+                JOIN nsset_contact_map map ON map.nssetid = objreg.id
+                WHERE type = %(objtype)d
+                    AND map.contactid = %(contact_id)d
+                    AND objreg.id IN %(selections)s
+  values:
+    3204ef069f11a81f639b25a990b28da1:
+      data:
+        contact_id: *id004
+        objtype: 2
+        selections: [!!python/long '8']
+      response:
+      - - [8, NSSID01]
+    fbe1b891b54bdfa2246a185c8e8c498a:
+      data:
+        contact_id: *id004
+        objtype: 2
+        selections: [!!python/long '12']
+      response:
+      - - [12, NSSID05]
 f0e311cbd7a0564f1d6e7c8f55da2eb5:
   query: |-
     SELECT oreg.id
@@ -190,6 +274,6 @@ f0e311cbd7a0564f1d6e7c8f55da2eb5:
                       AND oreg.erdate IS NULL
   values:
     2a4810e7e41d8ff5c97f1c3ca4927322:
-      data: {handle: TESTER, id: *id002, name: '', object_id: *id002, type_id: 1}
+      data: {handle: TESTER, id: *id005, name: '', object_id: *id005, type_id: 1}
       response:
       - - [6]

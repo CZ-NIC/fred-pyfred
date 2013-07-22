@@ -56,6 +56,25 @@ class Test(DomainBrowserTestCase):
         self.assertRaises(Registry.DomainBrowser.INCORRECT_USAGE, self.interface.setAuthInfo,
                           self.user_contact, "nsset", self._regref(8L, "NSSID01"), "password", self.request_id)
 
+    def test_060(self):
+        "Test setObjectBlockStatus."
+        selections = (
+            self._regref(8L, "NSSID01"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self.user_contact, "nsset", selections, action)
+        self.assertTrue(status)
+        self.assertTupleEqual(blocked_names, ())
+
+    def test_070(self):
+        "Test setObjectBlockStatus but object has the status serverBlocked."
+        selections = (
+            self._regref(12L, "NSSID05"),
+        )
+        action = Registry.DomainBrowser.ObjectBlockType._item(self.BLOCK_TRANSFER)
+        status, blocked_names = self.interface.setObjectBlockStatus(self.user_contact, "nsset", selections, action)
+        self.assertFalse(status)
+        self.assertTupleEqual(blocked_names, ('NSSID05',))
 
 
 if __name__ == '__main__':
