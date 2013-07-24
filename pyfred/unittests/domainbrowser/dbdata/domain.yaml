@@ -1,3 +1,61 @@
+0635009217095c7e1b30bfa2842beffa:
+  query: |-
+    SELECT
+                    oreg.id AS id,
+                    oreg.roid AS roid,
+                    oreg.name AS fqdn,
+
+                    oreg.crdate AS create_date,
+                    obj.update AS update_date,
+                    obj.authinfopw AS auth_info,
+                    domain.exdate AS expiration_date,
+                    enum.exdate AS val_ex_date,
+                    enum.publish AS publish,
+                    zone.enum_zone,
+
+                    regnsset.id AS nsset_id,
+                    regnsset.name AS nsset_handle,
+                    regkeyset.id AS keyset_id,
+                    regkeyset.name AS keyset_handle,
+                    get_state_descriptions(oreg.id, %(lang)s) AS states,
+
+                    registrant.id AS registrant_id,
+                    registrant.name AS registrant_handle,
+                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                        contact.organization ELSE contact.name
+                    END AS registrant_name,
+
+                    current.id AS registrar_id,
+                    current.handle AS registrar_handle,
+                    current.name AS registrar_name
+
+                FROM object_registry oreg
+                    JOIN object obj ON obj.id = oreg.id
+
+                    JOIN domain ON oreg.id = domain.id
+                    JOIN zone ON domain.zone = zone.id
+                    JOIN object_registry registrant ON registrant.id = domain.registrant
+                    JOIN contact ON contact.id = registrant.id
+
+                    JOIN registrar current ON current.id = obj.clid
+
+                    LEFT JOIN object_registry regnsset ON regnsset.id = domain.nsset
+                    LEFT JOIN object_registry regkeyset ON regkeyset.id = domain.keyset
+
+                    LEFT JOIN enumval enum ON enum.domainid = oreg.id
+
+                WHERE oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND oreg.type = %(type_id)d
+                    AND oreg.erdate IS NULL
+  values:
+    cec71fe2a7699ef590d25534e65cfb0a:
+      data: {handle: ginger01.cz, id: &id001 !!python/long '38', lang: EN, name: '',
+        object_id: *id001, type_id: 3}
+      response:
+      - - [38, D0000000038-CZ, ginger01.cz, '2013-07-19 13:29:08.717248', null, heslo,
+          '2016-07-19', null, null, false, 8, NSSID01, 18, KEYID01, '', 4, ANNA, !!python/str "Anna\
+            \ Proch\xE1zkov\xE1", 1, REG-FRED_A, Company A l.t.d]
 07cbcc55c40884df12e670f381f67124:
   query: |-
     SELECT
@@ -22,12 +80,12 @@
                 LIMIT %(limit)d OFFSET %(offset)d
   values:
     3e330a8be147871bc446f39bb6d04b31:
-      data: {contact_id: &id001 !!python/long '6', lang: EN, limit: 11, offset: 30,
+      data: {contact_id: &id002 !!python/long '6', lang: EN, limit: 11, offset: 30,
         role_id: 1}
       response:
       - - [38, ginger01.cz, REG-FRED_A, Company A l.t.d, '2016-07-19', 4, true, true]
     8ad5ed070046c7195564d25ff95c9982:
-      data: {contact_id: *id001, lang: CS, limit: 11, offset: 0, role_id: 1}
+      data: {contact_id: *id002, lang: CS, limit: 11, offset: 0, role_id: 1}
       response:
       - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
           6, true, true]
@@ -52,7 +110,7 @@
         - [57, 0.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
           6, true, true]
     c52d17e04e293ddcdd6878a9eab43058:
-      data: {contact_id: *id001, lang: EN, limit: 11, offset: 0, role_id: 1}
+      data: {contact_id: *id002, lang: EN, limit: 11, offset: 0, role_id: 1}
       response:
       - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
           6, true, true]
@@ -86,7 +144,7 @@
   values:
     2b3bcc919f859be6a181ecd0be140072:
       data:
-        object_id: *id001
+        object_id: *id002
         states: [23]
       response:
       - - [!!python/long '1']
@@ -117,7 +175,7 @@
                 WHERE keysetid = %(object_id)d
   values:
     b81e847183198754b6ce6d10145b1761:
-      data: {object_id: &id004 !!python/long '18'}
+      data: {object_id: &id005 !!python/long '18'}
       response:
       - - [ANNA]
         - [TESTER]
@@ -150,7 +208,7 @@
                 WHERE nssetid = %(object_id)d
   values:
     411c0aaa83c4709663e59a9d8482e39a:
-      data: {object_id: &id002 !!python/long '8'}
+      data: {object_id: &id003 !!python/long '8'}
       response:
       - - [ANNA]
         - [TESTER]
@@ -186,7 +244,7 @@
                 LIMIT %(limit)d OFFSET %(offset)d
   values:
     976c049a8ed71c7e06054e7d99156590:
-      data: {contact_id: *id001, lang: EN, limit: 11, nsset_id: *id002, objtype: 3,
+      data: {contact_id: *id002, lang: EN, limit: 11, nsset_id: *id003, objtype: 3,
         offset: 0, role_id: 1}
       response:
       - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
@@ -279,8 +337,8 @@ bf5735880fe8ef8c4ccc4ee9e42417fa:
                     AND oreg.erdate IS NULL
   values:
     cec71fe2a7699ef590d25534e65cfb0a:
-      data: {handle: ginger01.cz, id: &id003 !!python/long '38', lang: EN, name: '',
-        object_id: *id003, type_id: 3}
+      data: {handle: ginger01.cz, id: &id004 !!python/long '38', lang: EN, name: '',
+        object_id: *id004, type_id: 3}
       response:
       - - [38, D0000000038-CZ, ginger01.cz, '2013-07-19 13:29:08.717248', null, heslo,
           '2016-07-19', null, null, false, NSSID01, KEYID01, '', 4, ANNA, !!python/str "Anna\
@@ -403,7 +461,7 @@ cf4c6434025cc81ca099e7da7b65939c:
                 LIMIT %(limit)d OFFSET %(offset)d
   values:
     0f763fc07ee2ca775586f9c8f145d713:
-      data: {contact_id: *id001, keyset_id: *id004, lang: EN, limit: 11, objtype: 3,
+      data: {contact_id: *id002, keyset_id: *id005, lang: EN, limit: 11, objtype: 3,
         offset: 0, role_id: 1}
       response:
       - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
@@ -453,7 +511,7 @@ d8cb94fd935c715074b47d18b9e69a36:
       - []
     2407c6b11967885ee539d8c765f04b7a:
       data:
-        objects: &id005 [28, 28, 36, 36, 38]
+        objects: &id006 [28, 28, 36, 36, 38]
         state_id: 4
       response:
       - []
@@ -482,7 +540,7 @@ d8cb94fd935c715074b47d18b9e69a36:
       - - [32]
     886b91cf27e90b85a76e9c43fe3b2a5f:
       data:
-        objects: *id005
+        objects: *id006
         state_id: 3
       response:
       - []
@@ -527,25 +585,25 @@ f0e311cbd7a0564f1d6e7c8f55da2eb5:
                       AND oreg.erdate IS NULL
   values:
     2a4810e7e41d8ff5c97f1c3ca4927322:
-      data: {handle: TESTER, id: *id001, name: '', object_id: *id001, type_id: 1}
+      data: {handle: TESTER, id: *id002, name: '', object_id: *id002, type_id: 1}
       response:
       - - [6]
       - - [6]
     3012cd80c9fa06b0fe9564b882b39c11:
-      data: {handle: CONTACT, id: &id006 !!python/long '31', name: '', object_id: *id006,
+      data: {handle: CONTACT, id: &id007 !!python/long '31', name: '', object_id: *id007,
         type_id: 1}
       response:
       - []
     58ff843d2813638ac2f2dc21aa813988:
-      data: {handle: NSSID01, id: *id002, name: '', object_id: *id002, type_id: 2}
+      data: {handle: NSSID01, id: *id003, name: '', object_id: *id003, type_id: 2}
       response:
       - - [8]
     746a379654ffbe4f35ff60ceaa2e5434:
-      data: {handle: KEYID01, id: *id004, name: '', object_id: *id004, type_id: 4}
+      data: {handle: KEYID01, id: *id005, name: '', object_id: *id005, type_id: 4}
       response:
       - - [18]
     eaacaf65de74852c05d92e3949000ca9:
-      data: {handle: XKONTAKT, id: &id007 !!python/long '6', name: '', object_id: *id007,
+      data: {handle: XKONTAKT, id: &id008 !!python/long '6', name: '', object_id: *id008,
         type_id: 1}
       response:
       - []

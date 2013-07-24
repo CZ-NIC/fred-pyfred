@@ -8,8 +8,10 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DomainDetail
   fqdn: ginger01.cz
   id: 38
   is_enum: false
-  keyset: KEYID01
-  nsset: NSSID01
+  keyset: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: KEYID01, id: !!python/long '18', name: ''}
+  nsset: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
+    handle: NSSID01, id: !!python/long '8', name: ''}
   publish: false
   registrant: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {
     handle: ANNA, id: 4, name: !!python/str "Anna Proch\xE1zkov\xE1"}

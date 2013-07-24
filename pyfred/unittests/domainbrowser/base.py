@@ -223,10 +223,10 @@ class DomainBrowserTestCase(unittest.TestCase):
             value1, value2 = getattr(detail1, key), getattr(detail2, key)
             if key == "admins":
                 for admin1, admin2 in zip(value1, value2):
-                    self.compareRegistryReference(admin1, admin2, 'Doamin.admin.%s: %s != %s')
+                    self.compareRegistryReference(admin1, admin2, 'Domain.admin.%s: %s != %s')
                 continue
-            if key in ("registrant", "registrar"):
+            if key in ("registrant", "registrar", "nsset", "keyset"):
                 self.compareRegistryReference(value1, value2, "Domain." + key + ".%s: %s != %s")
                 continue
             if value1 != value2:
-                raise self.failureException('DoaminDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
+                raise self.failureException('DomainDetail.%s: %s != %s' % (key, safe_repr(value1), safe_repr(value2)))
