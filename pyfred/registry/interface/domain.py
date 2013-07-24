@@ -231,8 +231,8 @@ class DomainInterface(BaseInterface):
             string val_ex_date;
             boolean publish;
             boolean is_enum;
-            string nsset;
-            string keyset;
+            RegistryReference nsset;
+            RegistryReference keyset;
             RegistryReferenceSeq admins;
             string states;
             string state_codes;
@@ -243,6 +243,14 @@ class DomainInterface(BaseInterface):
             3 - domain
             4 - keyset
         """
+
+        def make_reg_ref(handle, object_id):
+            if object_id:
+                retval = Registry.DomainBrowser.RegistryReference(long(object_id), handle, "")
+            else:
+                retval = Registry.DomainBrowser.RegistryReference(0, "", "")
+            return retval
+
         self._verify_user_contact(source, contact)
 
         domain.lang = lang
@@ -260,8 +268,10 @@ class DomainInterface(BaseInterface):
                 enum.publish AS publish,
                 zone.enum_zone,
 
-                regnsset.name AS nsset,
-                regkeyset.name AS keyset,
+                regnsset.id AS nsset_id,
+                regnsset.name AS nsset_handle,
+                regkeyset.id AS keyset_id,
+                regkeyset.name AS keyset_handle,
                 get_state_descriptions(oreg.id, %(lang)s) AS states,
 
                 registrant.id AS registrant_id,
@@ -356,6 +366,11 @@ class DomainInterface(BaseInterface):
         registrant_id = domain_detail.pop()
 
         state_codes, state_importance, state_descriptions = self.parse_states(source, domain_detail.pop())
+
+        keyset = make_reg_ref(domain_detail.pop(), domain_detail.pop())
+        nsset = make_reg_ref(domain_detail.pop(), domain_detail.pop())
+        domain_detail.append(nsset)
+        domain_detail.append(keyset)
 
         if domain_detail[Col.PUBLISH] is None:
             domain_detail[Col.PUBLISH] = False
