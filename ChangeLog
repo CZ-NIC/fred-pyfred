@@ -1,3 +1,7 @@
+2013-07-29 Jaromir Talir (2.4.4)
+
+    * Fix fedora rpm package build
+
 2013-06-27 Jiri Sadek (2.4.3)
 
     * Removed hardcoded mail type priorities - now loaded from database
