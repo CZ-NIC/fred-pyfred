@@ -93,7 +93,7 @@ def server_start(args=None):
     conf = get_config()
     if server_is_running(conf):
         raise PgManagerError("Server is already running.")
-    os.system('%(pg_ctl)s start -w --pgdata=%(pg_data)s -l %(pg_data)s/pg.log -o "-p %(pg_port)d -k %(db_host)s -c TimeZone=UTC -c fsync=false"' % conf)
+    os.system('%(pg_ctl)s start -t 2 -w --pgdata=%(pg_data)s -l %(pg_data)s/pg.log -o "-p %(pg_port)d -k %(db_host)s -c TimeZone=UTC -c fsync=false"' % conf)
 
 
 def server_stop(args=None):
