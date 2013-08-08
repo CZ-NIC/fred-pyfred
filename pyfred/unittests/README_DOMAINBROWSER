@@ -69,4 +69,16 @@ Aktualizace testů kvůli změnám ve struktuře databáze se provede následuj�
 
 Adresář databáze, kterou si testy vytváření a port na které běží, je definován ve skriptu pyfred/unittests/pgman.py ve třídě Config. Pokud je zde uvedený adresář nebo port v systému již obsazen, tak testy neprojdou.
 
+
+=== Spuštění testů bez instalace ===
+
+Testy můžete spouštět přímo z projektu pyfred aniž byste museli instalovat celého freda! V takovém případě ale musíte zkompilovat IDL a umístit je do adresáře pyfred/idlstubs/. Kompilace se provede tak, že se pyfred nainstaluje do nějakého dočasného adresáře a z něj se přesune jen požadovaná složka idlstubs.
+
+  python setup.py install --idldir ~/fred/idl/idl/ --root=/tmp/pyfredtmp
+  rm -rf build/
+  mv /tmp/pyfredtmp/usr/local/lib/python2.6/dist-packages/pyfred/idlstubs/ pyfred/idlstubs/
+  rm -rf /tmp/pyfredtmp
+
+
 Zdeněk Böhm, 14.6.2013
+Poslední změna 8.8.2013
