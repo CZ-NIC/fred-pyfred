@@ -1,0 +1,13 @@
+exceeded: false
+table:
+- ['18', KEYID01, '31', REG-FRED_A, Company A l.t.d, '20', Has relation to other records
+    in the registry, f]
+- ['19', KEYID02, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['20', KEYID03, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['21', KEYID04, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['22', KEYID05, '0', REG-FRED_A, Company A l.t.d, '32', Domain blocked, t]
+- ['23', KEYID06, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['24', KEYID07, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['25', KEYID08, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['26', KEYID09, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
+- ['27', KEYID10, '0', REG-FRED_A, Company A l.t.d, '64', '', f]
