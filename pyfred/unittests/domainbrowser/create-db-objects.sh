@@ -11,11 +11,13 @@ UNITTEST_PATH=$(realpath $SCRIPTPATH/..)
 #FREDDB= - this variable will be set by setup.py to: FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred"
 #FRED_CLIENT= - this variable will be set by setup.py to: FRED_CLIENT="fred-client -f /var/opt/fred/root/etc/fred/fred-client.conf"
 
-if [ -z "$FREDDB" ]; then
-    echo "FREDDB missing."
+if [ -z "$FREDDB" -o -z "$FREDDB_PORT" -o -z "$FREDDB_HOST" ]; then
+    echo "Error: Some of environment variables missing: FREDDB, FREDDB_PORT, FREDDB_HOST."
     echo "Example:"
-    echo "export FREDDB='psql -p 26100 -h /var/opt/fred/root/nofred/pg_sockets -U fred fred'"
-    echo "export FRED_CLIENT='fred-client -f /var/opt/fred/root/etc/fred/fred-client.conf'"
+    echo "export FREDDB_PORT=26100"
+    echo "export FREDDB_HOST=/var/opt/fred/root/nofred/pg_sockets"
+    echo 'export FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred"'
+    echo "export FRED_CLIENT='/var/opt/fred/root/bin/fred-client -f /var/opt/fred/root/etc/fred/fred-client.conf'"
     exit 1
 fi
 echo "FREDDB: $FREDDB"
@@ -36,10 +38,13 @@ $FRED_CLIENT -xd "create_contact BOB 'Bobeš Šuflík' bobes.suflik@nic.czcz 'B�
 
 CONTACT=TESTER
 
+tmpfile=`mktemp`
+
 # Set validatedContact to $CONTACT
 # identifiedContact=22, validatedContact=23
 STATE_ID=23
-REG_ID=`echo "SELECT id FROM object_registry WHERE name = '$CONTACT';" | $FREDDB -A -t`
+echo "SELECT id FROM object_registry WHERE name = '$CONTACT' \g $tmpfile" | $FREDDB -A -t
+REG_ID=`cat $tmpfile`
 echo "Registry ID for handle '$CONTACT' is $REG_ID. Set status ID $STATE_ID."
 # Run insert in the separate transaction:
 echo "INSERT INTO object_state_request_lock (state_id, object_id) VALUES ($STATE_ID, $REG_ID);" | $FREDDB
@@ -77,7 +82,8 @@ done
 STATE_ID=7
 for HANDLE in FRANTA NSSID05 KEYID05 nic05.cz
 do
-    REG_ID=`echo "SELECT id FROM object_registry WHERE name = '$HANDLE';" | $FREDDB -A -t`
+    echo "SELECT id FROM object_registry WHERE name = '$HANDLE' \g $tmpfile" | $FREDDB -A -t
+    REG_ID=`cat $tmpfile`
     echo "Registry ID for handle '$HANDLE' is $REG_ID. Set status ID $STATE_ID."
     # Run insert in the separate transaction:
     echo "INSERT INTO object_state_request_lock (state_id, object_id) VALUES ($STATE_ID, $REG_ID);" | $FREDDB
@@ -87,6 +93,8 @@ do
         SELECT update_object_states($REG_ID);
     " | $FREDDB
 done
+
+rm $tmpfile
 
 pg_dump -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred > $UNITTEST_PATH/dbdata/fred.dump.sql
 echo "New database dump saved at $UNITTEST_PATH/dbdata/fred.dump.sql"
