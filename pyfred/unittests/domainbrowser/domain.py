@@ -1,19 +1,5 @@
 #!/usr/bin/env python
-
-# Usage:
-# pyfred/unittests$
-#   python -m domainbrowser.run --verbose domainbrowser.domain
-# pyfred$
-#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.domain
-# only defined test(s):
-#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.domain.TestDomainBrowserDomain.test_010
-try:
-    from unittest.util import safe_repr
-    import unittest
-except ImportError:
-    # backward compatibility with python version < 2.7
-    from unittest2.util import safe_repr
-    import unittest2 as unittest
+import unittest
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.unittests.domainbrowser.base import DomainBrowserTestCase

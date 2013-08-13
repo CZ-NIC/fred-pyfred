@@ -1,21 +1,13 @@
 #!/usr/bin/env python
 import os
 import logging
-try:
-    from unittest.util import safe_repr
-    import unittest
-except ImportError:
-    # backward compatibility with python version < 2.7
-    from unittest2.util import safe_repr
-    import unittest2 as unittest
-
+import unittest
 # pyfred
 from pyfred.runtime_support import Logger, CorbaRefs, getConfiguration, init_logger
 from pyfred.modules.domainbrowser import DomainBrowserServerInterface
 from pyfred.unittests.utils import MockDB, provide_data, backup_subfolder
 from pyfred.idlstubs import Registry
-from pyfred.unittests.utils import provide_data
-from pyfred.unittests import pgman
+from pyfred.unittests.utils import provide_data, safe_repr
 
 
 # Fisrt item was replaced by setup.py to the path according to installation path.
@@ -60,48 +52,13 @@ class DomainBrowserTestCase(unittest.TestCase):
         #init_logger(loghandler, loglevel, logfacility, logfilename, logger_name)
         log = Logger(logger_name)
 
-        # test database configuration
-        pgconf = pgman.get_config()
-        cls.db = MockDB(
-            pgconf.db_host,
-            str(pgconf.pg_port),
-            pgconf.db_name,
-            pgconf.db_user,
-            pgconf.db_password,
-        )
+        cls.db = MockDB(None, None, None, None, None)
         cls.db.refs_folder_name = cls.REFDATA_SUBFOLDER
-
-        # True - store SQL query and response info files.
-        if os.environ.get("TRACK"):
-            cls.db.track_traffic = True
-            #backup_subfolder(cls.DBDATA_SUBFOLDER)
-            #backup_subfolder(cls.REFDATA_SUBFOLDER)
-
-        # True - overwrite existing files with query and response.
-        #if os.environ.get("TRACKW"):
-        cls.db.overwrite_existing = True
-
-        #if os.environ.get("USEDB"):
-        cls.db.use_db = not os.environ.get("NODB")
-
-        if not cls.db.use_db or cls.db.track_traffic:
-            try:
-                cls.db.db_data = provide_data(cls.TEST_FILE_NAME, subfolder=cls.DBDATA_SUBFOLDER)
-            except IOError:
-                cls.db.db_data = dict()
-            if cls.db.db_data is None:
-                cls.db.db_data = dict()
+        cls.db.db_data = provide_data(cls.TEST_FILE_NAME, subfolder=cls.DBDATA_SUBFOLDER)
 
         corba_refs = CorbaRefs()
         joblist = []
         cls.interface = DomainBrowserServerInterface(log, cls.db, conf, joblist, corba_refs)
-
-    @classmethod
-    def tearDownClass(cls):
-        "Run once per test."
-        if cls.db.track_traffic:
-            provide_data(cls.TEST_FILE_NAME, cls.db.db_data, cls.DBDATA_SUBFOLDER, track_traffic=True)
-
 
     @classmethod
     def _regref(cls, object_id, handle, name=""):
@@ -118,7 +75,7 @@ class DomainBrowserTestCase(unittest.TestCase):
 
     def provide_data(self, name, data):
         "Load (and save) data for asserting db response."
-        return provide_data(name, data, self.db.refs_folder_name, self.db.track_traffic)
+        return provide_data(name, data, self.db.refs_folder_name)
 
 
     def compareContactDetail(self, detail1, detail2, msg=None):

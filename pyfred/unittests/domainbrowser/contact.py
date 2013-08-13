@@ -1,26 +1,6 @@
 #!/usr/bin/env python
-"""
-Test:
- * Contact that has not state identifiedContact or validatedContact
- * Contact that is not owned by REG-MOJEID
- * Contact with corrupted handle (returns more than one record)
-"""
-# Usage:
-# pyfred/unittests$
-#   python -m domainbrowser.run --verbose domainbrowser.contact
-# pyfred$
-#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.contact
-# only defined test(s):
-#   python -m unittests.domainbrowser.run --verbose unittests.domainbrowser.contact.TestDomainBrowserContact.test_010
 import os
-try:
-    from unittest.util import safe_repr
-    import unittest
-except ImportError:
-    # backward compatibility with python version < 2.7
-    from unittest2.util import safe_repr
-    import unittest2 as unittest
-
+import unittest
 # pyfred
 from pyfred.idlstubs import Registry
 from pyfred.unittests.domainbrowser.base import DomainBrowserTestCase
@@ -55,15 +35,9 @@ class Test(DomainBrowserTestCase):
         self.addTypeEqualityFunc(type(detail), self.compareContactDetail)
         self.assertEqual(detail, data["detail"])
 
-    @unittest.skipUnless(os.environ.has_key("NODB") or os.environ.has_key("TRACK"), "For artificial data only.")
     def test_045(self):
         "Test getContactDetail when some relation in database is corrupted (returns more than one record)."
-        if os.environ.has_key("TRACK"):
-            # For saving data only. Do not forget change hash codes if query or params were changed!
-            # pyfred/unittests/utils.py: MockPgdbCursor.fetchall() # Deliberately corrupt data for testing exceptions.
-            detail, owner = self.interface.getContactDetail(self.user_contact, self._regref(7L, "BOB"), "en")
-        else:
-            self.assertRaises(Registry.DomainBrowser.INTERNAL_SERVER_ERROR, self.interface.getContactDetail,
+        self.assertRaises(Registry.DomainBrowser.INTERNAL_SERVER_ERROR, self.interface.getContactDetail,
                           self.user_contact, self._regref(7L, "BOB"), "en")
 
     def test_050(self):

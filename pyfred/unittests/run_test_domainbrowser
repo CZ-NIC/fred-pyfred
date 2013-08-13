@@ -1,5 +1,0 @@
-#!/bin/bash
-SCRIPTPATH=$(dirname $(readlink -f $0))
-DIST_PACKAGES=$(realpath $SCRIPTPATH/../..)
-
-PYTHONPATH=$DIST_PACKAGES:$SCRIPTPATH python -m domainbrowser.run --verbose test_domainbrowser
