@@ -1,0 +1,609 @@
+0635009217095c7e1b30bfa2842beffa:
+  query: |-
+    SELECT
+                    oreg.id AS id,
+                    oreg.roid AS roid,
+                    oreg.name AS fqdn,
+
+                    oreg.crdate AS create_date,
+                    obj.update AS update_date,
+                    obj.authinfopw AS auth_info,
+                    domain.exdate AS expiration_date,
+                    enum.exdate AS val_ex_date,
+                    enum.publish AS publish,
+                    zone.enum_zone,
+
+                    regnsset.id AS nsset_id,
+                    regnsset.name AS nsset_handle,
+                    regkeyset.id AS keyset_id,
+                    regkeyset.name AS keyset_handle,
+                    get_state_descriptions(oreg.id, %(lang)s) AS states,
+
+                    registrant.id AS registrant_id,
+                    registrant.name AS registrant_handle,
+                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                        contact.organization ELSE contact.name
+                    END AS registrant_name,
+
+                    current.id AS registrar_id,
+                    current.handle AS registrar_handle,
+                    current.name AS registrar_name
+
+                FROM object_registry oreg
+                    JOIN object obj ON obj.id = oreg.id
+
+                    JOIN domain ON oreg.id = domain.id
+                    JOIN zone ON domain.zone = zone.id
+                    JOIN object_registry registrant ON registrant.id = domain.registrant
+                    JOIN contact ON contact.id = registrant.id
+
+                    JOIN registrar current ON current.id = obj.clid
+
+                    LEFT JOIN object_registry regnsset ON regnsset.id = domain.nsset
+                    LEFT JOIN object_registry regkeyset ON regkeyset.id = domain.keyset
+
+                    LEFT JOIN enumval enum ON enum.domainid = oreg.id
+
+                WHERE oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND oreg.type = %(type_id)d
+                    AND oreg.erdate IS NULL
+  values:
+    cec71fe2a7699ef590d25534e65cfb0a:
+      data: {handle: ginger01.cz, id: &id001 !!python/long '38', lang: EN, name: '',
+        object_id: *id001, type_id: 3}
+      response:
+      - - [38, D0000000038-CZ, ginger01.cz, '2013-07-19 13:29:08.717248', null, heslo,
+          '2016-07-19', null, null, false, 8, NSSID01, 18, KEYID01, '', 4, ANNA, !!python/str "Anna\
+            \ Proch\xE1zkov\xE1", 1, REG-FRED_A, Company A l.t.d]
+07cbcc55c40884df12e670f381f67124:
+  query: |-
+    SELECT
+                    oreg.id,
+                    oreg.name,
+                    registrar.handle,
+                    registrar.name AS registrar_name,
+                    domain.exdate,
+                    domain.registrant,
+                    domain.keyset IS NOT NULL AS is_keyset,
+                    't'::boolean AS is_owner
+                FROM object_registry oreg
+                JOIN domain ON oreg.id = domain.id
+                JOIN object ON object.id = oreg.id
+                JOIN registrar ON registrar.id = object.clid
+                LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                          AND domain_contact_map.role = %(role_id)d
+                          AND domain_contact_map.contactid = %(contact_id)d
+                WHERE domain_contact_map.contactid = %(contact_id)d
+                    OR domain.registrant = %(contact_id)d
+                ORDER BY domain.exdate
+                LIMIT %(limit)d OFFSET %(offset)d
+  values:
+    3e330a8be147871bc446f39bb6d04b31:
+      data: {contact_id: &id002 !!python/long '6', lang: EN, limit: 11, offset: 30,
+        role_id: 1}
+      response:
+      - - [38, ginger01.cz, REG-FRED_A, Company A l.t.d, '2016-07-19', 4, true, true]
+    8ad5ed070046c7195564d25ff95c9982:
+      data: {contact_id: *id002, lang: CS, limit: 11, offset: 0, role_id: 1}
+      response:
+      - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [56, 9.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [50, 3.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [52, 5.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [54, 7.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [55, 8.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [48, 1.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [49, 2.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [51, 4.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [58, 1.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [57, 0.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+    c52d17e04e293ddcdd6878a9eab43058:
+      data: {contact_id: *id002, lang: EN, limit: 11, offset: 0, role_id: 1}
+      response:
+      - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [56, 9.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [50, 3.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [52, 5.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [54, 7.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [55, 8.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [48, 1.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [49, 2.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [51, 4.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [58, 1.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [57, 0.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+0943a09ef47d29a70daeab6318e8c89c:
+  query: |-
+    SELECT COUNT(*)
+                FROM object_state
+                WHERE object_state.object_id = %(object_id)d
+                    AND state_id IN %(states)s
+                    AND valid_to IS NULL
+  values:
+    2b3bcc919f859be6a181ecd0be140072:
+      data:
+        object_id: *id002
+        states: [23]
+      response:
+      - - [!!python/long '1']
+      - - [!!python/long '1']
+0dad6432fb8bcfa4359e5029fc440dd3:
+  query: |-
+    SELECT
+                    object_registry.id
+                FROM object_registry
+                WHERE
+                    type = %(type_id)d
+                    AND object_registry.name = %(handle)s
+                    AND object_registry.erdate IS NULL
+  values:
+    50601cb263f0dc1edf9e421ccca3d899:
+      data: {handle: nic01.cz, type_id: 3}
+      response:
+      - - [28]
+    a9af98c066514ac286221e304e6fbfd7:
+      data: {handle: foo.cz, type_id: 3}
+      response:
+      - []
+0f033c8dd7a0c3e4efc3a52ded0629ce:
+  query: |-
+    SELECT object_registry.name
+                FROM keyset_contact_map
+                JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
+                WHERE keysetid = %(object_id)d
+  values:
+    b81e847183198754b6ce6d10145b1761:
+      data: {object_id: &id005 !!python/long '18'}
+      response:
+      - - [ANNA]
+        - [TESTER]
+2da22a6cba65fc21eb96a1eef31a4f85:
+  query: |-
+    SELECT
+                    os.object_id,
+                    os.state_id
+                FROM object_state os
+                WHERE os.object_id IN %(keys)s
+                    AND os.valid_from <= CURRENT_TIMESTAMP
+                    AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
+                ORDER BY os.object_id
+  values:
+    330b4a0f934032075ed95fd590c2f095:
+      data:
+        keys: [38]
+      response:
+      - []
+    4b80119635db023a8c42afdcd7f0d652:
+      data:
+        keys: [48, 49, 50, 51, 52, 53, 54, 55, 56, 58]
+      response:
+      - []
+4dc7cb84278572963e88e7421aeb7262:
+  query: |-
+    SELECT object_registry.name
+                FROM nsset_contact_map
+                JOIN object_registry ON object_registry.id = nsset_contact_map.contactid
+                WHERE nssetid = %(object_id)d
+  values:
+    411c0aaa83c4709663e59a9d8482e39a:
+      data: {object_id: &id003 !!python/long '8'}
+      response:
+      - - [ANNA]
+        - [TESTER]
+91b9b6568cfad202f4fccae020913dbe:
+  query: |-
+    SELECT MAX(importance) * 2 FROM enum_object_states
+  values:
+    6adf97f83acf6453d4a6a4b1070f3754:
+      data: null
+      response:
+      - - [64]
+9a5dc284aa8d567970f174ddea2e8554:
+  query: |-
+    SELECT
+                    oreg.id,
+                    oreg.name,
+                    registrar.handle,
+                    registrar.name AS registrar_name,
+                    domain.exdate,
+                    domain.registrant,
+                    domain.keyset IS NOT NULL AS is_keyset,
+                    domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
+                FROM object_registry oreg
+                JOIN domain ON domain.id = oreg.id
+                JOIN object_history ON object_history.historyid = oreg.historyid
+                JOIN registrar ON registrar.id = object_history.clid
+                LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                          AND domain_contact_map.role = %(role_id)d
+                          AND domain_contact_map.contactid = %(contact_id)d
+                WHERE oreg.type = %(objtype)d
+                    AND domain.nsset = %(nsset_id)d
+                ORDER BY domain.exdate
+                LIMIT %(limit)d OFFSET %(offset)d
+  values:
+    976c049a8ed71c7e06054e7d99156590:
+      data: {contact_id: *id002, lang: EN, limit: 11, nsset_id: *id003, objtype: 3,
+        offset: 0, role_id: 1}
+      response:
+      - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [56, 9.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [50, 3.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [52, 5.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [54, 7.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [55, 8.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [48, 1.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [49, 2.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [51, 4.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [58, 1.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [57, 0.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+be940b9c90cf7b904b54c1acf89b45fc:
+  query: |-
+    SELECT
+                        object_registry.id,
+                        object_registry.name,
+                        CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                            contact.organization ELSE contact.name
+                        END AS contact_name
+                    FROM domain_contact_map
+                    JOIN object_registry ON object_registry.id = domain_contact_map.contactid
+                    JOIN contact ON contact.id = object_registry.id
+                    WHERE domain_contact_map.role = %(role_id)d
+                        AND domainid = %(obj_id)d
+  values:
+    cc8c442dbb5fea028de5d92d33890b04:
+      data: {obj_id: 38, role_id: 1}
+      response:
+      - - [6, TESTER, !!python/str "Tom\xE1\u0161 Tester"]
+bf5735880fe8ef8c4ccc4ee9e42417fa:
+  query: |-
+    SELECT
+                    oreg.id AS id,
+                    oreg.roid AS roid,
+                    oreg.name AS fqdn,
+
+                    oreg.crdate AS create_date,
+                    obj.update AS update_date,
+                    obj.authinfopw AS auth_info,
+                    domain.exdate AS expiration_date,
+                    enum.exdate AS val_ex_date,
+                    enum.publish AS publish,
+                    zone.enum_zone,
+
+                    regnsset.name AS nsset,
+                    regkeyset.name AS keyset,
+                    get_state_descriptions(oreg.id, %(lang)s) AS states,
+
+                    registrant.id AS registrant_id,
+                    registrant.name AS registrant_handle,
+                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                        contact.organization ELSE contact.name
+                    END AS registrant_name,
+
+                    current.id AS registrar_id,
+                    current.handle AS registrar_handle,
+                    current.name AS registrar_name
+
+                FROM object_registry oreg
+                    JOIN object obj ON obj.id = oreg.id
+
+                    JOIN domain ON oreg.id = domain.id
+                    JOIN zone ON domain.zone = zone.id
+                    JOIN object_registry registrant ON registrant.id = domain.registrant
+                    JOIN contact ON contact.id = registrant.id
+
+                    JOIN registrar current ON current.id = obj.clid
+
+                    LEFT JOIN object_registry regnsset ON regnsset.id = domain.nsset
+                    LEFT JOIN object_registry regkeyset ON regkeyset.id = domain.keyset
+
+                    LEFT JOIN enumval enum ON enum.domainid = oreg.id
+
+                WHERE oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND oreg.type = %(type_id)d
+                    AND oreg.erdate IS NULL
+  values:
+    cec71fe2a7699ef590d25534e65cfb0a:
+      data: {handle: ginger01.cz, id: &id004 !!python/long '38', lang: EN, name: '',
+        object_id: *id004, type_id: 3}
+      response:
+      - - [38, D0000000038-CZ, ginger01.cz, '2013-07-19 13:29:08.717248', null, heslo,
+          '2016-07-19', null, null, false, NSSID01, KEYID01, '', 4, ANNA, !!python/str "Anna\
+            \ Proch\xE1zkov\xE1", 1, REG-FRED_A, Company A l.t.d]
+c665b26ffbf5d2e10115d11f6f44e57e:
+  query: |-
+    SELECT
+                    objreg.id,
+                    objreg.name
+                FROM object_registry objreg
+                LEFT JOIN domain_contact_map map ON map.domainid = objreg.id
+                JOIN domain ON objreg.id = domain.id
+                WHERE type = %(objtype)d
+                    AND (map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d)
+                    AND objreg.id IN %(selections)s
+  values:
+    5add68872726e92c69ec8f25457daf09:
+      data:
+        contact_id: !!python/long '6'
+        objtype: 3
+        selections: [!!python/long '32']
+      response:
+      - - [32, nic05.cz]
+        - [32, nic05.cz]
+      - - [32, nic05.cz]
+        - [32, nic05.cz]
+    db0287d52de8a3edcbfac47ec9ced0c0:
+      data:
+        contact_id: !!python/long '6'
+        objtype: 3
+        selections: [!!python/long '38', !!python/long '28', !!python/long '36']
+      response:
+      - - [28, nic01.cz]
+        - [28, nic01.cz]
+        - [36, nic09.cz]
+        - [36, nic09.cz]
+        - [38, ginger01.cz]
+      - - [28, nic01.cz]
+        - [28, nic01.cz]
+        - [36, nic09.cz]
+        - [36, nic09.cz]
+        - [38, ginger01.cz]
+c83c383266533e515a379cace781f53f:
+  query: |-
+    SELECT
+                        stat.id,
+                        stat.importance,
+                        des.description
+                    FROM enum_object_states stat
+                    JOIN enum_object_states_desc des
+                        ON stat.id = des.state_id
+                        AND des.lang = %(lang)s
+                    WHERE stat.external = 't'
+  values:
+    1b9dedf86684e2bf25f000287a0ec37d:
+      data: {lang: EN}
+      response:
+      - - [2, 28, Registration renewal unauthorised]
+        - [5, 14, The domain is administratively kept out of zone]
+        - [6, 16, The domain is administratively kept in zone]
+        - [7, 32, Domain blocked]
+        - [9, 2, Domain expired]
+        - [13, 18, Domain not validated]
+        - [15, 6, The domain isn't generated in the zone]
+        - [18, 26, Registrant change unauthorised]
+        - [1, 30, Deletion unauthorised]
+        - [3, 24, Sponsoring registrar change unauthorised]
+        - [4, 22, Update unauthorised]
+        - [16, 20, Has relation to other records in the registry]
+        - [17, null, To be deleted]
+        - [21, 10, Contact is conditionally identified]
+        - [22, 8, Contact is identified]
+        - [23, 12, Contact is validated]
+        - [24, 4, MojeID contact]
+    a6f9f88906d6b7786e52fd5bff0dd159:
+      data: {lang: CS}
+      response:
+      - - [2, 28, !!python/str "Nen\xED povoleno prodlou\u017Een\xED registrace objektu"]
+        - [5, 14, !!python/str "Dom\xE9na je administrativn\u011B vy\u0159azena ze\
+            \ z\xF3ny"]
+        - [6, 16, !!python/str "Dom\xE9na je administrativn\u011B za\u0159azena do\
+            \ z\xF3ny"]
+        - [7, 32, !!python/str "Dom\xE9na je blokov\xE1na"]
+        - [9, 2, !!python/str "Dom\xE9na je po expiraci"]
+        - [13, 18, !!python/str "Dom\xE9na nen\xED validov\xE1na"]
+        - [15, 6, !!python/str "Dom\xE9na nen\xED generov\xE1na do z\xF3ny"]
+        - [18, 26, !!python/str "Nen\xED povolena zm\u011Bna dr\u017Eitele"]
+        - [1, 30, !!python/str "Nen\xED povoleno smaz\xE1n\xED"]
+        - [3, 24, !!python/str "Nen\xED povolena zm\u011Bna ur\u010Den\xE9ho registr\xE1\
+            tora"]
+        - [4, 22, !!python/str "Nen\xED povolena zm\u011Bna \xFAdaj\u016F"]
+        - [16, 20, !!python/str "Je nav\xE1z\xE1n na dal\u0161\xED z\xE1znam v registru"]
+        - [17, null, !!python/str "Ur\u010Deno ke zru\u0161en\xED"]
+        - [21, 10, !!python/str "Kontakt je \u010D\xE1ste\u010Dn\u011B identifikov\xE1\
+            n"]
+        - [22, 8, !!python/str "Kontakt je identifikov\xE1n"]
+        - [23, 12, !!python/str "Kontakt je validov\xE1n"]
+        - [24, 4, MojeID kontakt]
+cf4c6434025cc81ca099e7da7b65939c:
+  query: |-
+    SELECT
+                    oreg.id,
+                    oreg.name,
+                    registrar.handle,
+                    registrar.name AS registrar_name,
+                    domain.exdate,
+                    domain.registrant,
+                    domain.keyset IS NOT NULL AS is_keyset,
+                    domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
+                FROM object_registry oreg
+                JOIN domain ON domain.id = oreg.id
+                JOIN object_history ON object_history.historyid = oreg.historyid
+                JOIN registrar ON registrar.id = object_history.clid
+                LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
+                          AND domain_contact_map.role = %(role_id)d
+                          AND domain_contact_map.contactid = %(contact_id)d
+                WHERE oreg.type = %(objtype)d
+                    AND domain.keyset = %(keyset_id)d
+                ORDER BY domain.exdate
+                LIMIT %(limit)d OFFSET %(offset)d
+  values:
+    0f763fc07ee2ca775586f9c8f145d713:
+      data: {contact_id: *id002, keyset_id: *id005, lang: EN, limit: 11, objtype: 3,
+        offset: 0, role_id: 1}
+      response:
+      - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [56, 9.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [50, 3.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [52, 5.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [54, 7.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [55, 8.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [48, 1.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [49, 2.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [51, 4.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [58, 1.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+        - [57, 0.2.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
+          6, true, true]
+d8cb94fd935c715074b47d18b9e69a36:
+  query: |-
+    SELECT
+                    object_id
+                FROM object_state
+                WHERE state_id = %(state_id)s
+                    AND object_id IN %(objects)s
+                    AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
+  values:
+    12837ca33fad669f4935798d777823f0:
+      data:
+        objects: [36]
+        state_id: 7
+      response:
+      - []
+      - []
+    215e97b0f6a8c2bc72963e5012377687:
+      data:
+        objects: [32, 32]
+        state_id: 3
+      response:
+      - []
+      - []
+    2407c6b11967885ee539d8c765f04b7a:
+      data:
+        objects: &id006 [28, 28, 36, 36, 38]
+        state_id: 4
+      response:
+      - []
+      - - [28]
+        - [36]
+        - [38]
+    289aa721d58391d2e3d9f7623d0595ea:
+      data:
+        objects: [38]
+        state_id: 7
+      response:
+      - []
+      - []
+    48094496bb1be12c3efaa2118d0a32ad:
+      data:
+        objects: [28]
+        state_id: 7
+      response:
+      - []
+      - []
+    883befeff043c62da0dc20e7381e2b71:
+      data:
+        objects: [32]
+        state_id: 7
+      response:
+      - - [32]
+    886b91cf27e90b85a76e9c43fe3b2a5f:
+      data:
+        objects: *id006
+        state_id: 3
+      response:
+      - []
+      - - [28]
+        - [36]
+        - [38]
+    e40b205e3bf0627c4ea14d3e968a38f5:
+      data:
+        objects: [32, 32]
+        state_id: 4
+      response:
+      - []
+      - []
+ee1961b4d945bc39822e6f790ad50f9b:
+  query: |-
+    SELECT name, val FROM enum_parameters
+  values:
+    6adf97f83acf6453d4a6a4b1070f3754:
+      data: null
+      response:
+      - - [tld_list_version, '2008013001']
+        - [expiration_notify_period, '-30']
+        - [expiration_dns_protection_period, '30']
+        - [expiration_letter_warning_period, '34']
+        - [expiration_registration_protection_period, '61']
+        - [validation_notify1_period, '-30']
+        - [validation_notify2_period, '-15']
+        - [regular_day_procedure_period, '0']
+        - [regular_day_procedure_zone, Europe/Prague]
+        - [object_registration_protection_period, '6']
+        - [regular_day_outzone_procedure_period, '14']
+        - [model_version, <insert version here>]
+        - [handle_registration_protection_period, '2']
+        - [roid_suffix, CZ]
+f0e311cbd7a0564f1d6e7c8f55da2eb5:
+  query: |-
+    SELECT oreg.id
+                FROM object_registry oreg
+                WHERE oreg.id = %(object_id)d
+                      AND oreg.name = %(handle)s
+                      AND type = %(type_id)d
+                      AND oreg.erdate IS NULL
+  values:
+    2a4810e7e41d8ff5c97f1c3ca4927322:
+      data: {handle: TESTER, id: *id002, name: '', object_id: *id002, type_id: 1}
+      response:
+      - - [6]
+      - - [6]
+    3012cd80c9fa06b0fe9564b882b39c11:
+      data: {handle: CONTACT, id: &id007 !!python/long '31', name: '', object_id: *id007,
+        type_id: 1}
+      response:
+      - []
+    58ff843d2813638ac2f2dc21aa813988:
+      data: {handle: NSSID01, id: *id003, name: '', object_id: *id003, type_id: 2}
+      response:
+      - - [8]
+    746a379654ffbe4f35ff60ceaa2e5434:
+      data: {handle: KEYID01, id: *id005, name: '', object_id: *id005, type_id: 4}
+      response:
+      - - [18]
+    eaacaf65de74852c05d92e3949000ca9:
+      data: {handle: XKONTAKT, id: &id008 !!python/long '6', name: '', object_id: *id008,
+        type_id: 1}
+      response:
+      - []

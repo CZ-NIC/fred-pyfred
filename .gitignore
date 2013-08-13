@@ -1,2 +1,11 @@
 *.pyc
+*.pyo
+*~
 RELEASE-VERSION
+
+conf/pyfred.conf
+pyfred/idlstubs/*_idl.py
+pyfred/idlstubs/Registry/
+pyfred/idlstubs/Registry__POA/
+pyfred/idlstubs/ccReg/
+pyfred/idlstubs/ccReg__POA/

@@ -1,0 +1,2 @@
+!!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistrarDetail {address: '',
+  fax: '', handle: REG-FRED_A, id: 1, name: Company A l.t.d, phone: '', url: www.nic.cz}

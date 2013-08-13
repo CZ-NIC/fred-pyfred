@@ -6,19 +6,36 @@ object implementations through extending modules defined in modules.conf.
 Those objects are registered in corba name service and the rest is up to
 a caller (corba client).
 """
-
-import os, sys, time, ConfigParser, os.path, signal
+import sys
+import os
+import time
+import ConfigParser
+import signal
 from omniORB import CORBA, PortableServer
 import CosNaming
-import pgdb
-import logging
-import logging.handlers
+
+# setup.py will add path to reflect changes in prefix
+# and/or root option during install
+PYFRED_INSTALL_PATH = None # Setup.py changes this variable according to the installation path.
+if PYFRED_INSTALL_PATH is not None and PYFRED_INSTALL_PATH not in sys.path:
+    sys.path.insert(0, PYFRED_INSTALL_PATH)
+
+# load pyfred moduels from an installation path:
+from pyfred.runtime_support import Logger, DB, CorbaRefs, getConfiguration, init_logger
 
 # These are global because they are needed in signal handler
 pidfile = None
 fredContext = None # Nameservice reference
 nsnames = [] # Registered names by nameservice
 log = None # Logger
+
+
+# Fisrt item was replaced by setup.py to the path according to installation path.
+CONFIGS = ("/usr/etc/fred/pyfred.conf",
+           "/etc/fred/pyfred.conf",
+           "/usr/local/etc/fred/pyfred.conf",
+           "pyfred.conf",
+          )
 
 
 def job_noop():
@@ -96,127 +113,6 @@ def sighandler(signum, arg):
     # exit the program
     sys.exit(0)
 
-class Logger(object):
-    """
-    This class encapsulates logging module functionality. Logger name is set
-    in object initialization. Logging module and root logger should be
-    configured before use.
-    NOTE: refactored to use standard python logging module (previously
-    only syslog function) with minimum code changes.
-    """
-    LEVELS = {"emerg":    logging.CRITICAL,
-              "alert":    logging.CRITICAL,
-              "critical": logging.CRITICAL,
-              "error":    logging.ERROR,
-              "warning":  logging.WARNING,
-              "notice":   logging.INFO,
-              "info":     logging.INFO,
-              "debug":    logging.DEBUG}
-
-    EMERG = LEVELS["emerg"]
-    ALERT = LEVELS["alert"]
-    CRIT = LEVELS["critical"]
-    ERR = LEVELS["error"]
-    WARNING = LEVELS["warning"]
-    NOTICE = LEVELS["notice"]
-    INFO = LEVELS["info"]
-    DEBUG = LEVELS["debug"]
-
-    def __init__(self, prefix):
-        """
-        Initialize the prefix which will be used for every message logged
-        through this Logger.
-        """
-        self._log = logging.getLogger(prefix)
-
-    def log(self, level, msg):
-        """
-        Wrapper around logging.Logger.log method.
-        """
-        self._log.log(level, msg)
-
-class DB(object):
-    """
-    This class provides methods usefull when working with database.
-    """
-
-    def __init__(self, dbhost, dbport, dbname, dbuser, dbpassword):
-        """
-        Method initializes data needed for database access.
-        """
-        self.host = dbhost
-        self.port = dbport
-        self.dbname = dbname
-        self.user = dbuser
-        self.password = dbpassword
-
-    def getConn(self):
-        """
-        Obtain connection to database.
-        """
-        return pgdb.connect(host=self.host + ":" + self.port,
-                database=self.dbname, user=self.user,
-                password=self.password)
-
-    def releaseConn(self, conn):
-        """
-        Release connection obtained in getConn() method.
-        """
-        if conn:
-            conn.close()
-
-class CorbaRefs(object):
-    """
-    This class was created for passing corba parameters to modules during
-    initialization. It is very important that modification to instance of
-    this class are visible to modules, which obtained reference to instance
-    before the modifications took place.
-    """
-    nsref = None
-    rootpoa = None
-
-def getConfiguration(configs):
-    """
-    Get configuration from file. The configuration files are given as a list in
-    parameter. The function automatically provides default values for directives
-    not defined by configuration file. If none of the configuration files
-    exists, all directives will contain default values.
-    """
-    # set defaults
-    confparser = ConfigParser.SafeConfigParser({
-            "dbhost":"localhost",
-            "dbname":"fred",
-            "dbport":"5432",
-            "dbuser":"fred",
-            "dbpassword":"",
-            "modules":"mailer techcheck filemanager genzone",
-            "nscontext":"fred",
-            "nshost":"localhost",
-            "nsport":"2809",
-            "loghandler":"syslog",
-            "loglevel":"info",
-            "logfacility":"local1",
-            "logfilename":"var/log/pyfred.log",
-            "host":"",
-            "port":"2225"})
-    # read configuration file
-    for cfile in configs:
-        try:
-            if len(confparser.read(cfile)) == 1:
-                sys.stdout.write("File %s used as config file\n" % cfile)
-                break
-        except ConfigParser.MissingSectionHeaderError, e:
-            sys.stderr.write("Error in configuration file '%s': %s\n" %
-                    (cfile, e))
-            return None
-        except ConfigParser.ParsingError, e:
-            sys.stderr.write("Error in configuration file '%s': %s\n" %
-                    (cfile, e))
-            return None
-    # create basic section general if it does not exist
-    if not confparser.has_section("General"):
-        confparser.add_section("General")
-    return confparser
 
 #
 # main
@@ -232,10 +128,7 @@ def main(argv):
     # if server should detach from terminal after startup
     detach = True
     # default places where to look for configs
-    configs = ["/usr/etc/fred/pyfred.conf",
-            "/etc/fred/pyfred.conf",
-            "/usr/local/etc/fred/pyfred.conf",
-            "pyfred.conf"]
+    configs = list(CONFIGS)
     for arg in argv[1:]:
         if arg == "-d":
             detach = False
@@ -282,42 +175,7 @@ def main(argv):
     logfilename = conf.get("General", "logfilename")
 
     try:
-        # disable console log when we are going to daemonize server
-        if loghandler == "console" and detach:
-            sys.stderr.write("Warning: unable to have console logger when"
-                    " server is going to daemonize, switching to syslog."
-                    " (you can adjust this settings in configuration)\n")
-            loghandler = "syslog"
-
-        # test if syslog facility is valid
-        if loghandler == "syslog":
-            logfacility = logging.handlers.SysLogHandler.facility_names[logfacility]
-
-        # try to set proper handler and formatting style
-        handlers = {"console":
-                        {"handler": [logging.StreamHandler, {}],
-                         "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
-                    "file":
-                        {"handler": [logging.FileHandler, {"filename": logfilename }],
-                         "formatter": logging.Formatter("%(asctime)s %(levelname)-8s %(name)s - %(message)s")},
-                    "syslog":
-                        {"handler": [logging.handlers.SysLogHandler,
-                                     {"address": "/dev/log", "facility": logfacility}],
-                         "formatter": logging.Formatter("%(name)s - %(message)s")}}
-
-        log_conf = handlers[loghandler]
-        handler = log_conf["handler"][0](**log_conf["handler"][1])
-        handler.setFormatter(log_conf["formatter"])
-
-        # if file log get its file descriptor
-        if loghandler == "file":
-            logfd = handler.stream.fileno()
-        else:
-            logfd = None
-
-        logging.getLogger('').addHandler(handler)
-        logging.getLogger('').setLevel(Logger.LEVELS[loglevel])
-
+        logfd = init_logger(loghandler, loglevel, logfacility, logfilename, '', detach)
     except Exception, e:
         sys.stderr.write("Logger configuration error: handler=%s level=%s"
                          " [facility=%s filename=%s] (%s)\n" % (loghandler,
@@ -534,9 +392,6 @@ def main(argv):
     #orb.run()
 
 if __name__ == "__main__":
-    # setup.py will add path to reflect changes in prefix
-    # and/or root option during install
-    sys.path.insert(0, '')
     try:
         main(sys.argv)
     except SystemExit, e:

@@ -7,10 +7,11 @@ This module gathers various utility functions used in other pyfred's modules.
 import time, re
 import sys, os, fcntl, select, time, popen2, signal
 
+
 def strtime(timestamp=0):
     """
-Convert timestamp to its string reprezentation if argument is not given
-of has zero value. Reprezentation of current time is returned.
+    Convert timestamp to its string reprezentation if argument is not given
+    of has zero value. Reprezentation of current time is returned.
     """
     if timestamp == 0:
         timestamp = time.time()
@@ -31,7 +32,7 @@ of has zero value. Reprezentation of current time is returned.
 
 def isExpired(timestamp):
     """
-Returns True if timestamp is older than curent timestamp, otherwise False.
+    Returns True if timestamp is older than curent timestamp, otherwise False.
     """
     if timestamp < time.time():
         return True
@@ -39,10 +40,10 @@ Returns True if timestamp is older than curent timestamp, otherwise False.
 
 def ipaddrs2list(ipaddrs):
     """
-Utility function for converting a string containing ip addresses
-( e.g. {ip1,ip2,ip3} ) to python list of theese ip adresses. If the
-string of ip adresses contains no ip adresses ( looks like {} ) then
-empty list is returned.
+    Utility function for converting a string containing ip addresses
+    ( e.g. {ip1,ip2,ip3} ) to python list of theese ip adresses. If the
+    string of ip adresses contains no ip adresses ( looks like {} ) then
+    empty list is returned.
     """
     list = ipaddrs.strip("{}").split(",")
     if list[0] == "": return []
@@ -50,7 +51,7 @@ empty list is returned.
 
 class domainClass(object):
     """
-Definition of results of domain classification.
+    Definition of results of domain classification.
     """
     CLASSIC = 0
     ENUM = 1
@@ -60,8 +61,8 @@ Definition of results of domain classification.
 
 def classify(fqdn):
     """
-Classify domain name in following categories: classic domain, enum domain,
-bad zone, too long, invalid name. The valid zones are hardcoded in routine.
+    Classify domain name in following categories: classic domain, enum domain,
+    bad zone, too long, invalid name. The valid zones are hardcoded in routine.
     """
     if len(fqdn) > 63:
         return domainClass.INVALID
@@ -79,7 +80,7 @@ bad zone, too long, invalid name. The valid zones are hardcoded in routine.
 
 def isInfinite(datetime):
     """
-Decide if the date is invalid. If it is invalid, it is counted as infinite.
+    Decide if the date is invalid. If it is invalid, it is counted as infinite.
     """
     if datetime.date.month < 1:
         return True
@@ -162,3 +163,15 @@ def runCommand(id, cmd, stdin, logger, retry_rounds=None):
         stat = os.WEXITSTATUS(status[1])
 
     return stat, outdata, errdata
+
+
+def ccRegDateTimeInterval(ccReg, from_date, to_date):
+    "Create ccReg.DateTimeInterval"
+    try:
+        # DateTimeInterval(Date from, Date to)
+        interval = ccReg.DateTimeInterval(from_date, to_date)
+    except TypeError, msg:
+        # TypeError: __init__() takes exactly 5 arguments (3 given)
+        # DateTimeInterval(Date from, Date to, type <DateTimeIntervalType>, offset  <short>)
+        interval = ccReg.DateTimeInterval(from_date, to_date, ccReg.INTERVAL, 0)
+    return interval

@@ -1,0 +1,286 @@
+0943a09ef47d29a70daeab6318e8c89c:
+  query: |-
+    SELECT COUNT(*)
+                FROM object_state
+                WHERE object_state.object_id = %(object_id)d
+                    AND state_id IN %(states)s
+                    AND valid_to IS NULL
+  values:
+    2b3bcc919f859be6a181ecd0be140072:
+      data:
+        object_id: &id001 !!python/long '6'
+        states: [23]
+      response:
+      - - [!!python/long '1']
+0dad6432fb8bcfa4359e5029fc440dd3:
+  query: |-
+    SELECT
+                    object_registry.id
+                FROM object_registry
+                WHERE
+                    type = %(type_id)d
+                    AND object_registry.name = %(handle)s
+                    AND object_registry.erdate IS NULL
+  values:
+    9e52b6f6490a6fac7a9712ebe3981908:
+      data: {handle: 'KEYSID:FOO', type_id: 4}
+      response:
+      - []
+1355321eba0d5edb0b2595e89304dea4:
+  query: |-
+    SELECT
+                    objreg.id,
+                    objreg.name
+                FROM object_registry objreg
+                JOIN keyset_contact_map map ON map.keysetid = objreg.id
+                WHERE type = %(objtype)d
+                    AND map.contactid = %(contact_id)d
+                    AND objreg.id IN %(selections)s
+  values:
+    4aae36c827b3172cdcf50a29813f31bf:
+      data:
+        contact_id: *id001
+        objtype: 4
+        selections: [!!python/long '22']
+      response:
+      - - [22, KEYID05]
+    7ad7a3fce26d1da3554bb999e9720193:
+      data:
+        contact_id: *id001
+        objtype: 4
+        selections: [!!python/long '18']
+      response:
+      - - [18, KEYID01]
+2da22a6cba65fc21eb96a1eef31a4f85:
+  query: |-
+    SELECT
+                    os.object_id,
+                    os.state_id
+                FROM object_state os
+                WHERE os.object_id IN %(keys)s
+                    AND os.valid_from <= CURRENT_TIMESTAMP
+                    AND (os.valid_to IS NULL OR os.valid_to > CURRENT_TIMESTAMP)
+                ORDER BY os.object_id
+  values:
+    0c11e6e68ba2fa57b4ebc1f426f12a3b:
+      data:
+        keys: [18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+      response:
+      - - [18, 16]
+        - [22, 7]
+57545a629ba91b98f1cb1abab23b3eee:
+  query: |-
+    SELECT
+                    oreg.id AS id,
+                    oreg.name AS handle,
+                    oreg.roid AS roid,
+
+                    oreg.crdate AS create_date,
+                    obj.trdate AS transfer_date,
+                    obj.update AS update_date,
+
+                    obj.authinfopw AS auth_info,
+                    get_state_descriptions(oreg.id, %(lang)s) AS states,
+
+                    updator.id AS update_registrar_id,
+                    updator.handle AS update_registrar_handle,
+                    updator.name AS update_registrar_name,
+
+                    creator.id AS create_registrar_id,
+                    creator.handle AS create_registrar_handle,
+                    creator.name AS create_registrar_name,
+
+                    current.id AS registrar_id,
+                    current.handle AS registrar_handle,
+                    current.name AS registrar_name
+
+                FROM object_registry oreg
+                    JOIN object obj ON obj.id = oreg.id
+
+                    JOIN registrar creator ON creator.id = oreg.crid
+                    JOIN registrar current ON current.id = obj.clid
+                    LEFT JOIN registrar updator ON updator.id = obj.upid
+
+                WHERE oreg.id = %(object_id)d
+                    AND oreg.name = %(handle)s
+                    AND oreg.type = %(type_id)d
+                    AND oreg.erdate IS NULL
+  values:
+    9b4fdc12f524cbfa043d17e96d3cdee2:
+      data: {handle: KEYID01, id: &id002 !!python/long '18', lang: EN, name: '', object_id: *id002,
+        type_id: 4}
+      response:
+      - - [18, KEYID01, K0000000018-CZ, '2013-07-19 13:29:02.855337', null, null,
+          WYdFuglW, t#20#linked#Has relation to other records in the registry, null,
+          null, null, 1, REG-FRED_A, Company A l.t.d, 1, REG-FRED_A, Company A l.t.d]
+91b9b6568cfad202f4fccae020913dbe:
+  query: |-
+    SELECT MAX(importance) * 2 FROM enum_object_states
+  values:
+    6adf97f83acf6453d4a6a4b1070f3754:
+      data: null
+      response:
+      - - [64]
+ac758d55f144d383a8e02377ed0a5bd9:
+  query: |-
+    SELECT
+                        keytag, alg, digesttype, digest, maxsiglife
+                    FROM dsrecord
+                    WHERE keysetid = %(keyset_id)d
+  values:
+    3fb976066b9d00c3cfb1013f8063f6f9:
+      data: {keyset_id: 18}
+      response:
+      - []
+c83c383266533e515a379cace781f53f:
+  query: |-
+    SELECT
+                        stat.id,
+                        stat.importance,
+                        des.description
+                    FROM enum_object_states stat
+                    JOIN enum_object_states_desc des
+                        ON stat.id = des.state_id
+                        AND des.lang = %(lang)s
+                    WHERE stat.external = 't'
+  values:
+    1b9dedf86684e2bf25f000287a0ec37d:
+      data: {lang: EN}
+      response:
+      - - [2, 28, Registration renewal unauthorised]
+        - [5, 14, The domain is administratively kept out of zone]
+        - [6, 16, The domain is administratively kept in zone]
+        - [7, 32, Domain blocked]
+        - [9, 2, Domain expired]
+        - [13, 18, Domain not validated]
+        - [15, 6, The domain isn't generated in the zone]
+        - [18, 26, Registrant change unauthorised]
+        - [1, 30, Deletion unauthorised]
+        - [3, 24, Sponsoring registrar change unauthorised]
+        - [4, 22, Update unauthorised]
+        - [16, 20, Has relation to other records in the registry]
+        - [17, null, To be deleted]
+        - [21, 10, Contact is conditionally identified]
+        - [22, 8, Contact is identified]
+        - [23, 12, Contact is validated]
+        - [24, 4, MojeID contact]
+d8cb94fd935c715074b47d18b9e69a36:
+  query: |-
+    SELECT
+                    object_id
+                FROM object_state
+                WHERE state_id = %(state_id)s
+                    AND object_id IN %(objects)s
+                    AND valid_from <= CURRENT_TIMESTAMP AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
+  values:
+    0c88f35e55fda4e981fb63aa67eae77b:
+      data:
+        objects: [22]
+        state_id: 7
+      response:
+      - - [22]
+    18aed9eab5b2a300179942647514541b:
+      data:
+        objects: &id004 [22]
+        state_id: 4
+      response:
+      - []
+    90ae4c448a6bff1ae87cf830ebdda4bb:
+      data:
+        objects: &id003 [18]
+        state_id: 4
+      response:
+      - []
+    bd803d403f0e29c40dc30eba077449dc:
+      data:
+        objects: *id003
+        state_id: 3
+      response:
+      - []
+    ca120eb20225e3d14631cf122a9b672c:
+      data:
+        objects: [18]
+        state_id: 7
+      response:
+      - []
+    cfc813bc8cfeea4048db27e4483bf122:
+      data:
+        objects: *id004
+        state_id: 3
+      response:
+      - []
+ebb94d622533b12f593667bd14497bf8:
+  query: |-
+    SELECT
+                        flags, protocol, alg, key
+                    FROM dnskey
+                    WHERE keysetid = %(keyset_id)d
+  values:
+    3fb976066b9d00c3cfb1013f8063f6f9:
+      data: {keyset_id: 18}
+      response:
+      - - [257, 3, 5, AwEAAddt2AkLfYGKgiEZB5SmIF8EvrjxNMH6HtxWEA4RJ9Ao6LCWheg8]
+ee5e06a47780c0ad5ab9535c27ed0d86:
+  query: |-
+    SELECT
+                    oreg.id,
+                    oreg.name,
+                    domains.number,
+                    registrar.handle,
+                    registrar.name AS registrar_name
+                FROM object_registry oreg
+                    JOIN object ON object.id = oreg.id
+                    JOIN keyset_contact_map ON keyset_contact_map.keysetid = oreg.id
+                    JOIN registrar ON registrar.id = object.clid
+                    LEFT JOIN domains_by_keyset_view domains ON domains.keyset = oreg.id
+                WHERE oreg.type = %(objtype)d
+                    AND keyset_contact_map.contactid = %(contact_id)d
+                ORDER BY oreg.id
+                LIMIT %(limit)d OFFSET %(offset)d
+  values:
+    4835c7098e6b6de98918764c57406cff:
+      data: {contact_id: *id001, limit: 11, objtype: 4, offset: 0}
+      response:
+      - - [18, KEYID01, !!python/long '31', REG-FRED_A, Company A l.t.d]
+        - [19, KEYID02, null, REG-FRED_A, Company A l.t.d]
+        - [20, KEYID03, null, REG-FRED_A, Company A l.t.d]
+        - [21, KEYID04, null, REG-FRED_A, Company A l.t.d]
+        - [22, KEYID05, null, REG-FRED_A, Company A l.t.d]
+        - [23, KEYID06, null, REG-FRED_A, Company A l.t.d]
+        - [24, KEYID07, null, REG-FRED_A, Company A l.t.d]
+        - [25, KEYID08, null, REG-FRED_A, Company A l.t.d]
+        - [26, KEYID09, null, REG-FRED_A, Company A l.t.d]
+        - [27, KEYID10, null, REG-FRED_A, Company A l.t.d]
+f0ba681213e8106d5c888473922a46c2:
+  query: |-
+    SELECT
+                    object_registry.id,
+                    object_registry.name,
+                    CASE WHEN contact.organization IS NOT NULL AND LENGTH(contact.organization) > 0 THEN
+                        contact.organization ELSE contact.name
+                    END
+                FROM keyset_contact_map
+                JOIN object_registry ON object_registry.id = keyset_contact_map.contactid
+                JOIN contact ON contact.id = keyset_contact_map.contactid
+                WHERE keysetid = %(obj_id)d
+                ORDER BY object_registry.name
+  values:
+    07d7b42b2e7478d75f1c1f44c6271709:
+      data: {obj_id: 18}
+      response:
+      - - [4, ANNA, !!python/str "Anna Proch\xE1zkov\xE1"]
+        - [6, TESTER, !!python/str "Tom\xE1\u0161 Tester"]
+f0e311cbd7a0564f1d6e7c8f55da2eb5:
+  query: |-
+    SELECT oreg.id
+                FROM object_registry oreg
+                WHERE oreg.id = %(object_id)d
+                      AND oreg.name = %(handle)s
+                      AND type = %(type_id)d
+                      AND oreg.erdate IS NULL
+  values:
+    2a4810e7e41d8ff5c97f1c3ca4927322:
+      data: {handle: TESTER, id: &id005 !!python/long '6', name: '', object_id: *id005,
+        type_id: 1}
+      response:
+      - - [6]
