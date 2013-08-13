@@ -22,6 +22,7 @@ class DatabaseCursor(object):
         "Open database connection."
         try:
             self.connection = self.database.getConn()
+            self.connection._tnx = True # do not call BEGIN before a query
             self.cursor = self.connection.cursor()
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError), msg:
             self.logger.log(self.logger.ERROR, "Open connection and cursor. %s" % msg, ident=id(self))
