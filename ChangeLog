@@ -1,3 +1,7 @@
+2013-08-14 Zdeněk Böhm (2.5.0)
+
+    * domain browser - implementation of idl interface
+
 2013-07-29 Jaromir Talir (2.4.4)
 
     * Fix fedora rpm package build
