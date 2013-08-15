@@ -317,7 +317,7 @@ class BaseInterface(object):
         self.logger.log(self.logger.INFO, 'Previous history ID %d for object ID %d with handle "%s".' % (prev_history_id, object_id, handle))
 
         # make backup of table 'object' (authinfopw)
-        source.execute("INSERT INTO object_history SELECT %(history_id)d, * FROM object WHERE id = %(object_id)d", params)
+        source.execute("INSERT INTO object_history SELECT %(history_id)d, id, clid, upid, trdate, update, authinfopw FROM object WHERE id = %(object_id)d", params)
 
         # make backup of table $OBJECT (contact, domain, nsset, keyset)
         # INSERT INTO object_history ...
