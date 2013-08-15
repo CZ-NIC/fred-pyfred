@@ -22,7 +22,6 @@ class DatabaseCursor(object):
         "Open database connection."
         try:
             self.connection = self.database.getConn()
-            self.connection._tnx = True # do not call BEGIN before a query
             self.cursor = self.connection.cursor()
         except (pgdb.OperationalError, pgdb.DatabaseError, pgdb.InternalError), msg:
             self.logger.log(self.logger.ERROR, "Open connection and cursor. %s" % msg, ident=id(self))
@@ -86,13 +85,14 @@ class TransactionLevelRead(object):
 
     def __enter__(self):
         "Start transaction"
-        self.source.execute("START TRANSACTION") # ISOLATION LEVEL READ COMMITTED
+        # pgdb module calls BEGIN automatically before fist query:
+        # self.source.execute("BEGIN")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         "End transaction."
         if exc_type is None:
-            self.source.execute("COMMIT TRANSACTION")
+            self.source.connection.commit()
             self.success = True
         else:
-            self.source.execute("ROLLBACK")
+            self.source.connection.rollback()
