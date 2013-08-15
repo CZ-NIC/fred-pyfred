@@ -305,7 +305,11 @@ class BuildPy(build_py):
     def get_outputs(self, include_bytecode=1):
         outputs = build_py.get_outputs(self, include_bytecode=include_bytecode)
         idl_build_dir = os.path.join(self.build_lib, 'pyfred', 'idlstubs')
-        modules = ['%s_idl.py' % m for m in MODULES] + ['ccReg/__init__.py', 'ccReg__POA/__init__.py']
+        modules = ['%s_idl.py' % m for m in MODULES] + [
+            'ccReg/__init__.py', 'ccReg__POA/__init__.py',
+            'Registry/__init__.py', 'Registry__POA/__init__.py',
+            'Registry/DomainBrowser/__init__.py', 'Registry__POA/DomainBrowser/__init__.py',
+        ]
         for module in modules:
             filename = os.path.join(idl_build_dir, module)
             outputs.append(filename)
@@ -335,7 +339,7 @@ def main():
                 ),
           package_data={
               'pyfred.unittests': ['create_environment.sh', 'run_test_domainbrowser', 'README', 'zone-file-check', 'dbdata/*'],
-              'pyfred.unittests.domainbrowser': ['create-db-objects.sh', 'dbdata/*', 'refdata/*'],
+              'pyfred.unittests.domainbrowser': ['dbdata/*', 'refdata/*'],
           },
           scripts=("scripts/fred-pyfred",
                    "scripts/pyfredctl",
@@ -372,7 +376,6 @@ def main():
                         '$purelib/pyfred/unittests/test_filemanager.py': 'update_test_filemanager',
                         '$purelib/pyfred/unittests/test_genzone.py': 'update_test_genzone',
                         '$purelib/pyfred/unittests/domainbrowser/base.py': 'update_test_domainbrowser_base',
-                        '$purelib/pyfred/unittests/domainbrowser/create-db-objects.sh': 'update_test_domainbrowser',
                         '$sysconf/fred/pyfred.conf': 'update_server_config',
                         '$sysconf/fred/genzone.conf': 'update_genzone_config',
                         })
