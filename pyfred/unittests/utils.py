@@ -89,6 +89,12 @@ class MockPgdbCnx(pgdb.pgdbCnx):
         "Return a new Cursor Object using the connection."
         return MockPgdbCursor(self)
 
+    def commit(self):
+        "Mock cursor commit"
+
+    def rollback(self):
+        "Mock cursor rollback"
+
 
 class MockDB(DB):
     "Mock database."
