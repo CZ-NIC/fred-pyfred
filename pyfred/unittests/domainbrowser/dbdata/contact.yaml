@@ -99,7 +99,7 @@
       data: null
       response:
       - - [64]
-946c30c83722002cf9d3735916824e49:
+01ae0a1ea9a7f9d07375d8711b8556bb:
   query: |-
     SELECT
                     contact.discloseemail,
@@ -110,20 +110,23 @@
                     contact.disclosevat,
                     contact.disclosenotifyemail
                 FROM contact
+                JOIN object_registry oreg ON oreg.id = contact.id
                 WHERE id = %(contact_id)d
+                FOR UPDATE OF oreg, contact
   values:
     b6149dfd560aaa1ef2eede08ef62e963:
       data: {contact_id: *id001}
       response:
       - - [true, true, true, false, false, false, false]
       - - [true, false, true, false, false, false, true]
-a91c5dcb1da3942ff5508b7cc24e0136:
+56a3e8a61f98892eec571411de6d9eb2:
   query: |-
     SELECT
                     object.authinfopw
                 FROM object_registry objreg
                 JOIN object ON objreg.id = object.id
                 WHERE objreg.id = %(object_id)d
+                FOR UPDATE OF objreg, object
   values:
     0e3010a672457cf9ae728e8c9fa27cfc:
       data: {object_id: !!python/long '6'}

@@ -79,6 +79,7 @@ class BaseInterface(object):
             FROM object_registry objreg
             JOIN object ON objreg.id = object.id
             WHERE objreg.id = %(object_id)d
+            FOR UPDATE OF objreg, object
             """, dict(object_id=objref.id))
 
         if auth_info == authinfopw:
