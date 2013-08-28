@@ -84,6 +84,7 @@ class BaseInterface(object):
 
         if auth_info == authinfopw:
             self.logger.log(self.logger.INFO, 'No change of auth info at %s.' % objref)
+            source.rollback()
             return False
 
         self.logger.log(self.logger.INFO, 'Change %s auth info.' % objref)

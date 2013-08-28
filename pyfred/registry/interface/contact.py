@@ -203,6 +203,7 @@ class ContactInterface(BaseInterface):
 
         if not len(changes):
             self.logger.log(self.logger.INFO, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact.id, contact.handle))
+            source.rollback()
             return False
 
         # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED

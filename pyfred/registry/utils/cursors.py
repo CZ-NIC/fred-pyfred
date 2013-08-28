@@ -30,9 +30,20 @@ class DatabaseCursor(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         "End of database connection."
+        if exc_type is not None:
+            self.rollback()
         self.cursor.close()
         self.database.releaseConn(self.connection)
 
+    def commit(self):
+        "Do commit"
+        if self.connection:
+            self.connection.commit()
+
+    def rollback(self):
+        "Do rollback"
+        if self.connection:
+            self.connection.rollback()
 
     def execute(self, sql, params=None, logging_level=None):
         "Execute SQL query."
