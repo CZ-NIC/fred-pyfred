@@ -182,7 +182,8 @@ class ContactInterface(BaseInterface):
                 contact.disclosefax,
                 contact.discloseident,
                 contact.disclosevat,
-                contact.disclosenotifyemail
+                contact.disclosenotifyemail,
+                organization
             FROM contact
             JOIN object_registry oreg ON oreg.id = contact.id
             WHERE contact.id = %(contact_id)d
@@ -196,8 +197,12 @@ class ContactInterface(BaseInterface):
             self.logger.log(self.logger.CRITICAL, "Contact detail %s does not have one record: %s" % (contact, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
-        disclose_flag_values = results[0]
-        disclose_flags = dict(zip(columns, disclose_flag_values))
+        organization = results[0].pop()
+        if organization and flags.address is False:
+            # hide address is not allowed when organization is set
+            raise Registry.DomainBrowser.INCORRECT_USAGE
+
+        disclose_flags = dict(zip(columns, results[0]))
         discloses_original = Registry.DomainBrowser.UpdateContactDiscloseFlags(**disclose_flags)
         changes = set(flags.__dict__.items()) - set(discloses_original.__dict__.items())
 
