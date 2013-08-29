@@ -184,7 +184,10 @@ class ContactInterface(BaseInterface):
                 contact.disclosevat,
                 contact.disclosenotifyemail
             FROM contact
-            WHERE id = %(contact_id)d""", dict(contact_id=contact.id))
+            JOIN object_registry oreg ON oreg.id = contact.id
+            WHERE contact.id = %(contact_id)d
+            FOR UPDATE OF oreg, contact
+            """, dict(contact_id=contact.id))
 
         if len(results) == 0:
             raise Registry.DomainBrowser.USER_NOT_EXISTS
@@ -200,6 +203,7 @@ class ContactInterface(BaseInterface):
 
         if not len(changes):
             self.logger.log(self.logger.INFO, 'NO CHANGE of contact[%d] "%s" disclose flags.' % (contact.id, contact.handle))
+            source.rollback()
             return False
 
         # update contact inside TRANSACTION ISOLATION LEVEL READ COMMITTED
@@ -226,7 +230,7 @@ class ContactInterface(BaseInterface):
                 WHERE id = %(contact_id)d""", params)
             self._update_history(source, contact.id, contact.handle, "contact", request_id)
 
-        self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (auth info and disclose flags).' % (contact.id, contact.handle))
+        self.logger.log(self.logger.INFO, 'Contact[%d] "%s" changed (disclose flags).' % (contact.id, contact.handle))
         return True
 
 
