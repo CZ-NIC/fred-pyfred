@@ -38,7 +38,8 @@ ENUM_OBJECT_STATES = dict(serverTransferProhibited=3,
                           serverBlocked=7,
                           deleteCandidate=17,
                           identifiedContact=22,
-                          validatedContact=23)
+                          validatedContact=23,
+                          mojeidContact=24)
 #fred=> SELECT * FROM enum_object_states ORDER BY id;
 # id |               name               |   types   | manual | external
 #----+----------------------------------+-----------+--------+----------

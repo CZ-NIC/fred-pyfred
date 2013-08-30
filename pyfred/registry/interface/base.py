@@ -277,10 +277,10 @@ class BaseInterface(object):
             """, dict(handle=handle, type_id=OBJECT_REGISTRY_TYPES[objtype]))
 
 
-    def _verify(self, source, regref, is_user_contact=False):
+    def _verify(self, source, regref):
         """
         Verify if object ID and HANDLE are valid - object exists and is active.
-        Raise OBJECT_NOT_EXISTS or USER_NOT_EXISTS if not.
+        Raise OBJECT_NOT_EXISTS if not.
         """
         response = source.fetchall("""
             SELECT oreg.id
@@ -290,17 +290,19 @@ class BaseInterface(object):
                   AND type = %(type_id)d
                   AND oreg.erdate IS NULL""", regref.__dict__)
         if not len(response):
-            if is_user_contact:
-                raise Registry.DomainBrowser.USER_NOT_EXISTS
             raise Registry.DomainBrowser.OBJECT_NOT_EXISTS
 
 
     def _verify_user_contact(self, source, regref):
         """
-        Verify if contact ID and HANDLE exists and is active.
+        Verify if contact ID and HANDLE exists and is active and has status mojeidContact.
         Raise USER_NOT_EXISTS if not.
         """
-        return self._verify(source, regref, True) # True sets USER_NOT_EXISTS
+        try:
+            self._verify(source, regref)
+            self.owner_has_required_status(source, regref.id, ["mojeidContact"])
+        except (Registry.DomainBrowser.OBJECT_NOT_EXISTS, Registry.DomainBrowser.ACCESS_DENIED):
+            raise Registry.DomainBrowser.USER_NOT_EXISTS
 
 
     def _update_history(self, source, object_id, handle, objtype, request_id):
