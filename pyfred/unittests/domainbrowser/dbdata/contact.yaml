@@ -19,6 +19,20 @@
       response:
       - - [!!python/long '1']
       - - [!!python/long '1']
+    3a7febd324f545a52b838d00f9d8d1dd:
+      data:
+        object_id: *id001
+        states: [24]
+      response:
+      - - [!!python/long '1']
+      - - [!!python/long '1']
+    be85f27268ffb597da18f56930335e48:
+      data:
+        object_id: *id005
+        states: [24]
+      response:
+      - - [!!python/long '1']
+      - - [!!python/long '1']
 0dad6432fb8bcfa4359e5029fc440dd3:
   query: |-
     SELECT
