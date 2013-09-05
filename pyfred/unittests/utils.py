@@ -67,7 +67,17 @@ class MockPgdbCursor(pgdb.pgdbCursor):
         params = self._cache_query["params"]
         query_code = hashlib.md5(re.sub("\s+", " ", query).lower()).hexdigest()
         params_code = hashlib.md5(u"%s" % params).hexdigest()
-        return self._dbcnx.db_data[query_code]["values"][params_code]["response"][self._dbcnx.stage_pos]
+
+        try:
+            return self._dbcnx.db_data[query_code]["values"][params_code]["response"][self._dbcnx.stage_pos]
+        except KeyError, msg:
+            print
+            print "KeyError:", msg
+            print query_code
+            print query
+            print params_code
+            print params
+            print
 
 
 class MockPgdbCnx(pgdb.pgdbCnx):

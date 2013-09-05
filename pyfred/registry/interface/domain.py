@@ -162,8 +162,8 @@ class DomainInterface(BaseInterface):
                 domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
             FROM object_registry oreg
             JOIN domain ON domain.id = oreg.id
-            JOIN object_history ON object_history.historyid = oreg.historyid
-            JOIN registrar ON registrar.id = object_history.clid
+            JOIN object ON object.id = oreg.id
+            JOIN registrar ON registrar.id = object.clid
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
                       AND domain_contact_map.contactid = %(contact_id)d
@@ -173,7 +173,7 @@ class DomainInterface(BaseInterface):
             LIMIT %(limit)d OFFSET %(offset)d
             """
         sql_params = dict(contact_id=contact.id, nsset_id=nsset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
+                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1, offset=offset)
 
         return self.__provideDomainList(source, contact.id, sql_query, sql_params, lang)
 
@@ -199,8 +199,8 @@ class DomainInterface(BaseInterface):
                 domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
             FROM object_registry oreg
             JOIN domain ON domain.id = oreg.id
-            JOIN object_history ON object_history.historyid = oreg.historyid
-            JOIN registrar ON registrar.id = object_history.clid
+            JOIN object ON object.id = oreg.id
+            JOIN registrar ON registrar.id = object.clid
             LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                       AND domain_contact_map.role = %(role_id)d
                       AND domain_contact_map.contactid = %(contact_id)d
@@ -210,7 +210,7 @@ class DomainInterface(BaseInterface):
             LIMIT %(limit)d OFFSET %(offset)d
             """
         sql_params = dict(contact_id=contact.id, keyset_id=keyset.id, objtype=OBJECT_REGISTRY_TYPES['domain'],
-                          role_id=DOMAIN_ROLE["admin"], lang=lang, limit=self.list_limit + 1, offset=offset)
+                          role_id=DOMAIN_ROLE["admin"], limit=self.list_limit + 1, offset=offset)
 
         return self.__provideDomainList(source, contact.id, sql_query, sql_params, lang)
 

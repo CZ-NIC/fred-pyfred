@@ -227,7 +227,7 @@
       data: null
       response:
       - - [64]
-9a5dc284aa8d567970f174ddea2e8554:
+0b16c316931dfcca6c58885dcac4a466:
   query: |-
     SELECT
                     oreg.id,
@@ -240,8 +240,8 @@
                     domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
                 FROM object_registry oreg
                 JOIN domain ON domain.id = oreg.id
-                JOIN object_history ON object_history.historyid = oreg.historyid
-                JOIN registrar ON registrar.id = object_history.clid
+                JOIN object ON object.id = oreg.id
+                JOIN registrar ON registrar.id = object.clid
                 LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                           AND domain_contact_map.role = %(role_id)d
                           AND domain_contact_map.contactid = %(contact_id)d
@@ -250,8 +250,8 @@
                 ORDER BY domain.exdate
                 LIMIT %(limit)d OFFSET %(offset)d
   values:
-    976c049a8ed71c7e06054e7d99156590:
-      data: {contact_id: *id002, lang: EN, limit: 11, nsset_id: *id003, objtype: 3,
+    0be6125376531062335d1d71227bc906:
+      data: {contact_id: *id002, limit: 11, nsset_id: *id003, objtype: 3,
         offset: 0, role_id: 1}
       response:
       - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
@@ -444,7 +444,7 @@ c83c383266533e515a379cace781f53f:
         - [22, 8, !!python/str "Kontakt je identifikov\xE1n"]
         - [23, 12, !!python/str "Kontakt je validov\xE1n"]
         - [24, 4, MojeID kontakt]
-cf4c6434025cc81ca099e7da7b65939c:
+2e6206fd55dc8e207de79495a6395778:
   query: |-
     SELECT
                     oreg.id,
@@ -457,8 +457,8 @@ cf4c6434025cc81ca099e7da7b65939c:
                     domain_contact_map.contactid = %(contact_id)d OR domain.registrant = %(contact_id)d AS is_owner
                 FROM object_registry oreg
                 JOIN domain ON domain.id = oreg.id
-                JOIN object_history ON object_history.historyid = oreg.historyid
-                JOIN registrar ON registrar.id = object_history.clid
+                JOIN object ON object.id = oreg.id
+                JOIN registrar ON registrar.id = object.clid
                 LEFT JOIN domain_contact_map ON domain_contact_map.domainid = domain.id
                           AND domain_contact_map.role = %(role_id)d
                           AND domain_contact_map.contactid = %(contact_id)d
@@ -467,8 +467,8 @@ cf4c6434025cc81ca099e7da7b65939c:
                 ORDER BY domain.exdate
                 LIMIT %(limit)d OFFSET %(offset)d
   values:
-    0f763fc07ee2ca775586f9c8f145d713:
-      data: {contact_id: *id002, keyset_id: *id005, lang: EN, limit: 11, objtype: 3,
+    f2f1827e613d1f31f5d9d5e759ac1b4c:
+      data: {contact_id: *id002, keyset_id: *id005, limit: 11, objtype: 3,
         offset: 0, role_id: 1}
       response:
       - - [53, 6.1.1.8.4.5.2.2.2.0.2.4.e164.arpa, REG-FRED_A, Company A l.t.d, '2014-07-19',
