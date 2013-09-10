@@ -48,7 +48,7 @@ class DomainInterface(BaseInterface):
                 # expiration_dns_protection_period, expiration_registration_protection_period
                 exdate = datetime.strptime(row[Cols.EXDATE], '%Y-%m-%d').date()
                 outzone_date = exdate + timedelta(days=int(enum_parameters["expiration_dns_protection_period"])) # 30
-                delete_date  = exdate + timedelta(days=int(enum_parameters["expiration_registration_protection_period"])) # 61
+                delete_date = exdate + timedelta(days=int(enum_parameters["expiration_registration_protection_period"])) # 61
                 #self.logger.log(self.logger.DEBUG, 'Contact %d "%s": exdate=%s; outzone_date=%s; delete_date=%s' % (contact_id, handle, exdate, outzone_date, delete_date))
 
                 # resolve next domain state:
@@ -260,8 +260,8 @@ class DomainInterface(BaseInterface):
                 oreg.roid AS roid,
                 oreg.name AS fqdn,
 
-                oreg.crdate AS create_date,
-                obj.update AS update_date,
+                to_char(oreg.crdate, 'YYYY-MM-DD HH24:MI:SS.US') AS create_date,
+                to_char(obj.update, 'YYYY-MM-DD HH24:MI:SS.US') AS update_date,
                 obj.authinfopw AS auth_info,
                 domain.exdate AS expiration_date,
                 enum.exdate AS val_ex_date,

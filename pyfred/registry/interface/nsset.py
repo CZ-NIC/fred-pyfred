@@ -89,9 +89,9 @@ class NssetInterface(BaseInterface):
                 oreg.name AS handle,
                 oreg.roid AS roid,
 
-                oreg.crdate AS create_date,
-                obj.trdate AS transfer_date,
-                obj.update AS update_date,
+                to_char(oreg.crdate, 'YYYY-MM-DD HH24:MI:SS.US') AS create_date,
+                to_char(obj.trdate, 'YYYY-MM-DD HH24:MI:SS.US') AS transfer_date,
+                to_char(obj.update, 'YYYY-MM-DD HH24:MI:SS.US') AS update_date,
 
                 obj.authinfopw AS auth_info,
                 nsset.checklevel,
