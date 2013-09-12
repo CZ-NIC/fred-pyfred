@@ -344,9 +344,9 @@ def main(argv):
 
     # helper function
     def get_job_name(job):
-        job_class = str(job["callback"].im_class).split(".")[-1]
+        job_class = str(job["callback"].im_class).split(".")[-1] if hasattr(job["callback"], "im_class") else None
         job_method = str(job["callback"].__name__)
-        return "%s.%s" % (job_class, job_method)
+        return ".".join(filter(None, [job_class, job_method]))
 
     delay = 5 # initial delay
     while True:
