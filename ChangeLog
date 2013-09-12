@@ -1,3 +1,7 @@
+2013-09-12 Jiri Sadek (2.5.1)
+
+    * Fix logging of job name (job_noop issue)
+
 2013-08-14 Zdeněk Böhm (2.5.0)
 
     * domain browser - implementation of idl interface
