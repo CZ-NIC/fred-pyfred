@@ -376,7 +376,7 @@ class DomainInterface(BaseInterface):
             domain_detail[Col.PUBLISH] = False
 
         admins = [] # Registry.DomainBrowser.CoupleSeq
-        admin_handles = []
+        adminsid = []
         for row in source.fetchall("""
                 SELECT
                     object_registry.id,
@@ -391,9 +391,9 @@ class DomainInterface(BaseInterface):
                     AND domainid = %(obj_id)d
                 """, dict(role_id=DOMAIN_ROLE["admin"], obj_id=domain_detail[Col.TID])):
             admins.append(Registry.DomainBrowser.RegistryReference(long(row[0]), none2str(row[1]), none2str(row[2])))
-            admin_handles.append(row[0])
+            adminsid.append(row[0])
 
-        if contact.handle == registrant_handle or contact.handle in admin_handles:
+        if contact.handle == registrant_handle or contact.id in adminsid:
             # owner or contact in admins list
             data_type = Registry.DomainBrowser.DataAccessLevel._item(self.PRIVATE_DATA)
         else:

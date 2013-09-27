@@ -2,7 +2,7 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DomainDetail
   admins:
   - !!python/object:pyfred.idlstubs.Registry.DomainBrowser.RegistryReference {handle: TESTER,
     id: !!python/long '6', name: !!python/str "Tom\xE1\u0161 Tester"}
-  auth_info: '********'
+  auth_info: 'heslo'
   create_date: '2013-07-19 13:29:08.717248'
   expiration_date: '2016-07-19'
   fqdn: ginger01.cz
@@ -22,5 +22,5 @@ detail: !!python/object:pyfred.idlstubs.Registry.DomainBrowser.DomainDetail
   states: ''
   update_date: ''
   val_ex_date: ''
-owner: !!python/object:omniORB.EnumItem {_n: PUBLIC_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',
-  _v: 0}
+owner: !!python/object:omniORB.EnumItem {_n: PRIVATE_DATA, _parent_id: 'IDL:Registry/DomainBrowser/DataAccessLevel:1.0',
+  _v: 1}
