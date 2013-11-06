@@ -1,3 +1,9 @@
+2013-11-06 Jaromir Talir, Zdenek Bohm (2.5.2)
+
+    * Fix genzone - glue records generation
+
+    * Fix domain browser - date time format fix reverted (fixed in web app)
+
 2013-09-12 Jiri Sadek (2.5.1)
 
     * Fix logging of job name (job_noop issue)
