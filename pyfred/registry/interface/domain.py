@@ -434,7 +434,7 @@ class DomainInterface(BaseInterface):
         results = source.fetchall("""
             SELECT
                 id, handle, name, telephone, fax, url,
-                ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
+                street1, street2, street3, postalcode, city, stateorprovince
             FROM registrar
             WHERE handle = %(handle)s""", dict(handle=handle))
 
@@ -445,8 +445,24 @@ class DomainInterface(BaseInterface):
             self.logger.log(self.logger.CRITICAL, "Registrar detail of '%s' does not have one record: %s" % (handle, results))
             raise Registry.DomainBrowser.INTERNAL_SERVER_ERROR
 
+        row = results[0]
+
+        # build address
+        stateorprovince = row.pop()
+        city = row.pop()
+        postalcode = row.pop()
+        street3 = row.pop()
+        street2 = row.pop()
+        street1 = row.pop()
+
+        if city and postalcode:
+            city = "%s %s" % (postalcode, city)
+
+        address = ", ".join([item for item in (street1, street2, street3, city, stateorprovince) if item])
+        row.append(address)
+
         # replace None by empty string
-        registry_detail = ['' if value is None else value for value in results[0]]
+        registry_detail = ['' if value is None else value for value in row]
         return (Registry.DomainBrowser.RegistrarDetail(**dict(zip(columns, registry_detail))))
 
 

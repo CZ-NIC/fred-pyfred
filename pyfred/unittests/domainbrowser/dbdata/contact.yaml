@@ -81,18 +81,18 @@
         - [The domain isn't generated in the zone]
         - [To be deleted]
         - [Update unauthorised]
-62be53b30094062de6b6de25be2f9eba:
+146b544f5226c964b67836c52fcf6a57:
   query: |-
     SELECT
                     id, handle, name, telephone, fax, url,
-                    ARRAY_TO_STRING(ARRAY[street1, street2, street3, postalcode, city, stateorprovince] , ', ') AS address
+                    street1, street2, street3, postalcode, city, stateorprovince
                 FROM registrar
                 WHERE handle = %(handle)s
   values:
     01d598f46403bfa9bd464817f1bf5ba0:
       data: {handle: REG-FRED_A}
       response:
-      - - [1, REG-FRED_A, Company A l.t.d, null, null, www.nic.cz, '']
+      - - [1, REG-FRED_A, Company A l.t.d, null, null, www.nic.cz, null, null, null, null, null, null]
 65c545556786d8a696db1f72c6ea63a8:
   query: |-
     SELECT historyid FROM object_registry WHERE id = %(object_id)d
