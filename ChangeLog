@@ -2,7 +2,10 @@
 
     * Fix genzone - glue records generation
 
-    * Fix domain browser - date time format fix reverted (fixed in web app)
+    * Fix domain browser
+        - date time format fix reverted (fixed in web app)
+        - registrar address formating
+        - domain detail public/private data recognition (handle -> id fix)
 
 2013-09-12 Jiri Sadek (2.5.1)
 
