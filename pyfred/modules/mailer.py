@@ -322,6 +322,22 @@ class Mailer_i (ccReg__POA.Mailer):
             except ConfigParser.NoOptionError, e:
                 pass
 
+        # check mail header defaults
+        try:
+            conn = self.db.getConn()
+            cur = conn.cursor()
+            cur.execute("SELECT mt.name "
+                        "FROM mail_type mt "
+                        "WHERE (SELECT 1 FROM mail_type_default_map WHERE typeid=mt.id) IS NULL AND "
+                              "(SELECT 1 FROM mail_type_default_map WHERE typeid IS NULL) IS NULL")
+            mailtype_without_default = cur.fetchall()
+            cur.close()
+            self.db.releaseConn(conn)
+            if mailtype_without_default:
+                self.l.log(self.l.WARNING, "Mailtype(s) %s without default mail header" % mailtype_without_default)
+        except pgdb.DatabaseError, e:
+            self.l.log(self.l.ERR, "Database error: %s" % e)
+            raise Exception("Database error")
         # check configuration consistency
         if self.tester and not self.testmode:
             self.l.log(self.l.WARNING, "Tester configuration directive will "
@@ -539,7 +555,7 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return id, subject, templates
 
-    def __dbSetHeaders(self, conn, mailid, subject, header, msg):
+    def __dbSetHeaders(self, conn, mailid, mailtype, subject, header, msg):
         """
         Method initializes headers of email object. Header struct is modified
         as well, which is important for actual value of envelope sender.
@@ -547,10 +563,17 @@ class Mailer_i (ccReg__POA.Mailer):
         """
         # get default values from database
         cur = conn.cursor()
-        cur.execute("SELECT h_from, h_replyto, h_errorsto, h_organization, "
-                "h_contentencoding, h_messageidserver FROM mail_header_defaults")
+        cur.execute("SELECT mhd.h_from,mhd.h_replyto,mhd.h_errorsto,mhd.h_organization,mhd.h_messageidserver "
+                    "FROM mail_type mt JOIN mail_type_default_map mtd ON (mtd.typeid=mt.id OR mtd.typeid IS NULL) "
+                    "LEFT JOIN mail_header_defaults mhd ON (mhd.id=mtd.defaultid) "
+                    "WHERE mt.name=%s "
+                    "ORDER BY mtd.typeid IS NULL "
+                    "LIMIT 1", [mailtype])
         defaults = cur.fetchone()
         cur.close()
+        if defaults is None:
+            self.l.log(self.l.ERR, "<%d> Mailtype %s has no default header" % (mailid, mailtype))
+            raise ccReg.Mailer.InvalidHeader("No default header.")
         # headers which don't have defaults
         msg["Subject"] = qp_str(subject)
         msg["To"] = filter_email_addrs(header.h_to)
@@ -569,7 +592,7 @@ class Mailer_i (ccReg__POA.Mailer):
         if not header.h_organization:
             header.h_organization = defaults[3]
         # headers which have default values
-        msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), defaults[5])
+        msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), defaults[4])
         msg["From"] = header.h_from
         msg["Reply-to"] = header.h_reply_to
         msg["Errors-to"] = header.h_errors_to
@@ -966,7 +989,7 @@ class Mailer_i (ccReg__POA.Mailer):
         # init email header (BEWARE that header struct is modified in this
         # call to function, so it is filled with defaults for not provided
         # headers, which is important for obtaining envelope sender).
-        self.__dbSetHeaders(conn, mailid, subject, header, msg)
+        self.__dbSetHeaders(conn, mailid, mailtype, subject, header, msg)
         return msg.as_string(), mailtype_id
 
     def mailNotify(self, mailtype, header, data, handles, attachs, preview):
