@@ -140,19 +140,23 @@ def get_cert_key_pairs(conf, section, logger):
         if opt[:8]=="certfile":
             name = opt[8:]
             if not conf.has_option(section, "keyfile" + name):
+                logger.log(logger.ERR, "Configuration error: certfile%s has not matching keyfile%s." % (name, name))
                 raise Exception("certfile%s has not matching keyfile%s." % (name, name))
             val = cert.get(name, {})
             val['cert'] = conf.get(section, opt)
             if not os.path.isfile(val['cert']):
+                logger.log(logger.ERR, "Configuration error: %s=%s does not exist." % (opt, val['cert']))
                 raise Exception("%s=%s does not exist." % (opt, val['cert']))
             cert[name] = val
         elif opt[:7]=="keyfile":
             name = opt[7:]
             if not conf.has_option(section, "certfile" + name):
+                logger.log(logger.ERR, "Configuration error: keyfile%s has not matching certfile%s." % (name, name))
                 raise Exception("keyfile%s has not matching certfile%s." % (name, name))
             val = cert.get(name, {})
             val['key'] = conf.get(section, opt)
             if not os.path.isfile(val['key']):
+                logger.log(logger.ERR, "Configuration error: %s=%s does not exist." % (opt, val['key']))
                 raise Exception("%s=%s does not exist." % (opt, val['key']))
             cert[name] = val
 
@@ -966,8 +970,8 @@ class Mailer_i (ccReg__POA.Mailer):
                     sender = re_mail.search(header[5:]).group(0).lower()
         mail = mimeheaders + mail[headerend_index + 1:]
         if not self.sender_cert.has_key(sender):
-            self.l.log(self.l.ERR, "<%d> Sender %s has no S/MIME certificate." % (mailid, sender))
-            raise Mailer_i.MailerException("Signing of email failed.")
+            self.l.log(self.l.WARNING, "<%d> Sender %s has no S/MIME certificate." % (mailid, sender))
+            return mail
         smime = self.sender_cert[sender][0]
         # create temporary file for openssl which will be used as input
         tmpfile = tempfile.mkstemp(prefix="pyfred-smime")
