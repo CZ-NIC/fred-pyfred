@@ -411,8 +411,8 @@ class Mailer_i (ccReg__POA.Mailer):
             cur = conn.cursor()
             cur.execute("SELECT mt.name "
                         "FROM mail_type mt "
-                        "WHERE (SELECT 1 FROM mail_type_mail_header_defaults_map WHERE typeid=mt.id) IS NULL AND "
-                              "(SELECT 1 FROM mail_type_mail_header_defaults_map WHERE typeid IS NULL) IS NULL")
+                        "WHERE (SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id=mt.id) IS NULL AND "
+                              "(SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id IS NULL) IS NULL")
             mailtype_without_default = cur.fetchall()
             cur.close()
             self.db.releaseConn(conn)
@@ -641,10 +641,10 @@ class Mailer_i (ccReg__POA.Mailer):
         # get default values from database
         cur = conn.cursor()
         cur.execute("SELECT mhd.h_from,mhd.h_replyto,mhd.h_errorsto,mhd.h_organization,mhd.h_messageidserver "
-                    "FROM mail_type mt JOIN mail_type_mail_header_defaults_map mtd ON (mtd.typeid=mt.id OR mtd.typeid IS NULL) "
-                    "LEFT JOIN mail_header_defaults mhd ON (mhd.id=mtd.defaultid) "
+                    "FROM mail_type mt JOIN mail_type_mail_header_defaults_map mtd ON (mtd.mail_type_id=mt.id OR mtd.mail_type_id IS NULL) "
+                    "LEFT JOIN mail_header_defaults mhd ON (mhd.id=mtd.mail_header_defaults_id) "
                     "WHERE mt.name=%s "
-                    "ORDER BY mtd.typeid IS NULL "
+                    "ORDER BY mtd.mail_type_id IS NULL "
                     "LIMIT 1", [mailtype])
         defaults = cur.fetchone()
         cur.close()
