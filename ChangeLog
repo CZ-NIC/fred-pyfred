@@ -1,3 +1,7 @@
+2014-02-17 Jaromir Talir (2.5.3)
+
+    * Fix rpm dependencies
+
 2013-11-06 Jaromir Talir, Zdenek Bohm (2.5.2)
 
     * Fix genzone - glue records generation
