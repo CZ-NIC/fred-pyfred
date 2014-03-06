@@ -25,6 +25,9 @@ from email.MIMEText import MIMEText
 from email.Utils import formatdate, parseaddr
 # IMAP stuff
 import imaplib
+# certificate info
+import M2Crypto.X509, M2Crypto.m2
+from exceptions import Exception
 
 
 def convList2Array(list):
@@ -92,6 +95,99 @@ def filter_email_addrs(str):
             result += addr
     return result
 
+re_mail = re.compile("[-._a-zA-Z0-9]+@[-._a-zA-Z0-9]+")
+
+def smime_sender(certfile):
+    """
+    from certificate get email addresses of senders that can use the certificate
+    for email signing
+    """
+    sender = set()
+    try:
+        cert = M2Crypto.X509.load_cert(certfile)
+    except:
+        return sender
+    if not cert.check_purpose(M2Crypto.m2.X509_PURPOSE_SMIME_SIGN, 0):
+        return sender
+
+    # searches the subject name ...
+    try:
+        subj = cert.get_subject()
+        mails = subj.get_entries_by_nid(subj.nid['Email'])
+        for mail in mails:
+            sender.add(mail.get_data().as_text().lower())
+    except:
+        pass
+
+    # ... and the subject alternative name extension
+    try:
+        alt_name = cert.get_ext("subjectAltName").get_value()
+        mails = re_mail.findall(alt_name)
+        for mail in mails:
+            sender.add(mail.lower())
+    except:
+        pass
+
+    return sender
+
+
+def get_cert_key_pairs(conf, section, logger):
+    """
+    return array of cert/key pairs
+    """
+    cert = {}
+    for opt in conf.options(section):
+        if opt[:8]=="certfile":
+            name = opt[8:]
+            if not conf.has_option(section, "keyfile" + name):
+                logger.log(logger.ERR, "Configuration error: certfile%s has not matching keyfile%s." % (name, name))
+                raise Exception("certfile%s has not matching keyfile%s." % (name, name))
+            val = cert.get(name, {})
+            val['cert'] = conf.get(section, opt)
+            if not os.path.isfile(val['cert']):
+                logger.log(logger.ERR, "Configuration error: %s=%s does not exist." % (opt, val['cert']))
+                raise Exception("%s=%s does not exist." % (opt, val['cert']))
+            cert[name] = val
+        elif opt[:7]=="keyfile":
+            name = opt[7:]
+            if not conf.has_option(section, "certfile" + name):
+                logger.log(logger.ERR, "Configuration error: keyfile%s has not matching certfile%s." % (name, name))
+                raise Exception("keyfile%s has not matching certfile%s." % (name, name))
+            val = cert.get(name, {})
+            val['key'] = conf.get(section, opt)
+            if not os.path.isfile(val['key']):
+                logger.log(logger.ERR, "Configuration error: %s=%s does not exist." % (opt, val['key']))
+                raise Exception("%s=%s does not exist." % (opt, val['key']))
+            cert[name] = val
+
+    pairs = []
+    for name in cert:
+        val = cert[name]
+        pairs.append({'cert':val['cert'], 'key':val['key']})
+        logger.log(logger.DEBUG, "Path to certfile%s is %s." % (name, val['cert']))
+        logger.log(logger.DEBUG, "Path to keyfile%s is %s." % (name, val['key']))
+    return pairs
+
+
+def get_sender_cert(conf, section, logger):
+    """
+    return dictionary where key is sender and value is array of cert/key pairs
+    that can be used for signing emails
+    """
+    sender_cert = {}
+    cert_key_pairs = get_cert_key_pairs(conf, section, logger)
+    for item in cert_key_pairs:
+        senders = smime_sender(item['cert'])
+        while 0<len(senders):
+            sender = senders.pop()
+            if sender_cert.has_key(sender):
+                sender_cert[sender].append(item)
+            else:
+                sender_cert[sender] = [item]
+            logger.log(logger.DEBUG, "Sender %s use certificate %s and key %s." % (sender, item['cert'], item['key']))
+    return sender_cert
+
+
 class Mailer_i (ccReg__POA.Mailer):
     """
     This class implements Mailer interface.
@@ -128,8 +224,7 @@ class Mailer_i (ccReg__POA.Mailer):
         self.idletreshold = 3600
         self.checkperiod = 60
         self.signing = False
-        self.keyfile = ""
-        self.certfile = ""
+        self.sender_cert = {}
         self.vcard = ""
         self.sendperiod = 300
         self.sendlimit = 100
@@ -209,23 +304,11 @@ class Mailer_i (ccReg__POA.Mailer):
                 self.signing = conf.getboolean("Mailer", "signing")
                 if self.signing:
                     self.l.log(self.l.DEBUG, "Signing of emails is turned on.")
-            except ConfigParser.NoOptionError, e:
-                pass
-            # certificate path
-            try:
-                certfile = conf.get("Mailer", "certfile")
-                if certfile:
-                    self.l.log(self.l.DEBUG, "Path to certfile is %s." %
-                            certfile)
-                    self.certfile = certfile
-            except ConfigParser.NoOptionError, e:
-                pass
-            # key path
-            try:
-                keyfile = conf.get("Mailer", "keyfile")
-                if keyfile:
-                    self.l.log(self.l.DEBUG, "Path to keyfile is %s." % keyfile)
-                    self.keyfile = keyfile
+                    # S/MIME certificates
+                    try:
+                        self.sender_cert = get_sender_cert(conf, "Mailer", self.l)
+                    except Exception, e:
+                        self.l.log(self.l.ERR, "get_sender_cert failure: %s" % e)
             except ConfigParser.NoOptionError, e:
                 pass
             # vcard switch
@@ -322,12 +405,28 @@ class Mailer_i (ccReg__POA.Mailer):
             except ConfigParser.NoOptionError, e:
                 pass
 
+        # check mail header defaults
+        try:
+            conn = self.db.getConn()
+            cur = conn.cursor()
+            cur.execute("SELECT mt.name "
+                        "FROM mail_type mt "
+                        "WHERE (SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id=mt.id) IS NULL AND "
+                              "(SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id IS NULL) IS NULL")
+            mailtype_without_default = cur.fetchall()
+            cur.close()
+            self.db.releaseConn(conn)
+            if mailtype_without_default:
+                self.l.log(self.l.WARNING, "Mailtype(s) %s without default mail header" % mailtype_without_default)
+        except pgdb.DatabaseError, e:
+            self.l.log(self.l.ERR, "Database error: %s" % e)
+            raise Exception("Database error")
         # check configuration consistency
         if self.tester and not self.testmode:
             self.l.log(self.l.WARNING, "Tester configuration directive will "
                     "be ignored because testmode is not turned on.")
-        if self.signing and not (self.certfile and self.keyfile):
-            raise Exception("Certificate and key file must be set for mailer.")
+        if self.signing and not self.sender_cert:
+            raise Exception("Certificate and key file(s) must be set for mailer.")
         # do quick check that all files exist
         if not os.path.isfile(self.sendmail):
             raise Exception("sendmail binary (%s) does not exist." %
@@ -336,12 +435,6 @@ class Mailer_i (ccReg__POA.Mailer):
             if not os.path.isfile(self.openssl):
                 raise Exception("openssl binary (%s) does not exist." %
                         self.openssl)
-            if not os.path.isfile(self.certfile):
-                raise Exception("Certificate (%s) does not exist." %
-                        self.certfile)
-            if not os.path.isfile(self.keyfile):
-                raise Exception("Key file (%s) does not exist." %
-                        self.keyfile)
         # schedule regular cleanup
         joblist.append({ "callback":self.__search_cleaner, "context":None,
             "period":self.checkperiod, "ticks":1 })
@@ -539,7 +632,7 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return id, subject, templates
 
-    def __dbSetHeaders(self, conn, mailid, subject, header, msg):
+    def __dbSetHeaders(self, conn, mailid, mailtype, subject, header, msg):
         """
         Method initializes headers of email object. Header struct is modified
         as well, which is important for actual value of envelope sender.
@@ -547,10 +640,17 @@ class Mailer_i (ccReg__POA.Mailer):
         """
         # get default values from database
         cur = conn.cursor()
-        cur.execute("SELECT h_from, h_replyto, h_errorsto, h_organization, "
-                "h_contentencoding, h_messageidserver FROM mail_header_defaults")
+        cur.execute("SELECT mhd.h_from,mhd.h_replyto,mhd.h_errorsto,mhd.h_organization,mhd.h_messageidserver "
+                    "FROM mail_type mt JOIN mail_type_mail_header_defaults_map mtd ON (mtd.mail_type_id=mt.id OR mtd.mail_type_id IS NULL) "
+                    "LEFT JOIN mail_header_defaults mhd ON (mhd.id=mtd.mail_header_defaults_id) "
+                    "WHERE mt.name=%s "
+                    "ORDER BY mtd.mail_type_id IS NULL "
+                    "LIMIT 1", [mailtype])
         defaults = cur.fetchone()
         cur.close()
+        if defaults is None:
+            self.l.log(self.l.ERR, "<%d> Mailtype %s has no default header" % (mailid, mailtype))
+            raise ccReg.Mailer.InvalidHeader("No default header.")
         # headers which don't have defaults
         msg["Subject"] = qp_str(subject)
         msg["To"] = filter_email_addrs(header.h_to)
@@ -569,7 +669,7 @@ class Mailer_i (ccReg__POA.Mailer):
         if not header.h_organization:
             header.h_organization = defaults[3]
         # headers which have default values
-        msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), defaults[5])
+        msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), defaults[4])
         msg["From"] = header.h_from
         msg["Reply-to"] = header.h_reply_to
         msg["Errors-to"] = header.h_errors_to
@@ -857,6 +957,7 @@ class Mailer_i (ccReg__POA.Mailer):
         headers = mail[:headerend_index + 1]
         mimeheaders = ""
         signedmail = ""
+        sender = ""
         # throw away otherwise duplicated headers
         for header in headers.splitlines():
             if header.startswith("MIME-Version:") or \
@@ -865,14 +966,20 @@ class Mailer_i (ccReg__POA.Mailer):
                 mimeheaders += header + '\n'
             else:
                 signedmail += header + '\n'
+                if header.startswith("From:"):
+                    sender = re_mail.search(header[5:]).group(0).lower()
         mail = mimeheaders + mail[headerend_index + 1:]
+        if not self.sender_cert.has_key(sender):
+            self.l.log(self.l.WARNING, "<%d> Sender %s has no S/MIME certificate." % (mailid, sender))
+            return mail
+        smime = self.sender_cert[sender][0]
         # create temporary file for openssl which will be used as input
         tmpfile = tempfile.mkstemp(prefix="pyfred-smime")
         os.write(tmpfile[0], mail)
         os.close(tmpfile[0])
         # do the signing
         stat, outdata, errdata = runCommand(mailid, "%s smime -sign -signer %s -inkey %s -in %s" %
-                   (self.openssl, self.certfile, self.keyfile, tmpfile[1]), None, self.l, retry_rounds=self.signing_cmd_retry_rounds)
+                   (self.openssl, smime['cert'], smime['key'], tmpfile[1]), None, self.l, retry_rounds=self.signing_cmd_retry_rounds)
         os.remove(tmpfile[1])
 
         if stat:
@@ -966,7 +1073,7 @@ class Mailer_i (ccReg__POA.Mailer):
         # init email header (BEWARE that header struct is modified in this
         # call to function, so it is filled with defaults for not provided
         # headers, which is important for obtaining envelope sender).
-        self.__dbSetHeaders(conn, mailid, subject, header, msg)
+        self.__dbSetHeaders(conn, mailid, mailtype, subject, header, msg)
         return msg.as_string(), mailtype_id
 
     def mailNotify(self, mailtype, header, data, handles, attachs, preview):
