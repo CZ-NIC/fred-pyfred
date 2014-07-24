@@ -25,8 +25,12 @@ from email.MIMEText import MIMEText
 from email.Utils import formatdate, parseaddr
 # IMAP stuff
 import imaplib
-# certificate info
-import M2Crypto.X509, M2Crypto.m2
+try:
+    # certificate info
+    import M2Crypto.X509, M2Crypto.m2
+except ImportError:
+    # optional - it is not required when signing is off
+    M2Crypto = None
 from exceptions import Exception
 
 
@@ -304,6 +308,9 @@ class Mailer_i (ccReg__POA.Mailer):
                 self.signing = conf.getboolean("Mailer", "signing")
                 if self.signing:
                     self.l.log(self.l.DEBUG, "Signing of emails is turned on.")
+                    if M2Crypto is None:
+                        self.l.log(self.l.ERR, "Signing of emails is turned on, but M2Crypto module was not imported.")
+                        raise Exception("M2Crypto module was not found.")
                     # S/MIME certificates
                     try:
                         self.sender_cert = get_sender_cert(conf, "Mailer", self.l)
