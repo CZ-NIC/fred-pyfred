@@ -1,3 +1,9 @@
+2014-08-01 Jan Zima, Zdenek Bohm, Jaromir Talir (2.6.1)
+
+    * removed domain browser from default modules
+
+    * m2crypto dependency fixes
+
 2014-02-13 Michal Strnad (2.6.0)
 
     * Mail default header is now controlled by mail type
