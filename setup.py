@@ -40,7 +40,7 @@ DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 DEFAULT_LOGFILENAME = 'log/fred-pyfred.log'
 
 #list of all default pyfred modules
-MODULES = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator", "DomainBrowser"]
+MODULES = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
 #list of parameters for omniidl executable
 OMNIIDL_PARAMS = ["-bpython", "-Wbinline", "-Wbpackage=pyfred.idlstubs"]
 
@@ -234,32 +234,6 @@ class Install(install):
         open(filename, 'w').write(content)
         self.announce("File '%s' was updated" % filename)
 
-    def update_test_domainbrowser(self, filename):
-        content = open(filename).read()
-        #FREDDB_PORT=26300 - set to port number
-        #FREDDB_HOST - set to: FREDDB_HOST=/var/opt/fred/root/nofred/pg_sockets
-        #FREDDB - set to: FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred"
-        #FRED_CLIENT - set to: FRED_CLIENT="fred-client -f /var/opt/fred/root/etc/fred/fred-client.conf"
-        #FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U fred fred"
-        #FRED_CLIENT="fred-client -f /var/opt/fred/root/etc/fred/fred-client.conf"
-        bin_path = self.expand_filename('$scripts')
-        conf_path = self.expand_filename('$sysconf/fred/fred-client.conf')
-        content = re.compile("^#FRED_CLIENT=.*", re.MULTILINE).sub("FRED_CLIENT='%s/fred-client -f %s' # set by setup.py" % (bin_path, conf_path), content, 1)
-        content = re.compile("^#FREDDB_PORT=.*", re.MULTILINE).sub("FREDDB_PORT=%s # set by setup.py" % self.dbport, content, 1)
-        content = re.compile("^#FREDDB_HOST=.*", re.MULTILINE).sub("FREDDB_HOST=%s # set by setup.py" % self.dbhost, content, 1)
-        content = re.compile("^#FREDDB=.*", re.MULTILINE).sub('FREDDB="psql -p $FREDDB_PORT -h $FREDDB_HOST -U %s %s" # set by setup.py' % (
-                            self.dbuser, self.dbname), content, 1)
-        open(filename, 'w').write(content)
-        self.announce("File '%s' was updated" % filename)
-
-    def update_test_domainbrowser_base(self, filename):
-        content = open(filename).read()
-        # CONFIGS = ("/usr/etc/fred/pyfred.conf",
-        content = re.compile('^CONFIGS\s*=\s*\(.*', re.MULTILINE).sub(
-                         'CONFIGS = ("%s", # replaced by setup.py' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF),
-                         content, 1)
-        open(filename, 'w').write(content)
-        self.announce("File '%s' was updated" % filename)
 
 
 class BuildPy(build_py):
@@ -308,7 +282,6 @@ class BuildPy(build_py):
         modules = ['%s_idl.py' % m for m in MODULES] + [
             'ccReg/__init__.py', 'ccReg__POA/__init__.py',
             'Registry/__init__.py', 'Registry__POA/__init__.py',
-            'Registry/DomainBrowser/__init__.py', 'Registry__POA/DomainBrowser/__init__.py',
         ]
         for module in modules:
             filename = os.path.join(idl_build_dir, module)
@@ -331,15 +304,11 @@ def main():
           platforms=['posix'],
           cmdclass={"install": Install, "build_py": BuildPy},
           packages=("pyfred", "pyfred.idlstubs",
-                    "pyfred.unittests", "pyfred.unittests.domainbrowser",
-                    "pyfred.modules",
-                    "pyfred.registry",
-                        "pyfred.registry.interface",
-                        "pyfred.registry.utils"
+                    "pyfred.unittests",
+                    "pyfred.modules"
                 ),
           package_data={
-              'pyfred.unittests': ['create_environment.sh', 'run_test_domainbrowser', 'README', 'zone-file-check', 'dbdata/*'],
-              'pyfred.unittests.domainbrowser': ['dbdata/*', 'refdata/*'],
+              'pyfred.unittests': ['create_environment.sh', 'README', 'zone-file-check', 'dbdata/*'],
           },
           scripts=("scripts/fred-pyfred",
                    "scripts/pyfredctl",
@@ -375,7 +344,6 @@ def main():
                         '$scripts/pyfredctl': 'update_pyfredctl',
                         '$purelib/pyfred/unittests/test_filemanager.py': 'update_test_filemanager',
                         '$purelib/pyfred/unittests/test_genzone.py': 'update_test_genzone',
-                        '$purelib/pyfred/unittests/domainbrowser/base.py': 'update_test_domainbrowser_base',
                         '$sysconf/fred/pyfred.conf': 'update_server_config',
                         '$sysconf/fred/genzone.conf': 'update_genzone_config',
                         })
