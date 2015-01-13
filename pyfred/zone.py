@@ -73,7 +73,7 @@ class BindFilter (ZoneFilter):
         """
         Get IP address type (IPv4 or IPv6) for DNS record.
         """
-        if addr.find(".") != -1:
+        if addr.find(":") == -1:
             return "A"
         else:
             return "AAAA"
