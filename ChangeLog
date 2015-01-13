@@ -1,3 +1,7 @@
+2015-01-13 Michal Strnad (2.6.2)
+
+    * fix zone generator - ip address type resolution
+
 2014-08-01 Jan Zima, Zdenek Bohm, Jaromir Talir (2.6.1)
 
     * removed domain browser from default modules
