@@ -529,15 +529,16 @@ This class implements TechCheck interface.
                     "WHERE oreg.id = ns.id AND oreg.type = 2 AND "
                         "upper(oreg.name) = upper(%s)", [nsset])
         else:
-            cur.execute("SELECT oreg.name, oreg.id, oreg.historyid, oreg.name, "
-                        "ns.checklevel "
-                    "FROM object_registry oreg LEFT JOIN check_nsset cn "
-                        "ON (cn.nsset_hid=oreg.historyid), nsset ns "
-                    "WHERE (oreg.id = ns.id) AND (oreg.type = 2) AND "
-                        "(cn.nsset_hid NOT IN "
-                            "(SELECT nsset_hid FROM check_nsset "
-                             "WHERE (age(now(),checkdate)) <interval '%d days')"
-                        "OR cn.id IS NULL) LIMIT 1", [self.oldperiod])
+            cur.execute("SELECT oreg.name,oreg.id,oreg.historyid,oreg.name,ns.checklevel "
+                        "FROM object_registry oreg "
+                        "JOIN nsset ns ON ns.id=oreg.id "
+                        "LEFT JOIN check_nsset cn ON cn.nsset_hid=oreg.historyid "
+                        "WHERE oreg.type=2 AND "
+                              "(cn.nsset_hid NOT IN (SELECT DISTINCT nsset_hid "
+                                                    "FROM check_nsset "
+                                                    "WHERE (NOW()-INTERVAL '%d days')<checkdate) OR "
+                               "cn.id IS NULL) "
+                        "LIMIT 1 ", [self.oldperiod])
 
         if cur.rowcount == 0:
             cur.close()
