@@ -8,5 +8,4 @@ __all__ = [
     "genzone.py",
     "mailer.py",
     "techcheck.py",
-    "domainbrowser.py",
 ]

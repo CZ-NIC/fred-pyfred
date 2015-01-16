@@ -12,5 +12,4 @@ __all__ = [
     "ZoneGenerator_idl.py",
     "Registry",
     "Registry__POA",
-    "DomainBrowser_idl.py",
     ]

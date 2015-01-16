@@ -5,12 +5,11 @@ Classes required by runtime sctript or tests.
 # Example of usage:
 
 from pyfred.runtime_support import Logger, DB, CorbaRefs, getConfiguration
-from pyfred.modules.domainbrowser import DomainBrowserServerInterface
 
 CONFIGS = (...) # set path by setup.py
 
 conf = getConfiguration(CONFIGS)
-log = Logger("domainbrowser")
+log = Logger("filemanager")
 db = DB(conf.get("General", "dbhost"),
         conf.get("General", "dbport"),
         conf.get("General", "dbname"),
@@ -19,8 +18,8 @@ db = DB(conf.get("General", "dbhost"),
 corba_refs = CorbaRefs()
 joblist = []
 
-inst = DomainBrowserServerInterface(log, db, conf, joblist, corba_refs)
-response = inst.getObjectRegistryId("domain", "fred.cz")
+inst = FileManager_i(log, db, conf, joblist, corba_refs)
+response = inst.getTypeEnum()
 
 >>> type(response), response
 (<type 'int'>, 33)
