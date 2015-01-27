@@ -1,3 +1,9 @@
+2015-01-27 Jan Zima (2.7.0)
+
+    * domain browser code removed
+
+    * techcheck - regular check query optimization
+
 2015-01-13 Michal Strnad (2.6.2)
 
     * fix zone generator - ip address type resolution
