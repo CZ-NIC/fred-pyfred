@@ -86,6 +86,12 @@ def qp_str(string):
                 maxlinelen=None)
     return string
 
+
+def email_addr_to_idna(addr):
+    user, domain = addr.split("@")
+    return "%s@%s" % (user, domain.decode("utf-8").encode("idna"))
+
+
 def filter_email_addrs(str):
     """
     addresses are separated by comma or whitespace, delete any address which
@@ -96,7 +102,7 @@ def filter_email_addrs(str):
     for addr in str.split():
         if addr.find('@') > 0 and not addr.endswith('@'):
             if result: result += ", "
-            result += addr
+            result += email_addr_to_idna(addr)
     return result
 
 re_mail = re.compile("[-._a-zA-Z0-9]+@[-._a-zA-Z0-9]+")
