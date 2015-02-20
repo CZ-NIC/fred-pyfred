@@ -4,6 +4,8 @@
 
     * techcheck - regular check query optimization
 
+    * mailer - add support for idn
+
 2015-01-13 Michal Strnad (2.6.2)
 
     * fix zone generator - ip address type resolution
