@@ -47,7 +47,7 @@ def main():
         # iterate through all domains
         for domain in domains:
             # create query
-            query = dns.message.make_query(domain, "SOA")
+            query = dns.message.make_query(domain, "SOA", use_edns=True)
             message = None
             for addr in addrs:
                 try:

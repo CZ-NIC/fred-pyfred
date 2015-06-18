@@ -47,7 +47,7 @@ def main():
         (ns, addrs) = get_ns_addrs(nsarg)
         for domain in domains:
             # create common query for all nameservers
-            query = dns.message.make_query(domain, "SOA")
+            query = dns.message.make_query(domain, "SOA", use_edns=True)
             message = None
             for addr in addrs:
                 try:

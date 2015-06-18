@@ -60,7 +60,7 @@ def main():
         # First try domain query if there is one
         if domain:
             debug('Bound domain exists, trying query for that domain')
-            query = dns.message.make_query(domain, "SOA")
+            query = dns.message.make_query(domain, "SOA", use_edns=True)
             resp = None
             for addr in addrs:
                 try:
@@ -73,7 +73,7 @@ def main():
                 continue
         # Second try root nameservers
         debug('Trying query for root nameservers')
-        query = dns.message.make_query(".", "ANY")
+        query = dns.message.make_query(".", "ANY", use_edns=True)
         resp = None
         for addr in addrs:
             try:
@@ -85,7 +85,7 @@ def main():
             continue
         # Third try weird class query
         debug('Trying weird query CH .')
-        query = dns.message.make_query(".", "ANY", "CH")
+        query = dns.message.make_query(".", "ANY", "CH", use_edns=True)
         resp = None
         for addr in addrs:
             try:
@@ -97,7 +97,7 @@ def main():
             continue
         # Fourth try id of server query
         debug('Trying query for id of server')
-        query = dns.message.make_query("id.server.", "ANY", "CH")
+        query = dns.message.make_query("id.server.", "ANY", "CH", use_edns=True)
         resp = None
         for addr in addrs:
             try:
