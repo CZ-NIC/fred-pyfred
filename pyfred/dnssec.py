@@ -23,14 +23,10 @@ def countKeyTag(flags, protocol, alg, key):
 
 def countDSRecordDigest(fqdn, flags, protocol, alg, key):
     """
-    Count SHA1 digest from fqdn and RRDATA of DNSKEY RR according to RFC 4034
+    Count SHA256 digest from fqdn and RRDATA of DNSKEY RR according to RFC 4034 (4509)
     """
-    try:
-        import hashlib
-        hash = hashlib.sha1()
-    except:
-        import sha
-        hash = sha.sha()
+    import hashlib
+    hash = hashlib.sha256()
     labels = fqdn.split(".")
     buffer = ""
     for l in labels:

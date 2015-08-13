@@ -435,7 +435,7 @@ Class encapsulating zone data.
                     keydata = base64.decodestring(key[4])
                     corba_dslist.append(ccReg.DSRecord_str(
                         dnssec.countKeyTag(key[1], key[2], key[3], keydata),
-                        key[3], 1,
+                        key[3], 2,
                         dnssec.countDSRecordDigest(
                             domain, key[1], key[2], key[3], keydata
                         ), 0
