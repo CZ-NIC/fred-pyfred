@@ -696,20 +696,18 @@ This class implements TechCheck interface.
             # We recognize the GLUE test by empty string in script field
             if not test["script"]:
                 stat = 0
+                data = ''
                 for ns in nslist:
                     addrs = nslist[ns]
-                    data = ''
                     glue_needed = False
                     for fqdn in fqdns:
                         if ns.endswith(fqdn):
                             glue_needed = True
-                            if not addrs:
-                                data += " %s" % fqdn
                     # errors (missing glue) goes to 'data'
-                    if data:
+                    if glue_needed and not addrs:
                         self.l.log(self.l.DEBUG, "<%d> Missing glue for ns '%s'"
                                 % (id, ns))
-                        data = ns + data
+                        data = data + " %s" % ns
                         stat = 1
                     # cancel not needed glue
                     if not glue_needed and addrs:
