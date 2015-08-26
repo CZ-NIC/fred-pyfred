@@ -1,3 +1,11 @@
+2015-08-26 Jiri Sadek (2.7.1)
+
+    * fix techcheck - glue test
+
+    * fix techcheck scripts - enable edns (tc responses)
+
+    * genzone - support for sha256 digest algorithm for ds records
+
 2015-01-27 Jan Zima (2.7.0)
 
     * domain browser code removed
