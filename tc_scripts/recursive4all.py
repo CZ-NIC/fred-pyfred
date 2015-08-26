@@ -51,7 +51,7 @@ def main():
     # create resolver object
     resolver = dns.resolver.Resolver()
     # create common query for all nameservers
-    query = dns.message.make_query(testdomain, "A")
+    query = dns.message.make_query(testdomain, "A", use_edns=True)
     # list of faulty nameservers
     renegades = []
     # process nameserver records
