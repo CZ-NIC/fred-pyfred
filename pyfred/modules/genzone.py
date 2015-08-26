@@ -50,6 +50,7 @@ This class implements interface used for generation of a zone file.
 
         self.idletreshold = 3600
         self.checkperiod = 60
+        self.dsrecord_algo = "sha1"
         # Parse genzone-specific configuration
         if conf.has_section("Genzone"):
             # idle treshold
@@ -66,7 +67,15 @@ This class implements interface used for generation of a zone file.
                         self.checkperiod)
             except ConfigParser.NoOptionError, e:
                 pass
-
+            # dsrecord digest type
+            try:
+                self.dsrecord_algo = conf.get("Genzone", "dsrecord_algo")
+                self.l.log(self.l.DEBUG, "DS record algorithm is set to %s." % self.dsrecord_algo)
+            except ConfigParser.NoOptionError, e:
+                pass
+        # check ds record algorithm config
+        if self.dsrecord_algo not in dnssec.dsrecord_algorithms:
+            raise Exception("Unsupported DS record digest algorithm in configuration")
         # schedule regular cleanup
         joblist.append({ "callback":self.__genzone_cleaner, "context":None,
             "period":self.checkperiod, "ticks":1 })
@@ -272,7 +281,7 @@ This class implements interface used for generation of a zone file.
             self.db.releaseConn(conn)
 
             # Create an instance of ZoneData_i and an ZoneData object ref
-            zone_obj = ZoneData_i(id, cursor, cursor2, cursor3, self.l)
+            zone_obj = ZoneData_i(id, cursor, cursor2, cursor3, self.l, self.dsrecord_algo)
             self.zone_objects.put(zone_obj)
             zone_ref = self.corba_refs.rootpoa.servant_to_reference(zone_obj)
 
@@ -315,11 +324,12 @@ Class encapsulating zone data.
     CLOSED = 2
     IDLE = 3
 
-    def __init__(self, id, cursor, cursor2, cursor3, log):
+    def __init__(self, id, cursor, cursor2, cursor3, log, dsrecord_algo):
         """
     Initializes zonedata object.
         """
         self.l = log
+        self.dsrecord_algo = dsrecord_algo
         self.id = id
         self.cursor = cursor
         self.cursor2 = cursor2
@@ -433,12 +443,12 @@ Class encapsulating zone data.
                     ))
                 for key in keylist:
                     keydata = base64.decodestring(key[4])
+                    digest_type, digest = dnssec.count_dsrecord_digest(
+                        domain, key[1], key[2], key[3], keydata, self.dsrecord_algo
+                    )
                     corba_dslist.append(ccReg.DSRecord_str(
                         dnssec.countKeyTag(key[1], key[2], key[3], keydata),
-                        key[3], 1,
-                        dnssec.countDSRecordDigest(
-                            domain, key[1], key[2], key[3], keydata
-                        ), 0
+                        key[3], digest_type, digest, 0
                     ))
                 dyndata.append(ccReg.ZoneItem(
                     domain, corba_nameservers, corba_dslist

@@ -1,6 +1,8 @@
 """
 This module gathers various utility functions used in other pyfred's modules.
 """
+import hashlib
+
 
 def countKeyTag(flags, protocol, alg, key):
     """
@@ -21,16 +23,24 @@ def countKeyTag(flags, protocol, alg, key):
         sum += (sum >> 16) & 0xFFFF
         return sum & 0xFFFF
 
-def countDSRecordDigest(fqdn, flags, protocol, alg, key):
+
+
+dsrecord_algorithms = {
+    "sha1": {"func": hashlib.sha1, "type": 1},
+    "sha256": {"func": hashlib.sha256, "type": 2}
+}
+
+
+def count_dsrecord_digest(fqdn, flags, protocol, alg, key, digest_algo):
     """
-    Count SHA1 digest from fqdn and RRDATA of DNSKEY RR according to RFC 4034
+    Count digest from fqdn and RRDATA of DNSKEY RR according to RFC 4034 (4509)
+    using specified algorithm
+
+    Returns tuple of digest type and digest
     """
-    try:
-        import hashlib
-        hash = hashlib.sha1()
-    except:
-        import sha
-        hash = sha.sha()
+    algo = dsrecord_algorithms[digest_algo]
+
+    hash = algo["func"]()
     labels = fqdn.split(".")
     buffer = ""
     for l in labels:
@@ -38,4 +48,4 @@ def countDSRecordDigest(fqdn, flags, protocol, alg, key):
     buffer += chr(0) + chr(flags >> 8) + chr(flags & 255) + chr(protocol)
     buffer += chr(alg) + key
     hash.update(buffer)
-    return hash.hexdigest().upper()
+    return (algo["type"], hash.hexdigest().upper())
