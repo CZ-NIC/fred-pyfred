@@ -281,7 +281,6 @@ class BuildPy(build_py):
         idl_build_dir = os.path.join(self.build_lib, 'pyfred', 'idlstubs')
         modules = ['%s_idl.py' % m for m in MODULES] + [
             'ccReg/__init__.py', 'ccReg__POA/__init__.py',
-            'Registry/__init__.py', 'Registry__POA/__init__.py',
         ]
         for module in modules:
             filename = os.path.join(idl_build_dir, module)
