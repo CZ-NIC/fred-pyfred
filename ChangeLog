@@ -1,3 +1,9 @@
+2016-03-21 Jaromir Talir (2.7.2)
+
+    * Fix rpm build
+
+    * Removed unused idl references in setup.py
+
 2015-08-26 Jiri Sadek (2.7.1)
 
     * fix techcheck - glue test
