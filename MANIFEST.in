@@ -1,6 +1,6 @@
 include INSTALL
 include ChangeLog
 include MANIFEST.in
-
+include fred-pyfred.spec
 include misc/*
 include misc/mailer_examples/*
