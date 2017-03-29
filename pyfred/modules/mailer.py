@@ -749,7 +749,7 @@ class Mailer_i (ccReg__POA.Mailer):
 
         cur = conn.cursor()
         cur.execute("SELECT mar.id, mar.message, "
-                "array_filter_null(array_accum(mat.attachid)), "
+                "array_filter_null(array_agg(mat.attachid)), "
                 "mtp.priority "
                 "FROM mail_archive mar LEFT JOIN mail_attachments mat "
                 "ON (mar.id = mat.mailid) "
@@ -784,7 +784,7 @@ class Mailer_i (ccReg__POA.Mailer):
         self.l.log(self.l.DEBUG, "mail types to be penalized in query: %s" % str(penalized))
 
         cur.execute("SELECT mar.id, mar.mailtype, mar.message, "
-            "array_filter_null(array_accum(mat.attachid)) "
+            "array_filter_null(array_agg(mat.attachid)) "
             "FROM mail_archive mar LEFT JOIN mail_attachments mat "
             "ON mar.id = mat.mailid "
             "WHERE mar.status = 1 AND mar.attempt < %d "
