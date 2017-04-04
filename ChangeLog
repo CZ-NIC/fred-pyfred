@@ -4,6 +4,10 @@
 
     * Fedora packaging
 
+2017-03-30 Jiri Sadek (2.7.3)
+
+    * replace usage of user-defined aggregate function array_accum with built-in array_agg
+
 2016-03-21 Jaromir Talir (2.7.2)
 
     * Fix rpm build
