@@ -230,6 +230,7 @@ class Mailer_i (ccReg__POA.Mailer):
         self.testmode = False
         self.tester = ""
         self.maxstoredcalls = 0
+        self.my_object = "Mailer"
         self.sendmail = "/usr/sbin/sendmail"
         self.openssl = "/usr/bin/openssl"
         self.fm_context = "fred"
@@ -273,6 +274,15 @@ class Mailer_i (ccReg__POA.Mailer):
                 if 0 < self.maxstoredcalls:
                     self.storedcall = []
                     self.l.log(self.l.DEBUG, "Calls are temporarily stored.")
+            except ConfigParser.NoOptionError, e:
+                pass
+            # name for register to the CORBA nameservice
+            try:
+                object_name = conf.get("Mailer", "object_name")
+                if object_name:
+                    self.l.log(self.l.DEBUG, "Register in CORBA as %s." %
+                            object_name)
+                    self.my_object = object_name
             except ConfigParser.NoOptionError, e:
                 pass
             # sendmail path
@@ -1451,4 +1461,4 @@ def init(logger, db, conf, joblist, corba_refs):
     """
     # Create an instance of Mailer_i and an Mailer object ref
     servant = Mailer_i(logger, db, conf, joblist, corba_refs)
-    return servant, "Mailer"
+    return servant, servant.my_object
