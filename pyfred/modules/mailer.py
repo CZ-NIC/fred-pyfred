@@ -23,8 +23,6 @@ from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
 from email.Utils import formatdate, parseaddr
-#transfer collected data
-import pickle
 # IMAP stuff
 import imaplib
 try:
@@ -229,8 +227,6 @@ class Mailer_i (ccReg__POA.Mailer):
         # default configuration
         self.testmode = False
         self.tester = ""
-        self.maxstoredcalls = 0
-        self.my_object = "Mailer"
         self.sendmail = "/usr/sbin/sendmail"
         self.openssl = "/usr/bin/openssl"
         self.fm_context = "fred"
@@ -266,23 +262,6 @@ class Mailer_i (ccReg__POA.Mailer):
                 if tester:
                     self.l.log(self.l.DEBUG, "Tester's address is %s." % tester)
                     self.tester = tester
-            except ConfigParser.NoOptionError, e:
-                pass
-            # maxstoredcalls
-            try:
-                self.maxstoredcalls = conf.getint("Mailer", "maxstoredcalls")
-                if 0 < self.maxstoredcalls:
-                    self.storedcall = []
-                    self.l.log(self.l.DEBUG, "Calls are temporarily stored.")
-            except ConfigParser.NoOptionError, e:
-                pass
-            # name for register to the CORBA nameservice
-            try:
-                object_name = conf.get("Mailer", "object_name")
-                if object_name:
-                    self.l.log(self.l.DEBUG, "Register in CORBA as %s." %
-                            object_name)
-                    self.my_object = object_name
             except ConfigParser.NoOptionError, e:
                 pass
             # sendmail path
@@ -1116,25 +1095,6 @@ class Mailer_i (ccReg__POA.Mailer):
         and generates an email. The text of the email and operation status must
         be archived in database.
         """
-        try:
-            if 0 < self.maxstoredcalls:
-                if mailtype == ':kujme pickle:':
-                    result = (0, pickle.dumps(self.storedcall))
-                    self.storedcall = []
-                    return result
-                if len(self.storedcall) < self.maxstoredcalls:
-                    self.storedcall.append({
-                        'method':'mailNotify',
-                        'arguments':{
-                            'mailtype':mailtype,
-                            'header':header,
-                            'data':data,
-                            'handles':handles,
-                            'attachs':attachs,
-                            'preview':preview
-                            }})
-        except:
-            pass
         conn = None
         try:
             id = random.randint(1, 9999)
@@ -1188,14 +1148,6 @@ class Mailer_i (ccReg__POA.Mailer):
         Resend email from mail archive with given id. This includes zeroing of
         counter of unsuccessfull sendmail attempts and setting status to 1.
         """
-        try:
-            if 0 < self.maxstoredcalls:
-                if len(self.storedcall) < self.maxstoredcalls:
-                    self.storedcall.append({
-                        'method':'resend',
-                        'arguments':{'mailid':mailid}})
-        except:
-            pass
         try:
             id = random.randint(1, 9999)
             self.l.log(self.l.INFO, "<%d> resend request for email with id = "
@@ -1461,4 +1413,4 @@ def init(logger, db, conf, joblist, corba_refs):
     """
     # Create an instance of Mailer_i and an Mailer object ref
     servant = Mailer_i(logger, db, conf, joblist, corba_refs)
-    return servant, servant.my_object
+    return servant, "Mailer"
