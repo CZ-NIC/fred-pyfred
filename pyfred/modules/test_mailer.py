@@ -35,7 +35,7 @@ class TestMailer_i(Mailer_i):
                     return result
                 if len(self.storedcall) < self.maxstoredcalls:
                     d_header = corba_struct_to_dict(header)
-                    d_data = dict([(item['key'], item['value']) for item in [corba_struct_to_dict(corba_struct) for corba_struct in data]])
+                    d_data = [corba_struct_to_dict(key_value_struct) for key_value_struct in data]
                     self.storedcall.append({
                         'method': 'mailNotify',
                         'arguments': {
