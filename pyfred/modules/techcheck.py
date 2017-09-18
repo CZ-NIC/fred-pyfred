@@ -7,7 +7,7 @@ Code of techcheck daemon.
 import sys, time, random, ConfigParser, commands, os
 import Queue, pgdb
 from exceptions import SystemExit
-from pyfred.idlstubs import ccReg, ccReg__POA
+from fred_idl import ccReg, ccReg__POA
 from pyfred.utils import isInfinite
 from pyfred.utils import runCommand
 import CosNaming

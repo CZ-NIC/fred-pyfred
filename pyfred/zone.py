@@ -14,7 +14,7 @@ on database. All data needed for zone generation are retrieved from server.
 import sys
 from omniORB import CORBA
 import CosNaming
-from pyfred.idlstubs import ccReg
+from fred_idl import ccReg
 
 
 class ZoneException (Exception):
