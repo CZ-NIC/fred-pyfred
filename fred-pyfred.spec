@@ -15,8 +15,8 @@ Prefix: %{_prefix}
 BuildArch: noarch
 Vendor: CZ.NIC <fred@nic.cz>
 Url: https://fred.nic.cz/
-BuildRequires: python-omniORB omniORB-devel fred-distutils fred-idl m2crypto
-Requires: python-omniORB omniORB-servers python-clearsilver postgresql-python python-dns ldns ldns-utils postfix m2crypto
+BuildRequires: python-omniORB omniORB-devel fred-distutils m2crypto
+Requires: python-omniORB omniORB-servers fred-idl python-clearsilver postgresql-python python-dns ldns ldns-utils postfix m2crypto
 
 %description
 UNKNOWN
