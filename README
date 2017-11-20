@@ -393,9 +393,6 @@ Here we describe what is in which directory and where it is installed.
     * 'zone' module used by genzone client for communication with CORBA server.
     * 'utils' module which gathers various functions shared by corba servers.
     * 'modules' package which contains modules implementing the CORBA servers.
-    * 'idlstubs' package which contains python packages and modules generated
-      automatically from IDL files by setup.py script. These libraries are
-      shared by clients and servers.
 
   scripts directory - contains python scripts (pyfred server and all clients)
     which are installed in $PATH. There is also start/stop/status pyfredctl

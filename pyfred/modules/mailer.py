@@ -11,7 +11,7 @@ from pyfred.utils import isInfinite
 from pyfred.utils import runCommand
 # corba stuff
 import CosNaming
-from pyfred.idlstubs import ccReg, ccReg__POA
+from fred_idl import ccReg, ccReg__POA
 # template stuff
 import neo_cgi # must be included before neo_cs and neo_util
 import neo_cs, neo_util

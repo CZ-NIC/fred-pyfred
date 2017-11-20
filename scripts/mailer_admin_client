@@ -7,7 +7,7 @@ import ConfigParser
 
 # next line will be updated during setup
 sys.path.insert(0, '')
-from pyfred.idlstubs import ccReg
+from fred_idl import ccReg
 from pyfred.utils import ccRegDateTimeInterval
 
 def usage():

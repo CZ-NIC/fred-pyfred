@@ -8,7 +8,7 @@ import os, sys, random, time, ConfigParser, Queue
 import pgdb
 # corba stuff
 from omniORB import CORBA, PortableServer
-from pyfred.idlstubs import ccReg, ccReg__POA
+from fred_idl import ccReg, ccReg__POA
 from pyfred.utils import isInfinite
 
 

@@ -8,7 +8,7 @@ import sys, time, random, ConfigParser, Queue
 import pgdb
 import base64
 from pyfred import dnssec
-from pyfred.idlstubs import ccReg, ccReg__POA
+from fred_idl import ccReg, ccReg__POA
 from pyfred.utils import ipaddrs2list
 
 def createNs(domain, nsFqdn, addrs):

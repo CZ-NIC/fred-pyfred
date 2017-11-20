@@ -2,11 +2,7 @@
 import os
 import re
 
-from distutils import errors, log, util
-from subprocess import check_call, CalledProcessError
-
 from freddist.core import setup
-from freddist.command.build_py import build_py
 from freddist.command.install import install
 
 
@@ -41,20 +37,6 @@ DEFAULT_LOGFILENAME = 'log/fred-pyfred.log'
 
 #list of all default pyfred modules
 MODULES = ["FileManager", "Mailer", "TechCheck", "ZoneGenerator"]
-#list of parameters for omniidl executable
-OMNIIDL_PARAMS = ["-bpython", "-Wbinline", "-Wbpackage=pyfred.idlstubs"]
-
-
-def compile_idl(omniidl, idl_params, files):
-    """
-    Compile idl stubs.
-    """
-    cmd = [omniidl] + idl_params + files
-    log.info(' '.join(cmd))
-    try:
-        check_call(cmd)
-    except CalledProcessError, error:
-        raise errors.DistutilsExecError("Compilation of IDL failed: %s" % error)
 
 
 class Install(install):
@@ -79,10 +61,6 @@ class Install(install):
          "Password to FRED database []"),
         ('pyfredport=', None,
          "  [2225]"),
-        ("omniidl=", "i",
-         "omniidl program used to build stubs [omniidl]"),
-        ("idldir=", "d",
-         "directory where IDL files reside [$data/share/idl/fred]"),
         ("sendmail=", None,
          "sendmail path"),
         ("drill=", None,
@@ -108,8 +86,6 @@ class Install(install):
         self.modules = DEFAULT_MODULES
         self.pyfredport = DEFAULT_PYFREDPORT
         self.sendmail = None
-        self.idldir = None
-        self.omniidl = 'omniidl'
 
     def finalize_options(self):
         install.finalize_options(self)
@@ -130,9 +106,6 @@ class Install(install):
                     break
             else:
                 raise SystemExit('drill not found.')
-
-        if not self.idldir:
-            self.idldir = self.expand_filename('$data/share/idl/fred')
 
     def update_server_config(self, filename):
         """
@@ -236,63 +209,6 @@ class Install(install):
 
 
 
-class BuildPy(build_py):
-    user_options = build_py.user_options + [
-        ('omniidl=', 'i',
-         "omniidl program used to build stubs [omniidl]"),
-        ('idldir=', 'd',
-         "directory where IDL files reside [/usr/share/idl/fred]"),
-    ]
-
-    def initialize_options(self):
-        build_py.initialize_options(self)
-        self.omniidl = None
-        self.idldir = None
-
-    def finalize_options(self):
-        build_py.finalize_options(self)
-        # Get data from install command if it is finalized.
-        # This is not the way `set_undefined_options` should be used :-/
-        install_obj = self.distribution.get_command_obj('install')
-        if install_obj.finalized:
-            self.set_undefined_options('install',
-                ('omniidl', 'omniidl'),
-                ('idldir', 'idldir'))
-        else:
-            if not self.omniidl:
-                self.omniidl = 'omniidl'
-            if not self.idldir:
-                self.idldir = '/usr/share/idl/fred'
-
-    def run(self):
-        # Run buidl itself
-        build_py.run(self)
-        # Now build idl stubs
-        idl_file = os.path.join(self.build_lib, 'ccReg')
-        if self.force or not os.path.exists(idl_file):
-            args = (self.omniidl, OMNIIDL_PARAMS + ['-C%s' % self.build_lib],
-                    [os.path.join(self.idldir, '%s.idl' % module) for module in MODULES])
-            util.execute(compile_idl, args, "Compiling python stubs from IDL files")
-        else:
-            log.debug("skipping compilation of %s", idl_file)
-
-    def get_outputs(self, include_bytecode=1):
-        outputs = build_py.get_outputs(self, include_bytecode=include_bytecode)
-        idl_build_dir = os.path.join(self.build_lib, 'pyfred', 'idlstubs')
-        modules = ['%s_idl.py' % m for m in MODULES] + [
-            'ccReg/__init__.py', 'ccReg__POA/__init__.py',
-        ]
-        for module in modules:
-            filename = os.path.join(idl_build_dir, module)
-            outputs.append(filename)
-            if include_bytecode:
-                if self.compile:
-                    outputs.append(filename + "c")
-                if self.optimize > 0:
-                    outputs.append(filename + "o")
-        return outputs
-
-
 def main():
     setup(name="fred-pyfred",
           description="Component of FRED (Fast Registry for Enum and Domains)",
@@ -301,8 +217,8 @@ def main():
           url="http://fred.nic.cz/",
           license="GNU GPL",
           platforms=['posix'],
-          cmdclass={"install": Install, "build_py": BuildPy},
-          packages=("pyfred", "pyfred.idlstubs",
+          cmdclass={"install": Install},
+          packages=("pyfred",
                     "pyfred.unittests",
                     "pyfred.modules"
                 ),

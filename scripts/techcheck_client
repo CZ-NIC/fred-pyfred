@@ -8,7 +8,7 @@ import ConfigParser
 
 # update import path
 sys.path.insert(0, '')
-from pyfred.idlstubs import ccReg
+from fred_idl import ccReg
 
 def usage():
     """
