@@ -6,6 +6,7 @@ Code of mailer daemon.
 
 import os, sys, time, random, ConfigParser, Queue, tempfile, re
 import base64
+import json
 import pgdb
 from pyfred.utils import isInfinite
 from pyfred.utils import runCommand
@@ -32,6 +33,31 @@ except ImportError:
     # optional - it is not required when signing is off
     M2Crypto = None
 from exceptions import Exception
+
+
+HEADER_KEYS = ["h_to", "h_from", "h_cc", "h_bcc", "h_reply_to", "h_errors_to", "h_organization"]
+
+
+def header_to_dict(header):
+    header_dict = {}
+    for key in HEADER_KEYS:
+        value = getattr(header, key)
+        if value:
+            header_dict[key] = value
+    return header_dict
+
+
+def dict_to_header(header_dict):
+    params = {}
+    for key in HEADER_KEYS:
+        params[key] = header_dict.get(key)
+    return ccReg.MailHeader(**params)
+
+
+def split_message_header_and_body_params(params):
+    header = dict_to_header(params)
+    body_params = {key: value for key, value in params.iteritems() if key not in HEADER_KEYS}
+    return (header, body_params)
 
 
 def convList2Array(list):
@@ -699,16 +725,23 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return int(id)
 
-    def __dbArchiveEmail(self, conn, mailid, mailtype_id, mail, handles,
+    def __dbArchiveEmail(self, conn, mailid, mailtype, header, data, handles,
             attachs=[]):
         """
         Method archives email in database.
         """
+        header_dict = header_to_dict(header)
+        data_dict = {}
+        for pair in data:
+            data_dict[pair.key] = pair.value
+
+        data_dict.update(header_dict)
+
         cur = conn.cursor()
         # save the generated email
-        cur.execute("INSERT INTO mail_archive (id, mailtype, message, status) "
-                "VALUES (%d, %d, %s, %d)",
-                [mailid, mailtype_id, mail, self.archstatus])
+        cur.execute("INSERT INTO mail_archive (id, mailtype, message_params, status) "
+                "VALUES (%d, (SELECT id FROM mail_type WHERE name = %s), %s, %d)",
+                [mailid, mailtype, json.dumps(data_dict), self.archstatus])
         for handle in handles:
             cur.execute("INSERT INTO mail_handles (mailid, associd) VALUES "
                     "(%d, %s)", [mailid, handle])
@@ -748,23 +781,29 @@ class Mailer_i (ccReg__POA.Mailer):
         self.l.log(self.l.DEBUG, "search for ready messages using mail type priority")
 
         cur = conn.cursor()
-        cur.execute("SELECT mar.id, mar.message, "
+        cur.execute("SELECT mar.id, mt.name, mar.message_params, "
                 "array_filter_null(array_agg(mat.attachid)), "
                 "mtp.priority "
-                "FROM mail_archive mar LEFT JOIN mail_attachments mat "
+                "FROM mail_archive mar JOIN mail_type mt ON mt.id = mar.mailtype "
+                "LEFT JOIN mail_attachments mat "
                 "ON (mar.id = mat.mailid) "
                 "LEFT JOIN mail_type_priority mtp ON mtp.mail_type_id = mar.mailtype "
                 "WHERE mar.status = 1 AND mar.attempt < %d "
-                "GROUP BY mar.id, mar.message, mtp.priority "
+                "GROUP BY mar.id, mt.name, mar.message_params, mtp.priority "
                 "ORDER BY mtp.priority ASC NULLS LAST "
                 "LIMIT %d" , [self.maxattempts, self.sendlimit])
         rows = cur.fetchall()
         cur.close()
-        # convert db array (attachids) to list
         prio_stats = {}
         result = []
-        for m_id, m_body, m_attach_ids, m_prio in rows:
-            result.append([m_id, m_body, [int(i) for i in convArray2List(m_attach_ids)]])
+        for m_id, m_type, m_params, m_attach_ids, m_prio in rows:
+            # convert db array (attachids) to list
+            m_attach_list = [int(i) for i in convArray2List(m_attach_ids)]
+            # separate mail header params and body template parameters from stored json
+            m_header, m_data = split_message_header_and_body_params(m_params)
+            # render e-mail
+            m_body, m_mailtype_id = self.__prepareEmail(conn, m_id, m_type, m_header, m_data, len(m_attach_list))
+            result.append([m_id, m_body, m_attach_list])
             prio_stats[m_prio] = prio_stats.get(m_prio, 0) + 1
 
         self.l.log(self.l.DEBUG, "mail type priority distribution: %s" % str(prio_stats))
@@ -1047,8 +1086,8 @@ class Mailer_i (ccReg__POA.Mailer):
         for pair in self.__dbGetDefaults(conn):
             hdf.setValue("defaults." + pair[0], pair[1])
         # pour user provided values in data set
-        for pair in data:
-            hdf.setValue(pair.key, pair.value)
+        for key, value in data.iteritems():
+            hdf.setValue(key, value)
 
         mailtype_id, subject_tpl, templates = self.__dbGetMailTypeData(conn,
                 mailtype)
@@ -1106,14 +1145,11 @@ class Mailer_i (ccReg__POA.Mailer):
             # get unique email id (based on primary key from database)
             mailid = self.__dbNewEmailId(conn)
 
-            mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype,
-                    header, data, len(attachs))
-
             if preview:
+                mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype, header, data, len(attachs))
                 return (mailid, mail_text)
 
-            # archive email (without non-templated attachments)
-            self.__dbArchiveEmail(conn, mailid, mailtype_id, mail_text, handles,
+            self.__dbArchiveEmail(conn, mailid, mailtype, header, data, handles,
                     attachs)
             # commit changes in mail archive
             conn.commit()
