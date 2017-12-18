@@ -38,6 +38,10 @@ from exceptions import Exception
 HEADER_KEYS = ["h_to", "h_from", "h_cc", "h_bcc", "h_reply_to", "h_errors_to", "h_organization"]
 
 
+class UndeliveredParseError(Exception):
+    pass
+
+
 def header_to_dict(header):
     header_dict = {}
     for key in HEADER_KEYS:
@@ -598,6 +602,8 @@ class Mailer_i (ccReg__POA.Mailer):
                     try:
                         self.__dbSetUndelivered(conn, msgid, msgbody)
                         server.store(mailid, 'FLAGS', '(\Deleted)')
+                    except UndeliveredParseError, e:
+                        self.l.log(self.l.WARNING, str(e))
                     except ccReg.Mailer.UnknownMailid, e:
                         self.l.log(self.l.WARNING, "Mail with id %s not sent." % e)
                 else:
@@ -888,12 +894,27 @@ class Mailer_i (ccReg__POA.Mailer):
 
     def __dbSetUndelivered(self, conn, mailid, mail):
         """
-        Set status value and insert text of email notification in mail archive.
+        Set status value and save interesting keys from response header
         """
+        RESPONSE_HEADER_KEYS = ("To", "Date", "Action", "Status", "Subject", "Remote-MTA",
+            "Reporting-MTA", "Diagnostic-Code", "Final-Recipient")
+
+        response_header = {}
+        for key in RESPONSE_HEADER_KEYS:
+            match = re.search("\n{}: (.*?)\n".format(key), mail)
+            if match and len(match.groups()) == 1:
+                response_header[key] = match.groups()[0].strip()
+
+        self.l.log(self.l.DEBUG, "Undelivered e-mail id={} collected response header={}".format(
+            mailid, response_header
+        ))
+        if not response_header:
+            raise UndeliveredParseError("Undelivered response parse error, header empty?! (id={})".format(mailid))
+
         cur = conn.cursor()
         cur.execute("UPDATE mail_archive "
-                "SET status = 4, moddate = now(), response = %s "
-                "WHERE id = %d", [base64.b64encode(mail), mailid])
+                "SET status = 4, moddate = now(), response_header = %s "
+                "WHERE id = %d", [json.dumps(response_header), mailid])
         if cur.rowcount != 1:
             raise ccReg.Mailer.UnknownMailid(mailid)
         cur.close()
