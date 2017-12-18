@@ -1248,6 +1248,39 @@ class Mailer_i (ccReg__POA.Mailer):
                     (id, sys.exc_info()[0], e))
             raise ccReg.Mailer.InternalError("Unexpected error")
 
+    def renderMail(self, mailid):
+        """
+        Return rendered e-mail body and subject for given mailid
+        """
+        try:
+            id = random.randint(1, 9999)
+            self.l.log(self.l.INFO, "<%d> e-mail content rendering request received. (id=%d)" % (id, mailid))
+
+            conn = self.db.getConn()
+            cur = conn.cursor()
+            cur.execute("SELECT mt.name, ma.message_params FROM mail_archive ma "
+                        "JOIN mail_type mt on mt.id = ma.mailtype "
+                        "WHERE ma.id = %d", (mailid,))
+            if cur.rowcount != 1:
+                raise ccReg.Mailer.UnknownMailid(mailid)
+
+            mailtype, message_params = cur.fetchone()
+            header, data = split_message_header_and_body_params(message_params)
+            # we set attach list length to 0 becase we just wants to render subject and body
+            body, mailtype_id = self.__prepareEmail(conn, mailid, mailtype, header, data, attlen=0)
+            self.db.releaseConn(conn)
+            return body
+        except ccReg.Mailer.UnknownMailid, e:
+            raise
+        except pgdb.DatabaseError, e:
+            self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
+            raise ccReg.Mailer.InternalError("Database error")
+        except Exception, e:
+            self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
+                    (id, sys.exc_info()[0], e))
+            raise ccReg.Mailer.InternalError("Unexpected error")
+
+
     def createSearchObject(self, filter):
         """
         This is universal mail archive lookup function. It returns object
