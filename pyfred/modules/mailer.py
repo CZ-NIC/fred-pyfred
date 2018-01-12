@@ -737,17 +737,15 @@ class Mailer_i (ccReg__POA.Mailer):
         Method archives email in database.
         """
         header_dict = header_to_dict(header)
-        data_dict = {}
-        for pair in data:
-            data_dict[pair.key] = pair.value
+        body_dict = {pair.key: pair.value for pair in data}
 
-        data_dict.update(header_dict)
+        params_dict = {'header': header_dict, 'body': body_dict}
 
         cur = conn.cursor()
         # save the generated email
-        cur.execute("INSERT INTO mail_archive (id, mailtype, message_params, status) "
-                "VALUES (%d, (SELECT id FROM mail_type WHERE name = %s), %s, %d)",
-                [mailid, mailtype, json.dumps(data_dict), self.archstatus])
+        cur.execute("INSERT INTO mail_archive (id, status, mail_type_id, message_params) "
+                "VALUES (%d, %d, (SELECT id FROM mail_type WHERE name = %s), %s)",
+                [mailid, self.archstatus, mailtype, json.dumps(params_dict)])
         for handle in handles:
             cur.execute("INSERT INTO mail_handles (mailid, associd) VALUES "
                     "(%d, %s)", [mailid, handle])
@@ -1170,8 +1168,7 @@ class Mailer_i (ccReg__POA.Mailer):
                 mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype, header, data, len(attachs))
                 return (mailid, mail_text)
 
-            self.__dbArchiveEmail(conn, mailid, mailtype, header, data, handles,
-                    attachs)
+            self.__dbArchiveEmail(conn, mailid, mailtype, header, data, handles, attachs)
             # commit changes in mail archive
             conn.commit()
 
