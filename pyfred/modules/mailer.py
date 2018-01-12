@@ -928,6 +928,33 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return pairs
 
+    def __dbGetEmailTemplate(self, conn, mail_type_id, version):
+        """
+        Retrieve email template and it's defaults for specified version
+        """
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT mt.subject, mt.body_template, mt.body_template_content_type, mtf.footer, mtd.params,"
+                  " json_build_object("
+                        "'from', mhd.h_from,"
+                       " 'replyto', mhd.h_replyto,"
+                       " 'errorsto', mhd.h_errorsto,"
+                       " 'organization', mhd.h_organization,"
+                       " 'contentencoding', mhd.h_contentencoding,"
+                       " 'messageidserver', mhd.h_messageidserver)"
+             " FROM mail_template mt"
+             " JOIN mail_template_footer mtf ON mtf.id = mt.mail_template_footer_id"
+             " JOIN mail_template_default mtd ON mtd.id = mt.mail_template_default_id"
+             " JOIN mail_header_default mhd ON mhd.id = mt.mail_header_default_id"
+            " WHERE mail_type_id = %d AND version = %d",
+             [mail_type_id, version]
+        )
+        if cur.rowcount != 1:
+            raise ccReg.Mailer.InternalError()
+
+        subject, body_tmpl, body_tmpl_ctt, footer_tmpl, tmpl_default_params, header_defaults = cur.fetchone()
+        return EmailTemplate(subject, body_tmpl, body_tmpl_ctt, footer_tmpl, tmpl_default_params, header_defaults)
+
     def __dbGetMailTypes(self, conn):
         """
         Get mapping between ids and names of mailtypes.
@@ -1079,7 +1106,7 @@ class Mailer_i (ccReg__POA.Mailer):
 
         return status
 
-    def __prepareEmail(self, conn, mailid, mailtype, header, data, attlen):
+    def __prepareEmail(self, conn, email_data):
         """
         Method creates text part of email, it means without base64 encoded
         attachments. This includes following steps:
