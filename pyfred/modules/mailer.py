@@ -8,6 +8,7 @@ import os, sys, time, random, ConfigParser, Queue, tempfile, re
 import base64
 import json
 import pgdb
+from collections import namedtuple
 from pyfred.utils import isInfinite
 from pyfred.utils import runCommand
 # corba stuff
@@ -36,6 +37,11 @@ from exceptions import Exception
 
 
 HEADER_KEYS = ["h_to", "h_from", "h_cc", "h_bcc", "h_reply_to", "h_errors_to", "h_organization"]
+
+IdNamePair = namedtuple('IdNamePair', ['id', 'name'])
+EmailData = namedtuple('EmailData', ['id', 'mail_type', 'template_version', 'header_params', 'template_params', 'attach_file_ids'])
+EmailTemplate = namedtuple('EmailTemplate', ['subject', 'body_template', 'body_template_content_type',
+    'footer_template', 'template_default_params', 'header_default_params'])
 
 
 class UndeliveredParseError(Exception):
@@ -522,7 +528,7 @@ class Mailer_i (ccReg__POA.Mailer):
         self.l.log(self.l.DEBUG, "Regular send-emails procedure.")
         conn = self.db.getConn()
         # iterate over all emails from database ready to be sent
-        for (mailid, mail_text, attachs) in self.__dbGetReadyEmailsTypePriority(conn):
+        for email_data in self.__dbGetReadyEmailsTypePriority(conn):
             try:
                 # run email through completion procedure
                 (mail, efrom) = self.__completeEmail(mailid, mail_text, attachs)
@@ -769,30 +775,31 @@ class Mailer_i (ccReg__POA.Mailer):
         self.l.log(self.l.DEBUG, "search for ready messages using mail type priority")
 
         cur = conn.cursor()
-        cur.execute("SELECT mar.id, mt.name, mar.message_params, "
-                "array_filter_null(array_agg(mat.attachid)), "
-                "mtp.priority "
-                "FROM mail_archive mar JOIN mail_type mt ON mt.id = mar.mailtype "
-                "LEFT JOIN mail_attachments mat "
-                "ON (mar.id = mat.mailid) "
-                "LEFT JOIN mail_type_priority mtp ON mtp.mail_type_id = mar.mailtype "
-                "WHERE mar.status = 1 AND mar.attempt < %d "
-                "GROUP BY mar.id, mt.name, mar.message_params, mtp.priority "
-                "ORDER BY mtp.priority ASC NULLS LAST "
-                "LIMIT %d" , [self.maxattempts, self.sendlimit])
+        cur.execute(
+            "SELECT mar.id, mt.id, mt.name, mar.mail_template_version,"
+                  " mar.message_params->'header', mar.message_params->'body',"
+                  " array_filter_null(array_agg(mat.attachid)), mtp.priority"
+             " FROM mail_archive mar"
+             " JOIN mail_type mt ON mt.id = mar.mail_type_id"
+             " LEFT JOIN mail_attachments mat ON (mar.id = mat.mailid)"
+             " LEFT JOIN mail_type_priority mtp ON mtp.mail_type_id = mar.mail_type_id"
+            " WHERE mar.status = 1 AND mar.attempt < %d"
+            " GROUP BY mar.id, mt.id, mt.name, mtp.priority"
+            " ORDER BY mtp.priority ASC NULLS LAST"
+            " LIMIT %d",
+            [self.maxattempts, self.sendlimit])
         rows = cur.fetchall()
         cur.close()
         prio_stats = {}
         result = []
-        for m_id, m_type, m_params, m_attach_ids, m_prio in rows:
+        for msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params, attach_ids, prio in rows:
             # convert db array (attachids) to list
-            m_attach_list = [int(i) for i in convArray2List(m_attach_ids)]
-            # separate mail header params and body template parameters from stored json
-            m_header, m_data = split_message_header_and_body_params(m_params)
-            # render e-mail
-            m_body, m_mailtype_id = self.__prepareEmail(conn, m_id, m_type, m_header, m_data, len(m_attach_list))
-            result.append([m_id, m_body, m_attach_list])
-            prio_stats[m_prio] = prio_stats.get(m_prio, 0) + 1
+            attach_ids_list = [int(i) for i in convArray2List(attach_ids)]
+            mail_type = IdNamePair(msg_type_id, msg_type_name)
+            result.append(
+                EmailData(msg_id, mail_type, tmpl_version, header_params, tmpl_params, attach_ids_list)
+            )
+            prio_stats[prio] = prio_stats.get(prio, 0) + 1
 
         self.l.log(self.l.DEBUG, "mail type priority distribution: %s" % str(prio_stats))
         return result
