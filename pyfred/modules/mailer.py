@@ -448,22 +448,6 @@ class Mailer_i (ccReg__POA.Mailer):
             except ConfigParser.NoOptionError, e:
                 pass
 
-        # check mail header defaults
-        try:
-            conn = self.db.getConn()
-            cur = conn.cursor()
-            cur.execute("SELECT mt.name "
-                        "FROM mail_type mt "
-                        "WHERE (SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id=mt.id) IS NULL AND "
-                              "(SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id IS NULL) IS NULL")
-            mailtype_without_default = cur.fetchall()
-            cur.close()
-            self.db.releaseConn(conn)
-            if mailtype_without_default:
-                self.l.log(self.l.WARNING, "Mailtype(s) %s without default mail header" % mailtype_without_default)
-        except pgdb.DatabaseError, e:
-            self.l.log(self.l.ERR, "Database error: %s" % e)
-            raise Exception("Database error")
         # check configuration consistency
         if self.tester and not self.testmode:
             self.l.log(self.l.WARNING, "Tester configuration directive will "
