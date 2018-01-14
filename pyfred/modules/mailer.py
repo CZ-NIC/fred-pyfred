@@ -1270,26 +1270,35 @@ class Mailer_i (ccReg__POA.Mailer):
 
             conn = self.db.getConn()
             cur = conn.cursor()
-            cur.execute("SELECT mt.name, ma.message_params FROM mail_archive ma "
-                        "JOIN mail_type mt on mt.id = ma.mailtype "
-                        "WHERE ma.id = %d", (mailid,))
+            cur.execute(
+                "SELECT mar.id, mt.id, mt.name, mar.mail_template_version,"
+                      " mar.message_params->'header', mar.message_params->'body'"
+                 " FROM mail_archive mar"
+                 " JOIN mail_type mt ON mt.id = mar.mail_type_id"
+                " WHERE mar.id = %d", (mailid,)
+            )
             if cur.rowcount != 1:
                 raise ccReg.Mailer.UnknownMailid(mailid)
 
-            mailtype, message_params = cur.fetchone()
-            header, data = split_message_header_and_body_params(message_params)
-            # we set attach list length to 0 becase we just wants to render subject and body
-            body, mailtype_id = self.__prepareEmail(conn, mailid, mailtype, header, data, attlen=0)
+            msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params = cur.fetchone()
+            mail_type = IdNamePair(msg_type_id, msg_type_name)
+            email_data = EmailData(msg_id, mail_type, tmpl_version, header_params, tmpl_params, None)
+
+            email_tmpl = self.__dbGetEmailTemplate(conn, email_data.mail_type.id, email_data.template_version)
+            rendered_data = self.__renderEmail(email_data, email_tmpl)
+            headers = self.__generateHeaders(email_data, email_tmpl, rendered_data.subject)
+
+            headers_str = "\n".join([key + ": " + value for key, value in headers.iteritems()])
+            msg = "\n".join([headers_str, rendered_data.body, rendered_data.footer])
             self.db.releaseConn(conn)
-            return body
+            return msg
         except ccReg.Mailer.UnknownMailid, e:
             raise
         except pgdb.DatabaseError, e:
             self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
             raise ccReg.Mailer.InternalError("Database error")
         except Exception, e:
-            self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
-                    (id, sys.exc_info()[0], e))
+            self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" % (id, sys.exc_info()[0], e))
             raise ccReg.Mailer.InternalError("Unexpected error")
 
 
