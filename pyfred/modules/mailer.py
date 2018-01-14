@@ -36,7 +36,15 @@ except ImportError:
 from exceptions import Exception
 
 
-HEADER_KEYS = ["h_to", "h_from", "h_cc", "h_bcc", "h_reply_to", "h_errors_to", "h_organization"]
+EMAIL_HEADER_CORBA_TO_DICT_MAPPING = {
+    "h_to": "To",
+    "h_from": "From",
+    "h_cc": "Cc",
+    "h_bcc": "Bcc",
+    "h_reply_to": "Reply-to",
+    "h_errors_to": "Errors-to",
+    "h_organization": "Organization"
+}
 
 IdNamePair = namedtuple('IdNamePair', ['id', 'name'])
 EmailData = namedtuple('EmailData', ['id', 'mail_type', 'template_version', 'header_params', 'template_params', 'attach_file_ids'])
@@ -45,30 +53,37 @@ EmailTemplate = namedtuple('EmailTemplate', ['subject', 'body_template', 'body_t
 RenderedEmail = namedtuple('RenderedEmail', ['subject', 'body', 'footer'])
 
 
+class EmailHeadersBuilder(object):
+
+    def __init__(self, header_params, header_defaults=None):
+        self._params = header_params
+        self._defaults = header_defaults
+        self._headers = {}
+
+    def add(self, key, value, func=None):
+        value = func(value) if value and func else value
+        if value:
+            self._headers[key] = value
+            return True
+        return False
+
+    def add_mandatory(self, key, func=None):
+        if not self.add(key, self._params[key], func):
+            raise ValueError(key)
+
+    def add_optional(self, key, func=None):
+        return self.add(key, self._params.get(key), func)
+
+    def add_optional_or_default(self, key, func=None):
+        if not self.add_optional(key, func):
+            self.add(key, self._defaults[key], func)
+
+    def to_dict(self):
+        return self._headers
+
+
 class UndeliveredParseError(Exception):
     pass
-
-
-def header_to_dict(header):
-    header_dict = {}
-    for key in HEADER_KEYS:
-        value = getattr(header, key)
-        if value:
-            header_dict[key] = value
-    return header_dict
-
-
-def dict_to_header(header_dict):
-    params = {}
-    for key in HEADER_KEYS:
-        params[key] = header_dict.get(key)
-    return ccReg.MailHeader(**params)
-
-
-def split_message_header_and_body_params(params):
-    header = dict_to_header(params)
-    body_params = {key: value for key, value in params.iteritems() if key not in HEADER_KEYS}
-    return (header, body_params)
 
 
 def convList2Array(list):
@@ -673,26 +688,23 @@ class Mailer_i (ccReg__POA.Mailer):
         """
         Generate e-mail headers - text headers unquoted
         """
-        header_params = email_data.header_params
-        header_defaults = email_tmpl.header_default_params
-        header = {}
-        # headers which don't have defaults
-        header["Subject"] = subject
-        header["To"] = filter_email_addrs(header_params["h_to"])
-        # 'To:' is the only mandatory header
-        if not header["To"]:
-            raise ccReg.Mailer.InvalidHeader("To")
-        if header_params.get("h_cc"):
-            header["Cc"] = filter_email_addrs(header_params["h_cc"])
-        if header_params.get("h_bcc"):
-            header["Bcc"] = filter_email_addrs(header_params["h_bcc"])
-        # headers which have default values
-        header["From"] = header_params.get("h_from") or header_defaults["from"]
-        header["Reply-to"] = header_params.get("h_replyto") or header_defaults["replyto"]
-        header["Errors-to"] = header_params.get("h_errorsto") or header_defaults["errorsto"]
-        header["Organization"] = header_params.get("h_organization") or header_defaults["organization"]
-        header["Message-ID"] = "<%d.%d@%s>" % (email_data.id, int(time.time()), header_defaults["messageidserver"])
-        return header
+        try:
+            headers = EmailHeadersBuilder(email_data.header_params, email_tmpl.header_default_params)
+            headers.add_mandatory("To", func=filter_email_addrs)
+            headers.add_optional("Cc", func=filter_email_addrs)
+            headers.add_optional("Bcc", func=filter_email_addrs)
+            headers.add_optional_or_default("From")
+            headers.add_optional_or_default("Reply-to")
+            headers.add_optional_or_default("Errors-to")
+            headers.add_optional_or_default("Organization")
+            headers.add("Subject", subject)
+            headers.add("Message-ID", "<%d.%d@%s>" % (email_data.id, int(time.time()),
+                email_tmpl.header_default_params["messageidserver"]))
+
+            self.l.log(self.l.DEBUG, "Generated headers: {}".format(headers.to_dict()))
+            return headers.to_dict()
+        except (ValueError, KeyError) as e:
+            raise Mailer_i.MailerException("Invalid header - {}".format(str(e.args[0])))
 
     def __dbNewEmailId(self, conn):
         """
@@ -710,9 +722,14 @@ class Mailer_i (ccReg__POA.Mailer):
         """
         Method archives email in database.
         """
-        header_dict = header_to_dict(header)
+        # convert corba struct ...
         body_dict = {pair.key: pair.value for pair in data}
-
+        header_dict = {}
+        for corba_attr, dict_key in EMAIL_HEADER_CORBA_TO_DICT_MAPPING.iteritems():
+            value = getattr(header, corba_attr)
+            if value:
+                header_dict[dict_key] = value
+        # ... into template params dict / json
         params_dict = {'header': header_dict, 'body': body_dict}
 
         cur = conn.cursor()
@@ -920,11 +937,10 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.execute(
             "SELECT mt.subject, mt.body_template, mt.body_template_content_type, mtf.footer, mtd.params,"
                   " json_build_object("
-                        "'from', mhd.h_from,"
-                       " 'replyto', mhd.h_replyto,"
-                       " 'errorsto', mhd.h_errorsto,"
-                       " 'organization', mhd.h_organization,"
-                       " 'contentencoding', mhd.h_contentencoding,"
+                        "'From', mhd.h_from,"
+                       " 'Reply-to', mhd.h_replyto,"
+                       " 'Errors-to', mhd.h_errorsto,"
+                       " 'Organization', mhd.h_organization,"
                        " 'messageidserver', mhd.h_messageidserver)"
              " FROM mail_template mt"
              " JOIN mail_template_footer mtf ON mtf.id = mt.mail_template_footer_id"
@@ -1155,7 +1171,7 @@ class Mailer_i (ccReg__POA.Mailer):
             msg.set_charset("utf-8")
 
         headers = self.__generateHeaders(email_data, email_tmpl, rendered_data.subject)
-        # quote needed keys
+        # Add headers to message and quote needed values
         for key, value in headers.iteritems():
             if key in ("Subject", "Organization"):
                 value = qp_str(value)
