@@ -90,9 +90,9 @@ class UndeliveredParseError(Exception):
     pass
 
 
-def convList2Array(list):
+def list_to_pgarray(list):
     """
-Converts python list to pg array.
+    Converts python list to pg array.
     """
     array = '{'
     for item in list:
@@ -105,9 +105,9 @@ Converts python list to pg array.
     array += '}'
     return array
 
-def convArray2List(array):
+def pgarray_to_list(array):
     """
-Converts pg array to python list.
+    Converts pg array to python list.
     """
     # trim {,} chars
     array = array[1:-1]
@@ -775,7 +775,7 @@ class Mailer_i (ccReg__POA.Mailer):
         result = []
         for msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params, attach_ids, prio in rows:
             # convert db array (attachids) to list
-            attach_ids_list = [int(i) for i in convArray2List(attach_ids)]
+            attach_ids_list = [int(i) for i in pgarray_to_list(attach_ids)]
             mail_type = IdNamePair(msg_type_id, msg_type_name)
             result.append(
                 EmailData(msg_id, mail_type, tmpl_version, header_params, tmpl_params, attach_ids_list)
