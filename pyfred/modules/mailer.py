@@ -749,30 +749,6 @@ class Mailer_i (ccReg__POA.Mailer):
                     " (%d, %s)", [mailid, attachid])
         cur.close()
 
-    def __dbGetReadyEmails(self, conn):
-        """
-        Get all emails from database which are ready to be sent.
-        """
-        cur = conn.cursor()
-        cur.execute("SELECT mar.id, mar.message, mat.attachid "
-                "FROM mail_archive mar LEFT JOIN mail_attachments mat "
-                "ON (mar.id = mat.mailid) "
-                "WHERE mar.status = 1 AND mar.attempt < %d", [self.maxattempts])
-        rows = cur.fetchall()
-        cur.close()
-        # transform result attachids in list
-        result = []
-        for row in rows:
-            if len(result) == 0 or result[-1][0] != row[0]:
-                if row[2]:
-                    result.append((row[0], row[1], [row[2]]))
-                else:
-                    result.append((row[0], row[1], []))
-            else:
-                result[-1][2].append(row[2])
-
-        return result
-
     def __dbGetReadyEmailsTypePriority(self, conn):
         """
         Get all emails from database which are ready to be sent.
@@ -807,57 +783,6 @@ class Mailer_i (ccReg__POA.Mailer):
             prio_stats[prio] = prio_stats.get(prio, 0) + 1
 
         self.l.log(self.l.DEBUG, "mail type priority distribution: %s" % str(prio_stats))
-        return result
-
-    def __dbGetReadyEmailsTypePenalization(self, conn):
-        """
-        Get all emails from database which are ready to be send fairly by mail type.
-        """
-        cur = conn.cursor()
-
-        self.l.log(self.l.DEBUG, "computing mail type penalties")
-
-        penalized = self.mail_type_penalization.keys()
-        self.mail_type_penalization = dict((mt, p - 1) for mt, p in self.mail_type_penalization.iteritems() if p > 0)
-
-        self.l.log(self.l.DEBUG, "mail types to be penalized in query: %s" % str(penalized))
-
-        cur.execute("SELECT mar.id, mar.mailtype, mar.message, "
-            "array_filter_null(array_agg(mat.attachid)) "
-            "FROM mail_archive mar LEFT JOIN mail_attachments mat "
-            "ON mar.id = mat.mailid "
-            "WHERE mar.status = 1 AND mar.attempt < %d "
-            "AND NOT mar.mailtype =ANY(%s::integer[]) "
-            "GROUP BY mar.id, mar.mailtype, mar.message LIMIT %d",
-            [self.maxattempts, convList2Array(penalized), self.sendlimit])
-
-        rows = cur.fetchall()
-        cur.close()
-
-        if len(rows) == 0:
-            self.l.log(self.l.DEBUG, "no mails selected")
-            if len(penalized) > 0:
-                self.mail_type_penalization = {}
-                self.l.log(self.l.DEBUG, "penalties used => now dropping and re-run")
-                return self.__dbGetReadyEmailsTypePenalization(conn)
-            else:
-                return []
-
-        # convert db array to list and get mail type count statistics
-        type_stats = {}
-        result = []
-        for m_id, m_type, m_body, m_attach_ids in rows:
-            result.append([m_id, m_body, [int(i) for i in convArray2List(m_attach_ids)]])
-            type_stats[m_type] = type_stats.get(m_type, 0) + 1
-
-        self.l.log(self.l.DEBUG, "mail type distribution: %s" % str(type_stats))
-
-        # count penalties for next round
-        for mt, mc in type_stats.items():
-            if (float(mc) / self.sendlimit) > 0.3:
-                self.mail_type_penalization[mt] = 1
-                self.l.log(self.l.DEBUG, "mail type %d penalization scheduled" % int(mt))
-
         return result
 
     def __dbUpdateStatus(self, conn, mailid, status, reset_counter=False):
