@@ -42,6 +42,7 @@ IdNamePair = namedtuple('IdNamePair', ['id', 'name'])
 EmailData = namedtuple('EmailData', ['id', 'mail_type', 'template_version', 'header_params', 'template_params', 'attach_file_ids'])
 EmailTemplate = namedtuple('EmailTemplate', ['subject', 'body_template', 'body_template_content_type',
     'footer_template', 'template_default_params', 'header_default_params'])
+RenderedEmail = namedtuple('RenderedEmail', ['subject', 'body', 'footer'])
 
 
 class UndeliveredParseError(Exception):
@@ -667,48 +668,30 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return id, subject, templates
 
-    def __dbSetHeaders(self, conn, mailid, mailtype, subject, header, msg):
+    def __generateHeaders(self, email_data, email_tmpl, subject):
         """
-        Method initializes headers of email object. Header struct is modified
-        as well, which is important for actual value of envelope sender.
-        Date header is added later and Message-ID is later revisited.
+        Generate e-mail headers - text headers unquoted
         """
-        # get default values from database
-        cur = conn.cursor()
-        cur.execute("SELECT mhd.h_from,mhd.h_replyto,mhd.h_errorsto,mhd.h_organization,mhd.h_messageidserver "
-                    "FROM mail_type mt JOIN mail_type_mail_header_defaults_map mtd ON (mtd.mail_type_id=mt.id OR mtd.mail_type_id IS NULL) "
-                    "LEFT JOIN mail_header_defaults mhd ON (mhd.id=mtd.mail_header_defaults_id) "
-                    "WHERE mt.name=%s "
-                    "ORDER BY mtd.mail_type_id IS NULL "
-                    "LIMIT 1", [mailtype])
-        defaults = cur.fetchone()
-        cur.close()
-        if defaults is None:
-            self.l.log(self.l.ERR, "<%d> Mailtype %s has no default header" % (mailid, mailtype))
-            raise ccReg.Mailer.InvalidHeader("No default header.")
+        header_params = email_data.header_params
+        header_defaults = email_tmpl.header_default_params
+        header = {}
         # headers which don't have defaults
-        msg["Subject"] = qp_str(subject)
-        msg["To"] = filter_email_addrs(header.h_to)
+        header["Subject"] = subject
+        header["To"] = filter_email_addrs(header_params["h_to"])
         # 'To:' is the only mandatory header
-        if not msg["To"]:
+        if not header["To"]:
             raise ccReg.Mailer.InvalidHeader("To")
-        if header.h_cc: msg["Cc"] = filter_email_addrs(header.h_cc)
-        if header.h_bcc: msg["Bcc"] = filter_email_addrs(header.h_bcc)
-        # modify header struct in place based on default values
-        if not header.h_from:
-            header.h_from = defaults[0]
-        if not header.h_reply_to:
-            header.h_reply_to = defaults[1]
-        if not header.h_errors_to:
-            header.h_errors_to = defaults[2]
-        if not header.h_organization:
-            header.h_organization = defaults[3]
+        if header_params.get("h_cc"):
+            header["Cc"] = filter_email_addrs(header_params["h_cc"])
+        if header_params.get("h_bcc"):
+            header["Bcc"] = filter_email_addrs(header_params["h_bcc"])
         # headers which have default values
-        msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), defaults[4])
-        msg["From"] = header.h_from
-        msg["Reply-to"] = header.h_reply_to
-        msg["Errors-to"] = header.h_errors_to
-        msg["Organization"] = qp_str(header.h_organization)
+        header["From"] = header_params.get("h_from") or header_defaults["from"]
+        header["Reply-to"] = header_params.get("h_replyto") or header_defaults["replyto"]
+        header["Errors-to"] = header_params.get("h_errorsto") or header_defaults["errorsto"]
+        header["Organization"] = header_params.get("h_organization") or header_defaults["organization"]
+        header["Message-ID"] = "<%d.%d@%s>" % (email_data.id, int(time.time()), header_defaults["messageidserver"])
+        return header
 
     def __dbNewEmailId(self, conn):
         """
@@ -1106,46 +1089,59 @@ class Mailer_i (ccReg__POA.Mailer):
 
         return status
 
-    def __prepareEmail(self, conn, email_data):
+    def __renderEmail(self, email_data, email_tmpl):
         """
-        Method creates text part of email, it means without base64 encoded
-        attachments. This includes following steps:
-
-            1) Create HDF dataset (base of templating)
-            2) Template subject
-            3) Run templating for all wanted templates and attach them
-            4) Create email headers
-            5) Dump email in string form
+        Run e-mail data throught all templates
         """
         # init headers
         hdf = neo_util.HDF()
         # pour defaults in data set
-        for pair in self.__dbGetDefaults(conn):
-            hdf.setValue("defaults." + pair[0], pair[1])
+        for key, value in email_tmpl.template_default_params.iteritems():
+            hdf.setValue(key, value.encode("utf-8"))
         # pour user provided values in data set
-        for key, value in data.iteritems():
-            hdf.setValue(key, value)
-
-        mailtype_id, subject_tpl, templates = self.__dbGetMailTypeData(conn,
-                mailtype)
+        for key, value in email_data.template_params.iteritems():
+            hdf.setValue(key, value.encode("utf-8"))
 
         # render subject
         cs = neo_cs.CS(hdf)
-        cs.parseStr(subject_tpl)
-        subject = cs.render()
+        cs.parseStr(email_tmpl.subject)
+        subject = cs.render().strip()
+
+        cs = neo_cs.CS(hdf)
+        cs.parseStr(email_tmpl.body_template)
+        body = cs.render().strip()
+
+        if email_tmpl.footer_template:
+            cs = neo_cs.CS(hdf)
+            cs.parseStr(email_tmpl.footer_template)
+            footer = cs.render().strip()
+        else:
+            footer = None
+
+        return RenderedEmail(subject, body, footer)
+
+
+    def __prepareEmail(self, conn, email_data):
+        """
+        Create e-mail message with headers
+        """
+        email_tmpl = self.__dbGetEmailTemplate(conn, email_data.mail_type.id, email_data.template_version)
+        rendered_data = self.__renderEmail(email_data, email_tmpl)
 
         # Create email object multi or single part (we have to decide now)
-        if attlen > 0 or len(templates) > 1 or self.vcard:
+        if len(email_data.attach_file_ids) > 0 or rendered_data.footer or self.vcard:
             msg = MIMEMultipart()
             # render text attachments
-            for item in templates:
-                cs = neo_cs.CS(hdf)
-                cs.parseStr(item["template"])
-                mimetext = MIMEText(cs.render().strip() + '\n', item["type"])
+            mimetext = MIMEText(rendered_data.body + '\n', email_tmpl.body_template_content_type)
+            mimetext.set_charset("utf-8")
+            # Leave this commented out, otherwise it duplicates header
+            #   Content-Transfer-Encoding
+            #Encoders.encode_7or8bit(mimetext)
+            msg.attach(mimetext)
+            # Add footer if configured so
+            if rendered_data.footer:
+                mimetext = MIMEText(rendered_data.footer + '\n', email_tmpl.body_template_content_type)
                 mimetext.set_charset("utf-8")
-                # Leave this commented out, otherwise it duplicates header
-                #   Content-Transfer-Encoding
-                #Encoders.encode_7or8bit(mimetext)
                 msg.attach(mimetext)
             # Attach vcard attachment if configured so
             if self.vcard:
@@ -1154,16 +1150,17 @@ class Mailer_i (ccReg__POA.Mailer):
                 msg.attach(mimetext)
         else:
             # render text attachment
-            cs = neo_cs.CS(hdf)
-            cs.parseStr(templates[0]["template"])
-            msg = MIMEText(cs.render().strip() + '\n', templates[0]["type"])
+            msg = MIMEText(rendered_data.body + '\n', email_tmpl.body_template_content_type)
             msg.set_charset("utf-8")
 
-        # init email header (BEWARE that header struct is modified in this
-        # call to function, so it is filled with defaults for not provided
-        # headers, which is important for obtaining envelope sender).
-        self.__dbSetHeaders(conn, mailid, mailtype, subject, header, msg)
-        return msg.as_string(), mailtype_id
+        headers = self.__generateHeaders(email_data, email_tmpl, rendered_data.subject)
+        # quote needed keys
+        for key, value in headers.iteritems():
+            if key in ("Subject", "Organization"):
+                value = qp_str(value)
+            msg[key] = value
+
+        return msg.as_string()
 
     def mailNotify(self, mailtype, header, data, handles, attachs, preview):
         """
