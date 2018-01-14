@@ -652,42 +652,6 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return vcard
 
-    def __dbGetMailTypeData(self, conn, mailtype):
-        """
-        Method returns subject template, attachment templates and their content
-        types.
-        """
-        cur = conn.cursor()
-        # get mail type data
-        cur.execute("SELECT id, subject FROM mail_type WHERE name = %s", [mailtype])
-        if cur.rowcount == 0:
-            cur.close()
-            self.l.log(self.l.ERR, "Mail type '%s' was not found in db." %
-                    mailtype)
-            raise ccReg.Mailer.UnknownMailType(mailtype)
-
-        id, subject = cur.fetchone()
-
-        # get templates belonging to mail type
-        cur.execute("SELECT mte.contenttype, mte.template, mf.footer "
-                "FROM mail_type_template_map mt, mail_templates mte "
-                "LEFT JOIN mail_footer mf ON (mte.footer = mf.id) "
-                "WHERE mt.typeid = %d AND mt.templateid = mte.id", [id])
-        templates = []
-        if cur.rowcount == 0:
-            self.l.log(self.l.WARNING, "Request for mail type ('%s') with no "
-                    "associated templates." % mailtype)
-        else:
-            for row in cur.fetchall():
-                # append footer if there is any to template
-                if row[2]:
-                    templates.append({"type":row[0],
-                        "template":row[1] + '\n' + row[2]})
-                else:
-                    templates.append({"type":row[0], "template":row[1]})
-        cur.close()
-        return id, subject, templates
-
     def __generateHeaders(self, email_data, email_tmpl, subject):
         """
         Generate e-mail headers - text headers unquoted
