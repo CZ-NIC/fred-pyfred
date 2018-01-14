@@ -1187,11 +1187,11 @@ class Mailer_i (ccReg__POA.Mailer):
             email_tmpl = self.__dbGetEmailTemplate(conn, email_data.mail_type.id, email_data.template_version)
             rendered_data = self.__renderEmail(email_data, email_tmpl)
             headers = self.__generateHeaders(email_data, email_tmpl, rendered_data.subject)
-
-            headers_str = "\n".join([key + ": " + value for key, value in headers.iteritems()])
-            msg = "\n".join([headers_str, rendered_data.body, rendered_data.footer])
             self.db.releaseConn(conn)
-            return msg
+
+            headers_str = "\n".join([key + ": " + value.decode("utf-8") for key, value in headers.iteritems()])
+            msg = "\n\n".join([headers_str, rendered_data.body.decode("utf-8"), rendered_data.footer.decode("utf-8")])
+            return msg.encode("utf-8")
         except ccReg.Mailer.UnknownMailid, e:
             raise
         except pgdb.DatabaseError, e:
