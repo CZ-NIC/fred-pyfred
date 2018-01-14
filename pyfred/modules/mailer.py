@@ -812,16 +812,6 @@ class Mailer_i (ccReg__POA.Mailer):
                 "WHERE id = %d", [mailid])
         cur.close()
 
-    def __dbGetDefaults(self, conn):
-        """
-        Retrieve defaults from database.
-        """
-        cur = conn.cursor()
-        cur.execute("SELECT name, value FROM mail_defaults")
-        pairs = [ (line[0], line[1]) for line in cur.fetchall() ]
-        cur.close()
-        return pairs
-
     def __dbGetEmailTemplate(self, conn, mail_type_id, version):
         """
         Retrieve email template and it's defaults for specified version
