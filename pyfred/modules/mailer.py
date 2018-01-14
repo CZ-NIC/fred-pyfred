@@ -47,9 +47,13 @@ EMAIL_HEADER_CORBA_TO_DICT_MAPPING = {
 }
 
 IdNamePair = namedtuple('IdNamePair', ['id', 'name'])
-EmailData = namedtuple('EmailData', ['id', 'mail_type', 'template_version', 'header_params', 'template_params', 'attach_file_ids'])
+
+EmailData = namedtuple('EmailData', ['id', 'mail_type', 'template_version',
+    'header_params', 'template_params', 'attach_file_ids'])
+
 EmailTemplate = namedtuple('EmailTemplate', ['subject', 'body_template', 'body_template_content_type',
     'footer_template', 'template_default_params', 'header_default_params'])
+
 RenderedEmail = namedtuple('RenderedEmail', ['subject', 'body', 'footer'])
 
 
