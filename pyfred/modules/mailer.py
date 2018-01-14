@@ -531,27 +531,28 @@ class Mailer_i (ccReg__POA.Mailer):
         # iterate over all emails from database ready to be sent
         for email_data in self.__dbGetReadyEmailsTypePriority(conn):
             try:
+                email_id = email_data.id
+                email_text = self.__prepareEmail(conn, email_data)
                 # run email through completion procedure
-                (mail, efrom) = self.__completeEmail(mailid, mail_text, attachs)
+                (mail, efrom) = self.__completeEmail(email_id, email_text, email_data.attach_file_ids)
                 # sign email if signing is enabled
                 if self.signing:
-                    mail = self.__sign_email(mailid, mail)
+                    mail = self.__sign_email(email_id, mail)
                 # send email
-                status = self.__sendEmail(mailid, mail, efrom)
+                status = self.__sendEmail(email_id, mail, efrom)
                 # check sendmail status
                 if status == 0:
-                    self.l.log(self.l.DEBUG, "<%d> Email with id %d was successfully"
-                            " sent." % (mailid, mailid))
+                    self.l.log(self.l.DEBUG, "<%d> Email with id %d was successfully sent." % (email_id, email_id))
                     # archive email and status
-                    self.__dbUpdateStatus(conn, mailid, 0)
+                    self.__dbUpdateStatus(conn, email_id, 0)
                 else:
                     self.l.log(self.l.ERR, "<%d> Sendmail exited with failure for "
-                        "email with id %d (rc = %d)" % (mailid, mailid, status))
-                    self.__dbSendFailed(conn, mailid)
+                        "email with id %d (rc = %d)" % (email_id, email_id, status))
+                    self.__dbSendFailed(conn, email_id)
             except Mailer_i.MailerException, me:
                 self.l.log(self.l.ERR, "<%d> Error when sending email with "
-                        "mailid %d: %s" % (mailid, mailid, me))
-                self.__dbSendFailed(conn, mailid)
+                        "mailid %d: %s" % (email_id, email_id, me))
+                self.__dbSendFailed(conn, email_id)
             conn.commit()
         self.db.releaseConn(conn)
 
