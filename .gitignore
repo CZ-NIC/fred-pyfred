@@ -1,3 +1,10 @@
+install.log
+dist/
+build/
+fred-pyfred-*/
+fred_pyfred.egg-info/
+MANIFEST
+
 *.pyc
 *.pyo
 *~

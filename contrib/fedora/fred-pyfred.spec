@@ -16,7 +16,10 @@ BuildArch: noarch
 Vendor: CZ.NIC <fred@nic.cz>
 Url: https://fred.nic.cz/
 BuildRequires: python-omniORB omniORB-devel fred-distutils m2crypto
-Requires: python-omniORB omniORB-servers fred-idl python-clearsilver postgresql-python python-dns ldns ldns-utils postfix m2crypto
+Requires: python-omniORB omniORB-servers fred-idl python-clearsilver PyGreSQL < 5.0 python-dns ldns postfix m2crypto
+%if 0%{?fedora}
+Requires: ldns-utils
+%endif
 
 %description
 UNKNOWN
@@ -24,13 +27,8 @@ UNKNOWN
 %prep
 %setup -n %{name}-%{unmangled_version}
 
-%build
-python setup.py build
-
-
 %install
 python setup.py install -cO2 --force --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES --prefix=/usr --install-sysconf=/etc --install-localstate=/var --no-check-deps --drill=/usr/bin/drill --sendmail=/usr/sbin/sendmail
-
 
 %clean
 rm -rf $RPM_BUILD_ROOT
