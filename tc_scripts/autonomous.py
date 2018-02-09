@@ -30,8 +30,10 @@ Autonomous system
 that if a routing domain including nameserver goes down, another nameserver
 can still be reached.
 """
+import commands
+import re
+import sys
 
-import sys, commands, re
 import dns.resolver
 
 debug = False

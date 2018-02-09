@@ -31,11 +31,11 @@ The test consists of 4 smaller tests, each of which tries to provoke the
 DNS server to send an answer. It is legal, when DNS server doesn't answer
 to any of these tests and still can exist, but we are trying to do our best.
 """
-
 import sys
-import dns.resolver
+
 import dns.message
 import dns.query
+import dns.resolver
 
 DEBUG = False
 

@@ -17,15 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with FRED.  If not, see <https://www.gnu.org/licenses/>.
 
+import hashlib
 import os
 import re
-import hashlib
 import shutil
+
 import pgdb
 import yaml
-# pyfred
-from pyfred.runtime_support import DB
 
+from pyfred.runtime_support import DB
 
 _MAX_LENGTH = 80
 def safe_repr(obj, short=False):

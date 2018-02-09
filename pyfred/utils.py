@@ -20,9 +20,13 @@
 """
 This module gathers various utility functions used in other pyfred's modules.
 """
-
-import time, re
-import sys, os, fcntl, select, time, popen2, signal
+import fcntl
+import os
+import popen2
+import re
+import select
+import signal
+import time
 
 
 def strtime(timestamp=0):

@@ -20,39 +20,44 @@
 """
 Code of mailer daemon.
 """
-
-import os, sys, time, random, ConfigParser, Queue, tempfile, re
 import base64
-import json
-import pgdb
-from collections import namedtuple
-from pyfred.hdf_transform import hdf_to_pyobj, pyobj_to_hdf
-from pyfred.utils import encode_utf8, decode_utf8
-from pyfred.utils import isInfinite
-from pyfred.utils import runCommand
-# corba stuff
-import CosNaming
-from fred_idl import ccReg, ccReg__POA
-# template stuff
-import neo_cgi # must be included before neo_cs and neo_util
-import neo_cs, neo_util
-# email stuff
+import ConfigParser
 import email
 import email.Charset
-from email import Encoders
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEBase import MIMEBase
-from email.MIMEText import MIMEText
-from email.Utils import formatdate, parseaddr
-# IMAP stuff
 import imaplib
+import json
+import os
+import Queue
+import random
+import re
+import sys
+import tempfile
+import time
+from collections import namedtuple
+from email import Encoders
+from email.MIMEBase import MIMEBase
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEText import MIMEText
+from email.Utils import formatdate
+from exceptions import Exception
+
+import CosNaming
+import neo_cgi  # must be included before neo_cs and neo_util
+import neo_cs
+import neo_util
+import pgdb
+from fred_idl import ccReg, ccReg__POA
+
+from pyfred.hdf_transform import hdf_to_pyobj, pyobj_to_hdf
+from pyfred.utils import decode_utf8, encode_utf8, isInfinite, runCommand
+
 try:
     # certificate info
-    import M2Crypto.X509, M2Crypto.m2
+    import M2Crypto.X509
+    import M2Crypto.m2
 except ImportError:
     # optional - it is not required when signing is off
     M2Crypto = None
-from exceptions import Exception
 
 
 EMAIL_HEADER_CORBA_TO_DICT_MAPPING = {

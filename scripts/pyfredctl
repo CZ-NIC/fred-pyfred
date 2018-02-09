@@ -17,7 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with FRED.  If not, see <https://www.gnu.org/licenses/>.
 
-import os, sys, commands, time, signal, ConfigParser
+import commands
+import ConfigParser
+import os
+import signal
+import sys
+import time
 
 # value of variables pidfile and pyfred_server are replaced by setup.py
 # during install phase

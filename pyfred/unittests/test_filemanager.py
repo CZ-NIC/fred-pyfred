@@ -39,9 +39,11 @@ central register we use filemanager_client.  The changes made by this unittest
 are not reversible! The files uploaded to server by client are not deleted
 afterwards. So it must be run on test instance of central register.
 '''
-
-import commands, ConfigParser, sys, getopt, os, re, random, os
-import pgdb
+import commands
+import getopt
+import os
+import re
+import sys
 import unittest
 
 # bin dir will be added during setup

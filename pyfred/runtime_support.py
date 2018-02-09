@@ -42,12 +42,12 @@ response = inst.getTypeEnum()
 >>> type(response), response
 (<type 'int'>, 33)
 """
-import sys
+import ConfigParser
 import logging
 import logging.handlers
-import pgdb
-import ConfigParser
+import sys
 
+import pgdb
 
 
 class Logger(object):

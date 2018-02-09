@@ -27,11 +27,11 @@ This script returns:
 To stderr go debug and error messages and to stdout goes nameserver which
 caused error or not fulfilled condition.
 """
-
 import sys
-import dns.resolver
+
 import dns.message
 import dns.query
+import dns.resolver
 
 debug = False
 testdomain = "nikde-nic-ani-sic.ble"

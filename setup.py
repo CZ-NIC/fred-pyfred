@@ -20,9 +20,8 @@
 import os
 import re
 
-from freddist.core import setup
 from freddist.command.install import install
-
+from freddist.core import setup
 
 PROJECT_NAME = 'pyfred_server'
 PACKAGE_NAME = 'pyfred_server'
@@ -163,8 +162,6 @@ class Install(install):
 
     def update_script(self, filename):
         content = open(filename).read()
-        content = content.replace('sys.path.insert(0, \'\')',
-                                  'sys.path.insert(0, \'%s\')' % self.expand_filename('$purelib'))
         content = content.replace('configfile = \'/etc/fred/pyfred.conf\'',
                                   'configfile = \'%s\'' % self.expand_filename('$sysconf/fred/pyfred.conf'))
         open(filename, 'w').write(content)
@@ -172,8 +169,6 @@ class Install(install):
 
     def update_genzone(self, filename):
         content = open(filename).read()
-        content = content.replace('sys.path.insert(0, \'\')',
-                                  'sys.path.insert(0, \'%s\')' % self.expand_filename('$purelib'))
         content = content.replace('configfile = \'/etc/fred/genzone.conf\'',
                                   'configfile = \'%s\'' % self.expand_filename('$sysconf/fred/genzone.conf'))
         open(filename, 'w').write(content)
@@ -185,9 +180,6 @@ class Install(install):
         path for modules).
         """
         content = open(filename).read()
-        content = re.compile('^PYFRED_INSTALL_PATH\s*=.*', re.MULTILINE).sub(
-                         'PYFRED_INSTALL_PATH = "%s" # replaced by setup.py' % self.expand_filename('$purelib'),
-                         content, 1)
         content = re.compile('^CONFIGS\s*=\s*\(.*', re.MULTILINE).sub(
                          'CONFIGS = ("%s", # replaced by setup.py' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF),
                          content, 1)

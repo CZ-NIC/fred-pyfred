@@ -19,6 +19,7 @@
 import neo_cgi
 from neo_util import HDF
 
+
 def hdf_to_pyobj(hdf):
     def process_node(node):
         dict_part = {}

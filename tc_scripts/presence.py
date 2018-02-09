@@ -29,11 +29,12 @@ present in nameserver, are glued to nameserver's fqdn separated by commas.
 From stdin is read a list of domains for which a record must be present at
 nameserver.
 """
-
 import sys
-import dns.resolver
+
 import dns.message
 import dns.query
+import dns.resolver
+
 
 def get_ns_addrs(args):
     """

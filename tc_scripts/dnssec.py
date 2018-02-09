@@ -20,8 +20,9 @@
 """
 Code of techcheck daemon.
 """
-import dns.resolver
 import dns.message
+import dns.resolver
+
 
 def countKeyTag(k):
     """

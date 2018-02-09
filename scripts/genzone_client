@@ -22,13 +22,19 @@ Script for generating zone file for given zone name.
 
 The script uses zone module which encapsulates complexity of CORBA communication.
 """
-import sys, getopt, shutil, time, os.path, commands
-import tempfile, difflib, ConfigParser, re
-
-# update import path
-sys.path.insert(0, '')
+import commands
+import ConfigParser
+import difflib
+import getopt
+import os.path
+import re
+import shutil
+import sys
+import tempfile
+import time
 
 import pyfred.zone
+
 
 def pcb():
     """

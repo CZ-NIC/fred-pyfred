@@ -20,14 +20,19 @@
 """
 Code of techcheck daemon.
 """
+import ConfigParser
+import os
+import Queue
+import random
+import sys
+import time
 
-import sys, time, random, ConfigParser, commands, os
-import Queue, pgdb
-from exceptions import SystemExit
-from fred_idl import ccReg, ccReg__POA
-from pyfred.utils import isInfinite
-from pyfred.utils import runCommand
 import CosNaming
+import pgdb
+from fred_idl import ccReg, ccReg__POA
+
+from pyfred.utils import isInfinite, runCommand
+
 
 def safeNull(str):
     """

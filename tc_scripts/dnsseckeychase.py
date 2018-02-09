@@ -20,9 +20,9 @@
 """
 DNSSEC key chain of trust technical test
 """
-
-import sys, os
+import os
 import subprocess
+import sys
 
 DEBUG = False
 

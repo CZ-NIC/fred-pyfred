@@ -23,22 +23,16 @@ object implementations through extending modules defined in modules.conf.
 Those objects are registered in corba name service and the rest is up to
 a caller (corba client).
 """
-import sys
-import os
-import time
 import ConfigParser
+import os
 import signal
-from omniORB import CORBA, PortableServer
+import sys
+import time
+
 import CosNaming
+from omniORB import CORBA, PortableServer
 
-# setup.py will add path to reflect changes in prefix
-# and/or root option during install
-PYFRED_INSTALL_PATH = None # Setup.py changes this variable according to the installation path.
-if PYFRED_INSTALL_PATH is not None and PYFRED_INSTALL_PATH not in sys.path:
-    sys.path.insert(0, PYFRED_INSTALL_PATH)
-
-# load pyfred moduels from an installation path:
-from pyfred.runtime_support import Logger, DB, CorbaRefs, getConfiguration, init_logger
+from pyfred.runtime_support import DB, CorbaRefs, Logger, getConfiguration, init_logger
 
 # These are global because they are needed in signal handler
 pidfile = None

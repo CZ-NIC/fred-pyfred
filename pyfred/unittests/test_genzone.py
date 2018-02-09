@@ -50,10 +50,15 @@ operations remain in a history and may influence result of some operations in
 future. So it must be run on test instance of central register. The tests
 are specific for '.cz' zone and won't work with other zones.
 '''
-
-import commands, ConfigParser, sys, getopt, os, re, random
-import pgdb
+import commands
+import ConfigParser
+import getopt
+import os
+import re
+import sys
 import unittest
+
+import pgdb
 
 pyfred_bin_dir = '/usr/local/bin/'
 

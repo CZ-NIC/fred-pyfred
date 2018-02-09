@@ -25,8 +25,11 @@ This script returns:
 
 To stderr go debug and error messages, to stdout goes nothing.
 """
+import commands
+import re
+import sys
 
-import sys, commands, re, dns.resolver
+import dns.resolver
 
 debug = False
 fpdnsbin = "fpdns"
