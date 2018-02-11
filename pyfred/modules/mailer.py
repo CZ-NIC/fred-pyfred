@@ -9,6 +9,8 @@ import base64
 import json
 import pgdb
 from collections import namedtuple
+from pyfred.hdf_transform import hdf_to_pyobj, pyobj_to_hdf
+from pyfred.utils import encode_utf8
 from pyfred.utils import isInfinite
 from pyfred.utils import runCommand
 # corba stuff
@@ -691,7 +693,10 @@ class Mailer_i (ccReg__POA.Mailer):
         Method archives email in database.
         """
         # convert corba struct ...
-        body_dict = {pair.key: pair.value for pair in data}
+        hdf = neo_util.HDF()
+        for pair in data:
+            hdf.setValue(pair.key, pair.value)
+        body_dict = hdf_to_pyobj(hdf)
         header_dict = {}
         for corba_attr, dict_key in EMAIL_HEADER_CORBA_TO_DICT_MAPPING.iteritems():
             value = getattr(header, corba_attr)
@@ -999,8 +1004,7 @@ class Mailer_i (ccReg__POA.Mailer):
         for key, value in email_tmpl.template_default_params.iteritems():
             hdf.setValue(key, value.encode("utf-8"))
         # pour user provided values in data set
-        for key, value in email_data.template_params.iteritems():
-            hdf.setValue(key, value.encode("utf-8"))
+        pyobj_to_hdf(encode_utf8(email_data.template_params), hdf)
 
         # render subject
         cs = neo_cs.CS(hdf)

@@ -175,3 +175,17 @@ def ccRegDateTimeInterval(ccReg, from_date, to_date):
         # DateTimeInterval(Date from, Date to, type <DateTimeIntervalType>, offset  <short>)
         interval = ccReg.DateTimeInterval(from_date, to_date, ccReg.INTERVAL, 0)
     return interval
+
+
+def encode_utf8(value):
+    """
+    Encode value to utf8, works also for nested structures
+    """
+    if isinstance(value, dict):
+        return {encode_utf8(key): encode_utf8(value) for key, value in value.iteritems()}
+    elif isinstance(value, list):
+        return [encode_utf8(element) for element in value]
+    elif isinstance(value, unicode):
+        return value.encode('utf-8')
+    else:
+        return value
