@@ -1218,7 +1218,7 @@ class Mailer_i (ccReg__POA.Mailer):
                 conditions.append("ma.id = %d")
                 condvalues.append(filter.mailid)
             if filter.mailtype != -1:
-                conditions.append("ma.mailtype = %d")
+                conditions.append("ma.mail_type_id = %d")
                 condvalues.append(filter.mailtype)
             if filter.status != -1:
                 conditions.append("ma.status = %d")
@@ -1264,8 +1264,8 @@ class Mailer_i (ccReg__POA.Mailer):
             self.l.log(self.l.DEBUG, "<%d> Search WHERE clause is: %s" %
                     (id, cond))
             # execute MEGA GIGA query :(
-            cur.execute("SELECT ma.id, ma.mailtype, ma.crdate, ma.moddate, "
-                        "ma.status, ma.message, mt.attachid, mh.associd "
+            cur.execute("SELECT ma.id, ma.mail_type_id, ma.crdate, ma.moddate, "
+                        "ma.status, ma.message_params, mt.attachid, mh.associd "
                     "FROM mail_archive ma "
                     "LEFT JOIN mail_handles mh ON (ma.id = mh.mailid) "
                     "LEFT JOIN mail_attachments mt ON (ma.id = mt.mailid) "
