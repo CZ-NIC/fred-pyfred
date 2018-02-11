@@ -742,7 +742,7 @@ class Mailer_i (ccReg__POA.Mailer):
             attach_ids_list = [int(i) for i in pgarray_to_list(attach_ids)]
             mail_type = IdNamePair(msg_type_id, msg_type_name)
             result.append(
-                EmailData(msg_id, mail_type, tmpl_version, header_params, tmpl_params, attach_ids_list)
+                EmailData(msg_id, mail_type, tmpl_version, json.loads(header_params), json.loads(tmpl_params), attach_ids_list)
             )
             prio_stats[prio] = prio_stats.get(prio, 0) + 1
 
@@ -836,7 +836,7 @@ class Mailer_i (ccReg__POA.Mailer):
             raise ccReg.Mailer.InternalError()
 
         subject, body_tmpl, body_tmpl_ctt, footer_tmpl, tmpl_default_params, header_defaults = cur.fetchone()
-        return EmailTemplate(subject, body_tmpl, body_tmpl_ctt, footer_tmpl, tmpl_default_params, header_defaults)
+        return EmailTemplate(subject, body_tmpl, body_tmpl_ctt, footer_tmpl, json.loads(tmpl_default_params), json.loads(header_defaults))
 
     def __dbGetMailTypes(self, conn):
         """
@@ -1182,7 +1182,7 @@ class Mailer_i (ccReg__POA.Mailer):
 
             msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params = cur.fetchone()
             mail_type = IdNamePair(msg_type_id, msg_type_name)
-            email_data = EmailData(msg_id, mail_type, tmpl_version, header_params, tmpl_params, None)
+            email_data = EmailData(msg_id, mail_type, tmpl_version, json.loads(header_params), json.loads(tmpl_params), None)
 
             email_tmpl = self.__dbGetEmailTemplate(conn, email_data.mail_type.id, email_data.template_version)
             rendered_data = self.__renderEmail(email_data, email_tmpl)
