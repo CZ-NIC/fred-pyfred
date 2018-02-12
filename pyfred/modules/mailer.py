@@ -6,7 +6,11 @@ Code of mailer daemon.
 
 import os, sys, time, random, ConfigParser, Queue, tempfile, re
 import base64
+import json
 import pgdb
+from collections import namedtuple
+from pyfred.hdf_transform import hdf_to_pyobj, pyobj_to_hdf
+from pyfred.utils import encode_utf8
 from pyfred.utils import isInfinite
 from pyfred.utils import runCommand
 # corba stuff
@@ -34,9 +38,63 @@ except ImportError:
 from exceptions import Exception
 
 
-def convList2Array(list):
+EMAIL_HEADER_CORBA_TO_DICT_MAPPING = {
+    "h_to": "To",
+    "h_from": "From",
+    "h_cc": "Cc",
+    "h_bcc": "Bcc",
+    "h_reply_to": "Reply-to",
+    "h_errors_to": "Errors-to",
+    "h_organization": "Organization"
+}
+
+IdNamePair = namedtuple('IdNamePair', ['id', 'name'])
+
+EmailData = namedtuple('EmailData', ['id', 'mail_type', 'template_version',
+    'header_params', 'template_params', 'attach_file_ids'])
+
+EmailTemplate = namedtuple('EmailTemplate', ['subject', 'body_template', 'body_template_content_type',
+    'footer_template', 'template_default_params', 'header_default_params'])
+
+RenderedEmail = namedtuple('RenderedEmail', ['subject', 'body', 'footer'])
+
+
+class EmailHeadersBuilder(object):
+
+    def __init__(self, header_params, header_defaults=None):
+        self._params = header_params
+        self._defaults = header_defaults
+        self._headers = {}
+
+    def add(self, key, value, func=None):
+        value = func(value) if value and func else value
+        if value:
+            self._headers[key] = value
+            return True
+        return False
+
+    def add_mandatory(self, key, func=None):
+        if not self.add(key, self._params[key], func):
+            raise ValueError(key)
+
+    def add_optional(self, key, func=None):
+        return self.add(key, self._params.get(key), func)
+
+    def add_optional_or_default(self, key, func=None):
+        if not self.add_optional(key, func):
+            self.add(key, self._defaults[key], func)
+
+    def to_dict(self):
+        return self._headers
+
+
+class UndeliveredParseError(Exception):
+    pass
+
+
+def list_to_pgarray(list):
     """
-Converts python list to pg array.
+    Converts python list to pg array.
     """
     array = '{'
     for item in list:
@@ -49,9 +107,9 @@ Converts python list to pg array.
     array += '}'
     return array
 
-def convArray2List(array):
+def pgarray_to_list(array):
     """
-Converts pg array to python list.
+    Converts pg array to python list.
     """
     # trim {,} chars
     array = array[1:-1]
@@ -418,22 +476,6 @@ class Mailer_i (ccReg__POA.Mailer):
             except ConfigParser.NoOptionError, e:
                 pass
 
-        # check mail header defaults
-        try:
-            conn = self.db.getConn()
-            cur = conn.cursor()
-            cur.execute("SELECT mt.name "
-                        "FROM mail_type mt "
-                        "WHERE (SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id=mt.id) IS NULL AND "
-                              "(SELECT 1 FROM mail_type_mail_header_defaults_map WHERE mail_type_id IS NULL) IS NULL")
-            mailtype_without_default = cur.fetchall()
-            cur.close()
-            self.db.releaseConn(conn)
-            if mailtype_without_default:
-                self.l.log(self.l.WARNING, "Mailtype(s) %s without default mail header" % mailtype_without_default)
-        except pgdb.DatabaseError, e:
-            self.l.log(self.l.ERR, "Database error: %s" % e)
-            raise Exception("Database error")
         # check configuration consistency
         if self.tester and not self.testmode:
             self.l.log(self.l.WARNING, "Tester configuration directive will "
@@ -508,29 +550,30 @@ class Mailer_i (ccReg__POA.Mailer):
         self.l.log(self.l.DEBUG, "Regular send-emails procedure.")
         conn = self.db.getConn()
         # iterate over all emails from database ready to be sent
-        for (mailid, mail_text, attachs) in self.__dbGetReadyEmailsTypePriority(conn):
+        for email_data in self.__dbGetReadyEmailsTypePriority(conn):
             try:
+                email_id = email_data.id
+                email_text = self.__prepareEmail(conn, email_data)
                 # run email through completion procedure
-                (mail, efrom) = self.__completeEmail(mailid, mail_text, attachs)
+                (mail, efrom) = self.__completeEmail(email_id, email_text, email_data.attach_file_ids)
                 # sign email if signing is enabled
                 if self.signing:
-                    mail = self.__sign_email(mailid, mail)
+                    mail = self.__sign_email(email_id, mail)
                 # send email
-                status = self.__sendEmail(mailid, mail, efrom)
+                status = self.__sendEmail(email_id, mail, efrom)
                 # check sendmail status
                 if status == 0:
-                    self.l.log(self.l.DEBUG, "<%d> Email with id %d was successfully"
-                            " sent." % (mailid, mailid))
+                    self.l.log(self.l.DEBUG, "<%d> Email with id %d was successfully sent." % (email_id, email_id))
                     # archive email and status
-                    self.__dbUpdateStatus(conn, mailid, 0)
+                    self.__dbUpdateStatus(conn, email_id, 0)
                 else:
                     self.l.log(self.l.ERR, "<%d> Sendmail exited with failure for "
-                        "email with id %d (rc = %d)" % (mailid, mailid, status))
-                    self.__dbSendFailed(conn, mailid)
+                        "email with id %d (rc = %d)" % (email_id, email_id, status))
+                    self.__dbSendFailed(conn, email_id)
             except Mailer_i.MailerException, me:
                 self.l.log(self.l.ERR, "<%d> Error when sending email with "
-                        "mailid %d: %s" % (mailid, mailid, me))
-                self.__dbSendFailed(conn, mailid)
+                        "mailid %d: %s" % (email_id, email_id, me))
+                self.__dbSendFailed(conn, email_id)
             conn.commit()
         self.db.releaseConn(conn)
 
@@ -572,6 +615,8 @@ class Mailer_i (ccReg__POA.Mailer):
                     try:
                         self.__dbSetUndelivered(conn, msgid, msgbody)
                         server.store(mailid, 'FLAGS', '(\Deleted)')
+                    except UndeliveredParseError, e:
+                        self.l.log(self.l.WARNING, str(e))
                     except ccReg.Mailer.UnknownMailid, e:
                         self.l.log(self.l.WARNING, "Mail with id %s not sent." % e)
                 else:
@@ -609,84 +654,27 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return vcard
 
-    def __dbGetMailTypeData(self, conn, mailtype):
+    def __generateHeaders(self, email_data, email_tmpl, subject):
         """
-        Method returns subject template, attachment templates and their content
-        types.
+        Generate e-mail headers - text headers unquoted
         """
-        cur = conn.cursor()
-        # get mail type data
-        cur.execute("SELECT id, subject FROM mail_type WHERE name = %s", [mailtype])
-        if cur.rowcount == 0:
-            cur.close()
-            self.l.log(self.l.ERR, "Mail type '%s' was not found in db." %
-                    mailtype)
-            raise ccReg.Mailer.UnknownMailType(mailtype)
+        try:
+            headers = EmailHeadersBuilder(email_data.header_params, email_tmpl.header_default_params)
+            headers.add_mandatory("To", func=filter_email_addrs)
+            headers.add_optional("Cc", func=filter_email_addrs)
+            headers.add_optional("Bcc", func=filter_email_addrs)
+            headers.add_optional_or_default("From")
+            headers.add_optional_or_default("Reply-to")
+            headers.add_optional_or_default("Errors-to")
+            headers.add_optional_or_default("Organization")
+            headers.add("Subject", subject)
+            headers.add("Message-ID", "<%d.%d@%s>" % (email_data.id, int(time.time()),
+                email_tmpl.header_default_params["messageidserver"]))
 
-        id, subject = cur.fetchone()
-
-        # get templates belonging to mail type
-        cur.execute("SELECT mte.contenttype, mte.template, mf.footer "
-                "FROM mail_type_template_map mt, mail_templates mte "
-                "LEFT JOIN mail_footer mf ON (mte.footer = mf.id) "
-                "WHERE mt.typeid = %d AND mt.templateid = mte.id", [id])
-        templates = []
-        if cur.rowcount == 0:
-            self.l.log(self.l.WARNING, "Request for mail type ('%s') with no "
-                    "associated templates." % mailtype)
-        else:
-            for row in cur.fetchall():
-                # append footer if there is any to template
-                if row[2]:
-                    templates.append({"type":row[0],
-                        "template":row[1] + '\n' + row[2]})
-                else:
-                    templates.append({"type":row[0], "template":row[1]})
-        cur.close()
-        return id, subject, templates
-
-    def __dbSetHeaders(self, conn, mailid, mailtype, subject, header, msg):
-        """
-        Method initializes headers of email object. Header struct is modified
-        as well, which is important for actual value of envelope sender.
-        Date header is added later and Message-ID is later revisited.
-        """
-        # get default values from database
-        cur = conn.cursor()
-        cur.execute("SELECT mhd.h_from,mhd.h_replyto,mhd.h_errorsto,mhd.h_organization,mhd.h_messageidserver "
-                    "FROM mail_type mt JOIN mail_type_mail_header_defaults_map mtd ON (mtd.mail_type_id=mt.id OR mtd.mail_type_id IS NULL) "
-                    "LEFT JOIN mail_header_defaults mhd ON (mhd.id=mtd.mail_header_defaults_id) "
-                    "WHERE mt.name=%s "
-                    "ORDER BY mtd.mail_type_id IS NULL "
-                    "LIMIT 1", [mailtype])
-        defaults = cur.fetchone()
-        cur.close()
-        if defaults is None:
-            self.l.log(self.l.ERR, "<%d> Mailtype %s has no default header" % (mailid, mailtype))
-            raise ccReg.Mailer.InvalidHeader("No default header.")
-        # headers which don't have defaults
-        msg["Subject"] = qp_str(subject)
-        msg["To"] = filter_email_addrs(header.h_to)
-        # 'To:' is the only mandatory header
-        if not msg["To"]:
-            raise ccReg.Mailer.InvalidHeader("To")
-        if header.h_cc: msg["Cc"] = filter_email_addrs(header.h_cc)
-        if header.h_bcc: msg["Bcc"] = filter_email_addrs(header.h_bcc)
-        # modify header struct in place based on default values
-        if not header.h_from:
-            header.h_from = defaults[0]
-        if not header.h_reply_to:
-            header.h_reply_to = defaults[1]
-        if not header.h_errors_to:
-            header.h_errors_to = defaults[2]
-        if not header.h_organization:
-            header.h_organization = defaults[3]
-        # headers which have default values
-        msg["Message-ID"] = "<%d.%d@%s>" % (mailid, int(time.time()), defaults[4])
-        msg["From"] = header.h_from
-        msg["Reply-to"] = header.h_reply_to
-        msg["Errors-to"] = header.h_errors_to
-        msg["Organization"] = qp_str(header.h_organization)
+            self.l.log(self.l.DEBUG, "Generated headers: {}".format(headers.to_dict()))
+            return headers.to_dict()
+        except (ValueError, KeyError) as e:
+            raise Mailer_i.MailerException("Invalid header - {}".format(str(e.args[0])))
 
     def __dbNewEmailId(self, conn):
         """
@@ -699,16 +687,29 @@ class Mailer_i (ccReg__POA.Mailer):
         cur.close()
         return int(id)
 
-    def __dbArchiveEmail(self, conn, mailid, mailtype_id, mail, handles,
+    def __dbArchiveEmail(self, conn, mailid, mailtype, header, data, handles,
             attachs=[]):
         """
         Method archives email in database.
         """
+        # convert corba struct ...
+        hdf = neo_util.HDF()
+        for pair in data:
+            hdf.setValue(pair.key, pair.value)
+        body_dict = hdf_to_pyobj(hdf)
+        header_dict = {}
+        for corba_attr, dict_key in EMAIL_HEADER_CORBA_TO_DICT_MAPPING.iteritems():
+            value = getattr(header, corba_attr)
+            if value:
+                header_dict[dict_key] = value
+        # ... into template params dict / json
+        params_dict = {'header': header_dict, 'body': body_dict}
+
         cur = conn.cursor()
         # save the generated email
-        cur.execute("INSERT INTO mail_archive (id, mailtype, message, status) "
-                "VALUES (%d, %d, %s, %d)",
-                [mailid, mailtype_id, mail, self.archstatus])
+        cur.execute("INSERT INTO mail_archive (id, status, mail_type_id, message_params) "
+                "VALUES (%d, %d, (SELECT id FROM mail_type WHERE name = %s), %s)",
+                [mailid, self.archstatus, mailtype, json.dumps(params_dict)])
         for handle in handles:
             cur.execute("INSERT INTO mail_handles (mailid, associd) VALUES "
                     "(%d, %s)", [mailid, handle])
@@ -717,30 +718,6 @@ class Mailer_i (ccReg__POA.Mailer):
                     " (%d, %s)", [mailid, attachid])
         cur.close()
 
-    def __dbGetReadyEmails(self, conn):
-        """
-        Get all emails from database which are ready to be sent.
-        """
-        cur = conn.cursor()
-        cur.execute("SELECT mar.id, mar.message, mat.attachid "
-                "FROM mail_archive mar LEFT JOIN mail_attachments mat "
-                "ON (mar.id = mat.mailid) "
-                "WHERE mar.status = 1 AND mar.attempt < %d", [self.maxattempts])
-        rows = cur.fetchall()
-        cur.close()
-        # transform result attachids in list
-        result = []
-        for row in rows:
-            if len(result) == 0 or result[-1][0] != row[0]:
-                if row[2]:
-                    result.append((row[0], row[1], [row[2]]))
-                else:
-                    result.append((row[0], row[1], []))
-            else:
-                result[-1][2].append(row[2])
-
-        return result
-
     def __dbGetReadyEmailsTypePriority(self, conn):
         """
         Get all emails from database which are ready to be sent.
@@ -748,77 +725,33 @@ class Mailer_i (ccReg__POA.Mailer):
         self.l.log(self.l.DEBUG, "search for ready messages using mail type priority")
 
         cur = conn.cursor()
-        cur.execute("SELECT mar.id, mar.message, "
-                "array_filter_null(array_agg(mat.attachid)), "
-                "mtp.priority "
-                "FROM mail_archive mar LEFT JOIN mail_attachments mat "
-                "ON (mar.id = mat.mailid) "
-                "LEFT JOIN mail_type_priority mtp ON mtp.mail_type_id = mar.mailtype "
-                "WHERE mar.status = 1 AND mar.attempt < %d "
-                "GROUP BY mar.id, mar.message, mtp.priority "
-                "ORDER BY mtp.priority ASC NULLS LAST "
-                "LIMIT %d" , [self.maxattempts, self.sendlimit])
+        cur.execute(
+            "SELECT mar.id, mt.id, mt.name, mar.mail_template_version,"
+                  " mar.message_params->'header', mar.message_params->'body',"
+                  " array_filter_null(array_agg(mat.attachid)), mtp.priority"
+             " FROM mail_archive mar"
+             " JOIN mail_type mt ON mt.id = mar.mail_type_id"
+             " LEFT JOIN mail_attachments mat ON (mar.id = mat.mailid)"
+             " LEFT JOIN mail_type_priority mtp ON mtp.mail_type_id = mar.mail_type_id"
+            " WHERE mar.status = 1 AND mar.attempt < %d"
+            " GROUP BY mar.id, mt.id, mt.name, mtp.priority"
+            " ORDER BY mtp.priority ASC NULLS LAST"
+            " LIMIT %d",
+            [self.maxattempts, self.sendlimit])
         rows = cur.fetchall()
         cur.close()
-        # convert db array (attachids) to list
         prio_stats = {}
         result = []
-        for m_id, m_body, m_attach_ids, m_prio in rows:
-            result.append([m_id, m_body, [int(i) for i in convArray2List(m_attach_ids)]])
-            prio_stats[m_prio] = prio_stats.get(m_prio, 0) + 1
+        for msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params, attach_ids, prio in rows:
+            # convert db array (attachids) to list
+            attach_ids_list = [int(i) for i in pgarray_to_list(attach_ids)]
+            mail_type = IdNamePair(msg_type_id, msg_type_name)
+            result.append(
+                EmailData(msg_id, mail_type, tmpl_version, json.loads(header_params), json.loads(tmpl_params), attach_ids_list)
+            )
+            prio_stats[prio] = prio_stats.get(prio, 0) + 1
 
         self.l.log(self.l.DEBUG, "mail type priority distribution: %s" % str(prio_stats))
-        return result
-
-    def __dbGetReadyEmailsTypePenalization(self, conn):
-        """
-        Get all emails from database which are ready to be send fairly by mail type.
-        """
-        cur = conn.cursor()
-
-        self.l.log(self.l.DEBUG, "computing mail type penalties")
-
-        penalized = self.mail_type_penalization.keys()
-        self.mail_type_penalization = dict((mt, p - 1) for mt, p in self.mail_type_penalization.iteritems() if p > 0)
-
-        self.l.log(self.l.DEBUG, "mail types to be penalized in query: %s" % str(penalized))
-
-        cur.execute("SELECT mar.id, mar.mailtype, mar.message, "
-            "array_filter_null(array_agg(mat.attachid)) "
-            "FROM mail_archive mar LEFT JOIN mail_attachments mat "
-            "ON mar.id = mat.mailid "
-            "WHERE mar.status = 1 AND mar.attempt < %d "
-            "AND NOT mar.mailtype =ANY(%s::integer[]) "
-            "GROUP BY mar.id, mar.mailtype, mar.message LIMIT %d",
-            [self.maxattempts, convList2Array(penalized), self.sendlimit])
-
-        rows = cur.fetchall()
-        cur.close()
-
-        if len(rows) == 0:
-            self.l.log(self.l.DEBUG, "no mails selected")
-            if len(penalized) > 0:
-                self.mail_type_penalization = {}
-                self.l.log(self.l.DEBUG, "penalties used => now dropping and re-run")
-                return self.__dbGetReadyEmailsTypePenalization(conn)
-            else:
-                return []
-
-        # convert db array to list and get mail type count statistics
-        type_stats = {}
-        result = []
-        for m_id, m_type, m_body, m_attach_ids in rows:
-            result.append([m_id, m_body, [int(i) for i in convArray2List(m_attach_ids)]])
-            type_stats[m_type] = type_stats.get(m_type, 0) + 1
-
-        self.l.log(self.l.DEBUG, "mail type distribution: %s" % str(type_stats))
-
-        # count penalties for next round
-        for mt, mc in type_stats.items():
-            if (float(mc) / self.sendlimit) > 0.3:
-                self.mail_type_penalization[mt] = 1
-                self.l.log(self.l.DEBUG, "mail type %d penalization scheduled" % int(mt))
-
         return result
 
     def __dbUpdateStatus(self, conn, mailid, status, reset_counter=False):
@@ -849,12 +782,27 @@ class Mailer_i (ccReg__POA.Mailer):
 
     def __dbSetUndelivered(self, conn, mailid, mail):
         """
-        Set status value and insert text of email notification in mail archive.
+        Set status value and save interesting keys from response header
         """
+        RESPONSE_HEADER_KEYS = ("To", "Date", "Action", "Status", "Subject", "Remote-MTA",
+            "Reporting-MTA", "Diagnostic-Code", "Final-Recipient")
+
+        response_header = {}
+        for key in RESPONSE_HEADER_KEYS:
+            match = re.search("\n{}: (.*?)\n".format(key), mail)
+            if match and len(match.groups()) == 1:
+                response_header[key] = match.groups()[0].strip()
+
+        self.l.log(self.l.DEBUG, "Undelivered e-mail id={} collected response header={}".format(
+            mailid, response_header
+        ))
+        if not response_header:
+            raise UndeliveredParseError("Undelivered response parse error, header empty?! (id={})".format(mailid))
+
         cur = conn.cursor()
         cur.execute("UPDATE mail_archive "
-                "SET status = 4, moddate = now(), response = %s "
-                "WHERE id = %d", [base64.b64encode(mail), mailid])
+                "SET status = 4, moddate = now(), response_header = %s "
+                "WHERE id = %d", [json.dumps(response_header), mailid])
         if cur.rowcount != 1:
             raise ccReg.Mailer.UnknownMailid(mailid)
         cur.close()
@@ -869,15 +817,31 @@ class Mailer_i (ccReg__POA.Mailer):
                 "WHERE id = %d", [mailid])
         cur.close()
 
-    def __dbGetDefaults(self, conn):
+    def __dbGetEmailTemplate(self, conn, mail_type_id, version):
         """
-        Retrieve defaults from database.
+        Retrieve email template and it's defaults for specified version
         """
         cur = conn.cursor()
-        cur.execute("SELECT name, value FROM mail_defaults")
-        pairs = [ (line[0], line[1]) for line in cur.fetchall() ]
-        cur.close()
-        return pairs
+        cur.execute(
+            "SELECT mt.subject, mt.body_template, mt.body_template_content_type, mtf.footer, mtd.params,"
+                  " json_build_object("
+                        "'From', mhd.h_from,"
+                       " 'Reply-to', mhd.h_replyto,"
+                       " 'Errors-to', mhd.h_errorsto,"
+                       " 'Organization', mhd.h_organization,"
+                       " 'messageidserver', mhd.h_messageidserver)"
+             " FROM mail_template mt"
+             " JOIN mail_template_footer mtf ON mtf.id = mt.mail_template_footer_id"
+             " JOIN mail_template_default mtd ON mtd.id = mt.mail_template_default_id"
+             " JOIN mail_header_default mhd ON mhd.id = mt.mail_header_default_id"
+            " WHERE mail_type_id = %d AND version = %d",
+             [mail_type_id, version]
+        )
+        if cur.rowcount != 1:
+            raise ccReg.Mailer.InternalError()
+
+        subject, body_tmpl, body_tmpl_ctt, footer_tmpl, tmpl_default_params, header_defaults = cur.fetchone()
+        return EmailTemplate(subject, body_tmpl, body_tmpl_ctt, footer_tmpl, json.loads(tmpl_default_params), json.loads(header_defaults))
 
     def __dbGetMailTypes(self, conn):
         """
@@ -1030,46 +994,58 @@ class Mailer_i (ccReg__POA.Mailer):
 
         return status
 
-    def __prepareEmail(self, conn, mailid, mailtype, header, data, attlen):
+    def __renderEmail(self, email_data, email_tmpl):
         """
-        Method creates text part of email, it means without base64 encoded
-        attachments. This includes following steps:
-
-            1) Create HDF dataset (base of templating)
-            2) Template subject
-            3) Run templating for all wanted templates and attach them
-            4) Create email headers
-            5) Dump email in string form
+        Run e-mail data throught all templates
         """
         # init headers
         hdf = neo_util.HDF()
         # pour defaults in data set
-        for pair in self.__dbGetDefaults(conn):
-            hdf.setValue("defaults." + pair[0], pair[1])
+        for key, value in email_tmpl.template_default_params.iteritems():
+            hdf.setValue(key, value.encode("utf-8"))
         # pour user provided values in data set
-        for pair in data:
-            hdf.setValue(pair.key, pair.value)
-
-        mailtype_id, subject_tpl, templates = self.__dbGetMailTypeData(conn,
-                mailtype)
+        pyobj_to_hdf(encode_utf8(email_data.template_params), hdf)
 
         # render subject
         cs = neo_cs.CS(hdf)
-        cs.parseStr(subject_tpl)
-        subject = cs.render()
+        cs.parseStr(email_tmpl.subject)
+        subject = cs.render().strip()
+
+        cs = neo_cs.CS(hdf)
+        cs.parseStr(email_tmpl.body_template)
+        body = cs.render().strip()
+
+        if email_tmpl.footer_template:
+            cs = neo_cs.CS(hdf)
+            cs.parseStr(email_tmpl.footer_template)
+            footer = cs.render().strip()
+        else:
+            footer = None
+
+        return RenderedEmail(subject, body, footer)
+
+
+    def __prepareEmail(self, conn, email_data):
+        """
+        Create e-mail message with headers
+        """
+        email_tmpl = self.__dbGetEmailTemplate(conn, email_data.mail_type.id, email_data.template_version)
+        rendered_data = self.__renderEmail(email_data, email_tmpl)
 
         # Create email object multi or single part (we have to decide now)
-        if attlen > 0 or len(templates) > 1 or self.vcard:
+        if len(email_data.attach_file_ids) > 0 or rendered_data.footer or self.vcard:
             msg = MIMEMultipart()
             # render text attachments
-            for item in templates:
-                cs = neo_cs.CS(hdf)
-                cs.parseStr(item["template"])
-                mimetext = MIMEText(cs.render().strip() + '\n', item["type"])
+            mimetext = MIMEText(rendered_data.body + '\n', email_tmpl.body_template_content_type)
+            mimetext.set_charset("utf-8")
+            # Leave this commented out, otherwise it duplicates header
+            #   Content-Transfer-Encoding
+            #Encoders.encode_7or8bit(mimetext)
+            msg.attach(mimetext)
+            # Add footer if configured so
+            if rendered_data.footer:
+                mimetext = MIMEText(rendered_data.footer + '\n', email_tmpl.body_template_content_type)
                 mimetext.set_charset("utf-8")
-                # Leave this commented out, otherwise it duplicates header
-                #   Content-Transfer-Encoding
-                #Encoders.encode_7or8bit(mimetext)
                 msg.attach(mimetext)
             # Attach vcard attachment if configured so
             if self.vcard:
@@ -1078,16 +1054,17 @@ class Mailer_i (ccReg__POA.Mailer):
                 msg.attach(mimetext)
         else:
             # render text attachment
-            cs = neo_cs.CS(hdf)
-            cs.parseStr(templates[0]["template"])
-            msg = MIMEText(cs.render().strip() + '\n', templates[0]["type"])
+            msg = MIMEText(rendered_data.body + '\n', email_tmpl.body_template_content_type)
             msg.set_charset("utf-8")
 
-        # init email header (BEWARE that header struct is modified in this
-        # call to function, so it is filled with defaults for not provided
-        # headers, which is important for obtaining envelope sender).
-        self.__dbSetHeaders(conn, mailid, mailtype, subject, header, msg)
-        return msg.as_string(), mailtype_id
+        headers = self.__generateHeaders(email_data, email_tmpl, rendered_data.subject)
+        # Add headers to message and quote needed values
+        for key, value in headers.iteritems():
+            if key in ("Subject", "Organization"):
+                value = qp_str(value)
+            msg[key] = value
+
+        return msg.as_string()
 
     def mailNotify(self, mailtype, header, data, handles, attachs, preview):
         """
@@ -1106,15 +1083,11 @@ class Mailer_i (ccReg__POA.Mailer):
             # get unique email id (based on primary key from database)
             mailid = self.__dbNewEmailId(conn)
 
-            mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype,
-                    header, data, len(attachs))
-
             if preview:
+                mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype, header, data, len(attachs))
                 return (mailid, mail_text)
 
-            # archive email (without non-templated attachments)
-            self.__dbArchiveEmail(conn, mailid, mailtype_id, mail_text, handles,
-                    attachs)
+            self.__dbArchiveEmail(conn, mailid, mailtype, header, data, handles, attachs)
             # commit changes in mail archive
             conn.commit()
 
@@ -1191,6 +1164,48 @@ class Mailer_i (ccReg__POA.Mailer):
                     (id, sys.exc_info()[0], e))
             raise ccReg.Mailer.InternalError("Unexpected error")
 
+    def renderMail(self, mailid):
+        """
+        Return rendered e-mail body and subject for given mailid
+        """
+        try:
+            id = random.randint(1, 9999)
+            self.l.log(self.l.INFO, "<%d> e-mail content rendering request received. (id=%d)" % (id, mailid))
+
+            conn = self.db.getConn()
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT mar.id, mt.id, mt.name, mar.mail_template_version,"
+                      " mar.message_params->'header', mar.message_params->'body'"
+                 " FROM mail_archive mar"
+                 " JOIN mail_type mt ON mt.id = mar.mail_type_id"
+                " WHERE mar.id = %d", (mailid,)
+            )
+            if cur.rowcount != 1:
+                raise ccReg.Mailer.UnknownMailid(mailid)
+
+            msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params = cur.fetchone()
+            mail_type = IdNamePair(msg_type_id, msg_type_name)
+            email_data = EmailData(msg_id, mail_type, tmpl_version, json.loads(header_params), json.loads(tmpl_params), None)
+
+            email_tmpl = self.__dbGetEmailTemplate(conn, email_data.mail_type.id, email_data.template_version)
+            rendered_data = self.__renderEmail(email_data, email_tmpl)
+            headers = self.__generateHeaders(email_data, email_tmpl, rendered_data.subject)
+            self.db.releaseConn(conn)
+
+            headers_str = "\n".join([key + ": " + value.decode("utf-8") for key, value in headers.iteritems()])
+            msg = "\n\n".join([headers_str, rendered_data.body.decode("utf-8"), rendered_data.footer.decode("utf-8")])
+            return msg.encode("utf-8")
+        except ccReg.Mailer.UnknownMailid, e:
+            raise
+        except pgdb.DatabaseError, e:
+            self.l.log(self.l.ERR, "<%d> Database error: %s" % (id, e))
+            raise ccReg.Mailer.InternalError("Database error")
+        except Exception, e:
+            self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" % (id, sys.exc_info()[0], e))
+            raise ccReg.Mailer.InternalError("Unexpected error")
+
+
     def createSearchObject(self, filter):
         """
         This is universal mail archive lookup function. It returns object
@@ -1207,7 +1222,7 @@ class Mailer_i (ccReg__POA.Mailer):
                 conditions.append("ma.id = %d")
                 condvalues.append(filter.mailid)
             if filter.mailtype != -1:
-                conditions.append("ma.mailtype = %d")
+                conditions.append("ma.mail_type_id = %d")
                 condvalues.append(filter.mailtype)
             if filter.status != -1:
                 conditions.append("ma.status = %d")
@@ -1253,8 +1268,8 @@ class Mailer_i (ccReg__POA.Mailer):
             self.l.log(self.l.DEBUG, "<%d> Search WHERE clause is: %s" %
                     (id, cond))
             # execute MEGA GIGA query :(
-            cur.execute("SELECT ma.id, ma.mailtype, ma.crdate, ma.moddate, "
-                        "ma.status, ma.message, mt.attachid, mh.associd "
+            cur.execute("SELECT ma.id, ma.mail_type_id, ma.crdate, ma.moddate, "
+                        "ma.status, ma.message_params, mt.attachid, mh.associd "
                     "FROM mail_archive ma "
                     "LEFT JOIN mail_handles mh ON (ma.id = mh.mailid) "
                     "LEFT JOIN mail_attachments mt ON (ma.id = mt.mailid) "
