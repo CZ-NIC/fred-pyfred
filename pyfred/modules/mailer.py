@@ -716,7 +716,7 @@ class Mailer_i (ccReg__POA.Mailer):
         cur = conn.cursor()
         cur.execute(
             "SELECT mar.id, mt.id, mt.name, mar.mail_template_version,"
-                  " mar.message_params->'header', mar.message_params->'body',"
+                  " mar.message_params->'header', COALESCE(mar.message_params->'body', '{}'::JSONB),"
                   " array_filter_null(array_agg(mat.attachid)), mtp.priority"
              " FROM mail_archive mar"
              " JOIN mail_type mt ON mt.id = mar.mail_type_id"
@@ -1189,7 +1189,7 @@ class Mailer_i (ccReg__POA.Mailer):
             cur = conn.cursor()
             cur.execute(
                 "SELECT mar.id, mt.id, mt.name, mar.mail_template_version,"
-                      " mar.message_params->'header', mar.message_params->'body'"
+                      " mar.message_params->'header', COALESCE(mar.message_params->'body', '{}'::JSONB)"
                  " FROM mail_archive mar"
                  " JOIN mail_type mt ON mt.id = mar.mail_type_id"
                 " WHERE mar.id = %d", (mailid,)
