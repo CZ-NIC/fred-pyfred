@@ -692,18 +692,7 @@ class Mailer_i (ccReg__POA.Mailer):
         """
         Method archives email in database.
         """
-        # convert corba struct ...
-        hdf = neo_util.HDF()
-        for pair in data:
-            hdf.setValue(pair.key, pair.value)
-        body_dict = hdf_to_pyobj(hdf)
-        header_dict = {}
-        for corba_attr, dict_key in EMAIL_HEADER_CORBA_TO_DICT_MAPPING.iteritems():
-            value = getattr(header, corba_attr)
-            if value:
-                header_dict[dict_key] = value
-        # ... into template params dict / json
-        params_dict = {'header': header_dict, 'body': body_dict}
+        params_dict = {'header': header, 'body': data}
 
         cur = conn.cursor()
         # save the generated email
@@ -1083,11 +1072,35 @@ class Mailer_i (ccReg__POA.Mailer):
             # get unique email id (based on primary key from database)
             mailid = self.__dbNewEmailId(conn)
 
-            if preview:
-                mail_text, mailtype_id = self.__prepareEmail(conn, mailid, mailtype, header, data, len(attachs))
-                return (mailid, mail_text)
+            # convert corba struct into template params dict / json
+            hdf = neo_util.HDF()
+            for pair in data:
+                hdf.setValue(pair.key, pair.value)
+            body_dict = hdf_to_pyobj(hdf)
+            header_dict = {}
+            for corba_attr, dict_key in EMAIL_HEADER_CORBA_TO_DICT_MAPPING.iteritems():
+                value = getattr(header, corba_attr)
+                if value:
+                    header_dict[dict_key] = value
 
-            self.__dbArchiveEmail(conn, mailid, mailtype, header, data, handles, attachs)
+            if preview:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT mt.id AS mail_type_id, get_current_mail_template_version(mt.id)"
+                     " FROM mail_type mt"
+                    " WHERE mt.name = %s",
+                    (mailtype,)
+                )
+                if cur.rowcount != 1:
+                    raise ccReg.Mailer.InternalError
+
+                mail_type_id, tmpl_version = cur.fetchone()
+                mail_type = IdNamePair(mail_type_id, mailtype)
+                email_data = EmailData(mailid, mail_type, tmpl_version, header_dict, body_dict, attachs)
+                email_text = self.__prepareEmail(conn, email_data)
+                return (mailid, email_text)
+
+            self.__dbArchiveEmail(conn, mailid, mailtype, header_dict, body_dict, handles, attachs)
             # commit changes in mail archive
             conn.commit()
 
