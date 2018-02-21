@@ -816,7 +816,7 @@ This class implements TechCheck interface.
                     j += 1
                     if test["need_domain"] == 1:
                         ns_and_fqdns = ns.split(',')
-                        tpldata.append(ccReg.KeyValue("tests.%d.ns.%d" % (i, j),
+                        tpldata.append(ccReg.KeyValue("tests.%d.ns.%d.hostname" % (i, j),
                                     ns_and_fqdns[0]))
                         k = 0
                         for fqdn in ns_and_fqdns[1:]:
