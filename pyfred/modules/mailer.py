@@ -660,6 +660,7 @@ class Mailer_i (ccReg__POA.Mailer):
         """
         try:
             headers = EmailHeadersBuilder(email_data.header_params, email_tmpl.header_default_params)
+            headers.add_mandatory("Message-ID")
             headers.add_mandatory("To", func=filter_email_addrs)
             headers.add_optional("Cc", func=filter_email_addrs)
             headers.add_optional("Bcc", func=filter_email_addrs)
@@ -668,8 +669,6 @@ class Mailer_i (ccReg__POA.Mailer):
             headers.add_optional_or_default("Errors-to")
             headers.add_optional_or_default("Organization")
             headers.add("Subject", subject)
-            headers.add("Message-ID", "<%d.%d@%s>" % (email_data.id, int(time.time()),
-                email_tmpl.header_default_params["messageidserver"]))
 
             self.l.log(self.l.DEBUG, "Generated headers: {}".format(headers.to_dict()))
             return headers.to_dict()
@@ -692,6 +691,22 @@ class Mailer_i (ccReg__POA.Mailer):
         """
         Method archives email in database.
         """
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT mhd.h_messageidserver"
+             " FROM mail_template mtmpl"
+             " JOIN mail_type mt ON mt.id = mtmpl.mail_type_id"
+             " JOIN mail_header_default mhd on mhd.id = mtmpl.mail_header_default_id"
+            " WHERE mt.name = %s AND version = get_current_mail_template_version(mt.id)"
+            " FOR SHARE OF mtmpl",
+            (mailtype,)
+        )
+        if cur.rowcount != 1:
+            raise ccReg.Mailer.InternalError("cannot fetch 'messageidserver' from database")
+
+        messageidserver = cur.fetchone()[0]
+        message_id = "<%d.%d@%s>" % (mailid, int(time.time()), messageidserver)
+        header["Message-ID"] = message_id
         params_dict = {'header': header, 'body': data}
 
         cur = conn.cursor()
