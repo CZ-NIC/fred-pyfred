@@ -147,7 +147,13 @@ def qp_str(string):
 
 def email_addr_to_idna(addr):
     user, domain = addr.split("@")
-    return "%s@%s" % (user, domain.decode("utf-8").encode("idna"))
+    if isinstance(domain, str):
+        domain = domain.decode("utf-8").encode("idna")
+    elif isinstance(domain, unicode):
+        domain = domain.encode("idna")
+    else:
+        raise TypeError("email_addr_to_idna: expected string or unicode got %s" % type(addr))
+    return "%s@%s" % (user, domain)
 
 
 def filter_email_addrs(str):
