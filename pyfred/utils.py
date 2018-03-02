@@ -186,7 +186,7 @@ def encode_utf8(value):
     elif isinstance(value, list):
         return [encode_utf8(element) for element in value]
     elif isinstance(value, tuple):
-        return tuple([encode_utf8(element) for element in value])
+        return tuple(encode_utf8(element) for element in value)
     elif isinstance(value, unicode):
         return value.encode('utf-8')
     else:
@@ -202,7 +202,7 @@ def decode_utf8(value):
     elif isinstance(value, list):
         return [decode_utf8(element) for element in value]
     elif isinstance(value, tuple):
-        return tuple([decode_utf8(element) for element in value])
+        return tuple(decode_utf8(element) for element in value)
     elif isinstance(value, str):
         return value.decode('utf-8')
     else:
