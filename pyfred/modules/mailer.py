@@ -10,7 +10,7 @@ import json
 import pgdb
 from collections import namedtuple
 from pyfred.hdf_transform import hdf_to_pyobj, pyobj_to_hdf
-from pyfred.utils import encode_utf8
+from pyfred.utils import encode_utf8, decode_utf8
 from pyfred.utils import isInfinite
 from pyfred.utils import runCommand
 # corba stuff
@@ -1227,7 +1227,7 @@ class Mailer_i (ccReg__POA.Mailer):
             headers = self.__generateHeaders(email_data, email_tmpl, rendered_data.subject)
             self.db.releaseConn(conn)
 
-            headers_str = "\n".join([key + ": " + value.decode("utf-8") for key, value in headers.iteritems()])
+            headers_str = "\n".join([key + ": " + value for key, value in decode_utf8(headers).iteritems()])
             msg = "\n\n".join([headers_str, rendered_data.body.decode("utf-8"), rendered_data.footer.decode("utf-8")])
             return msg.encode("utf-8")
         except ccReg.Mailer.UnknownMailid, e:

@@ -185,7 +185,25 @@ def encode_utf8(value):
         return {encode_utf8(key): encode_utf8(value) for key, value in value.iteritems()}
     elif isinstance(value, list):
         return [encode_utf8(element) for element in value]
+    elif isinstance(value, tuple):
+        return tuple([encode_utf8(element) for element in value])
     elif isinstance(value, unicode):
         return value.encode('utf-8')
+    else:
+        return value
+
+
+def decode_utf8(value):
+    """
+    Encode value to utf8, works also for nested structures
+    """
+    if isinstance(value, dict):
+        return {decode_utf8(key): decode_utf8(value) for key, value in value.iteritems()}
+    elif isinstance(value, list):
+        return [decode_utf8(element) for element in value]
+    elif isinstance(value, tuple):
+        return tuple([decode_utf8(element) for element in value])
+    elif isinstance(value, str):
+        return value.decode('utf-8')
     else:
         return value
