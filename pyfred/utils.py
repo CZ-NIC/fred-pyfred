@@ -195,7 +195,7 @@ def encode_utf8(value):
 
 def decode_utf8(value):
     """
-    Encode value to utf8, works also for nested structures
+    Decode value to utf8, works also for nested structures
     """
     if isinstance(value, dict):
         return {decode_utf8(key): decode_utf8(value) for key, value in value.iteritems()}
