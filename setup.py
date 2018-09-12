@@ -211,6 +211,7 @@ class Install(install):
 
 def main():
     setup(name="fred-pyfred",
+          version="2.10.0",
           description="Component of FRED (Fast Registry for Enum and Domains)",
           author="Jan Kryl",
           author_email="jan.kryl@nic.cz",
