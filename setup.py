@@ -234,7 +234,7 @@ def main():
           author="Jan Kryl",
           author_email="jan.kryl@nic.cz",
           url="http://fred.nic.cz/",
-          license="GNU GPL",
+          license="GPLv3+",
           platforms=['posix'],
           cmdclass={"install": Install},
           packages=("pyfred",
