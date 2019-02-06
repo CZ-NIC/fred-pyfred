@@ -1,0 +1,17 @@
+[Unit]
+Description=FRED pyfred service - single daemon
+After=network.target
+ConditionPathExists=!/etc/fred/shutdown
+RequiresMountsFor=/usr/sbin /etc/fred /var/run/fred
+
+[Service]
+User=fred
+WorkingDirectory=/
+StandardOutput=null
+StandardError=null
+ExecStart=/usr/bin/fred-pyfred -d --config /etc/fred/pyfred.conf
+KillMode=process
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
