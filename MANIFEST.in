@@ -1,4 +1,6 @@
 include INSTALL
+include LICENSE
+include COPYING
 include ChangeLog
 include MANIFEST.in
 include contrib/fedora/*
