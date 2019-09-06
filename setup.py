@@ -18,7 +18,6 @@
 # along with FRED.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-import re
 
 from freddist.command.install import install
 from freddist.core import setup
@@ -43,10 +42,6 @@ DEFAULT_FILEMANAGERFILES = 'lib/pyfred/filemanager/'
 DEFAULT_TECHCHECKSCRIPTDIR = 'pyfred'
 #whole is $localstatedir/run/pyfred.pid
 DEFAULT_PIDFILE = 'run/pyfred.pid'
-#$prefix/bin/pyfred_server
-DEFAULT_PYFREDSERVER = 'fred-pyfred'
-#$prefix/etc/fred/pyfred.conf
-DEFAULT_PYFREDSERVERCONF = 'fred/pyfred.conf'
 #whole is $localstatedir/zonebackup
 DEFAULT_ZONEBACKUPDIR = 'zonebackup'
 #whole is $localstatedir/log/fred-pyfred.log
@@ -160,45 +155,6 @@ class Install(install):
         open(filename, 'w').write(content)
         self.announce("File '%s' was updated" % filename)
 
-    def update_script(self, filename):
-        content = open(filename).read()
-        content = content.replace('configfile = \'/etc/fred/pyfred.conf\'',
-                                  'configfile = \'%s\'' % self.expand_filename('$sysconf/fred/pyfred.conf'))
-        open(filename, 'w').write(content)
-        self.announce("File '%s' was updated" % filename)
-
-    def update_genzone(self, filename):
-        content = open(filename).read()
-        content = content.replace('configfile = \'/etc/fred/genzone.conf\'',
-                                  'configfile = \'%s\'' % self.expand_filename('$sysconf/fred/genzone.conf'))
-        open(filename, 'w').write(content)
-        self.announce("File '%s' was updated" % filename)
-
-    def update_pyfred_server(self, filename):
-        """
-        Update paths in fred-pyfred file (path to config file and search
-        path for modules).
-        """
-        content = open(filename).read()
-        content = re.compile('^CONFIGS\s*=\s*\(.*', re.MULTILINE).sub(
-                         'CONFIGS = ("%s", # replaced by setup.py' % self.expand_filename('$sysconf/%s' % DEFAULT_PYFREDSERVERCONF),
-                         content, 1)
-        open(filename, 'w').write(content)
-        self.announce("File '%s' was updated" % filename)
-
-    def update_pyfredctl(self, filename):
-        """
-        Update paths in pyfredctl file (location of pid file and
-        fred-pyfred file)
-        """
-        content = open(filename).read()
-        content = content.replace('pidfile = \'/var/run/pyfred.pid\'',
-                                  'pidfile = \'%s\'' % self.expand_filename('$localstate/%s' % DEFAULT_PIDFILE))
-        content = content.replace('pyfred_server = \'/usr/bin/fred-pyfred\'',
-                                  'pyfred_server = \'%s\'' % self.expand_filename('$scripts/%s' % DEFAULT_PYFREDSERVER))
-        open(filename, 'w').write(content)
-        self.announce("File '%s' was updated" % filename)
-
     def update_test_filemanager(self, filename):
         content = open(filename).read()
         content = content.replace('pyfred_bin_dir = \'/usr/local/bin/\'',
@@ -230,6 +186,7 @@ def main():
           platforms=['posix'],
           cmdclass={"install": Install},
           packages=("pyfred",
+                    "pyfred.commands",
                     "pyfred.unittests",
                     "pyfred.modules"
                 ),
@@ -258,17 +215,7 @@ def main():
                                    "tc_scripts/recursive.py",
                                    "tc_scripts/dnsseckeychase.py"]),
               ('$sysconf/fred', ['conf/pyfred.conf', 'conf/genzone.conf'])],
-          modify_files={'$scripts/genzone_client': 'update_genzone',
-                        '$scripts/check_pyfred_genzone': 'update_genzone',
-                        '$scripts/filemanager_client': 'update_script',
-                        '$scripts/filemanager_admin_client': 'update_script',
-                        '$scripts/mailer_client': 'update_script',
-                        '$scripts/mailer_admin_client': 'update_script',
-                        '$scripts/techcheck_client': 'update_script',
-                        '$scripts/techcheck_admin_client': 'update_script',
-                        '$scripts/fred-pyfred': 'update_pyfred_server',
-                        '$scripts/pyfredctl': 'update_pyfredctl',
-                        '$purelib/pyfred/unittests/test_filemanager.py': 'update_test_filemanager',
+          modify_files={'$purelib/pyfred/unittests/test_filemanager.py': 'update_test_filemanager',
                         '$purelib/pyfred/unittests/test_genzone.py': 'update_test_genzone',
                         '$sysconf/fred/pyfred.conf': 'update_server_config',
                         '$sysconf/fred/genzone.conf': 'update_genzone_config',
