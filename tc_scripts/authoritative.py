@@ -27,11 +27,12 @@ To stderr go error messages and to stdout go nameservers and domains which
 caused a failure. From stdin is read a list of domains for which
 the nameserver is tested for authoritativity.
 """
-
 import sys
-import dns.resolver
+
 import dns.message
 import dns.query
+import dns.resolver
+
 
 def get_ns_addrs(args):
     """

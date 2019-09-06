@@ -17,7 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with FRED.  If not, see <https://www.gnu.org/licenses/>.
 
-import pgdb, re
+import re
+
+import pgdb
+
 
 def print_tpl(conn):
     '''

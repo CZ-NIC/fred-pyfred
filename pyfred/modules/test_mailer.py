@@ -16,8 +16,9 @@
 # You should have received a copy of the GNU General Public License
 # along with FRED.  If not, see <https://www.gnu.org/licenses/>.
 
-from pyfred.modules.mailer import Mailer_i
 import pickle
+
+from pyfred.modules.mailer import Mailer_i
 
 
 def corba_struct_to_dict(struct):

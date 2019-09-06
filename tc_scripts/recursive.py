@@ -26,11 +26,11 @@ This script returns:
 To stderr go debug and error messages and to stdout go space separated
 nameservers which are recursive.
 """
-
 import sys
-import dns.resolver
+
 import dns.message
 import dns.query
+import dns.resolver
 
 default_domain = "neexistuje.v.domene.nic.cz"
 

@@ -20,13 +20,19 @@
 """
 Code of server-side of zone generator.
 """
-
-import sys, time, random, ConfigParser, Queue
-import pgdb
 import base64
-from pyfred import dnssec
+import ConfigParser
+import Queue
+import random
+import sys
+import time
+
+import pgdb
 from fred_idl import ccReg, ccReg__POA
+
+from pyfred import dnssec
 from pyfred.utils import ipaddrs2list
+
 
 def createNs(domain, nsFqdn, addrs):
     """

@@ -59,9 +59,11 @@ As an example of recursive DNS was taken wren.office.nic.cz.
 Domain nic.cz must exist in database. Nsset with nameservers is created
 on the fly.
 '''
-
-import commands, ConfigParser, sys, getopt, os, re, random
-import pgdb
+import commands
+import getopt
+import os
+import re
+import sys
 import unittest
 
 BIND1_NS = 'a.ns.nic.cz'

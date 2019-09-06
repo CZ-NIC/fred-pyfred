@@ -27,11 +27,9 @@ for zone file generation.
 It connects through CORBA interface to the server which acts directly
 on database. All data needed for zone generation are retrieved from server.
 """
-
-import sys
-from omniORB import CORBA
 import CosNaming
 from fred_idl import ccReg
+from omniORB import CORBA
 
 
 class ZoneException (Exception):

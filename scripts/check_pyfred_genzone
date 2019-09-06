@@ -26,12 +26,12 @@ Tester sends a request for zone transfer and then closes the transfer without
 transfering any data (only SOA record is transferred as result of openning
 transaction). Therefore this test is not resource demanding.
 """
-import sys, getopt
 import ConfigParser
+import getopt
+import sys
 
-# update import path
-sys.path.insert(0, '')
 import pyfred.zone
+
 
 def usage():
     """

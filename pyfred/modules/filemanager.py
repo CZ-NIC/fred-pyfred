@@ -20,12 +20,16 @@
 """
 Code of file manager daemon.
 """
+import ConfigParser
+import os
+import Queue
+import random
+import sys
+import time
 
-import os, sys, random, time, ConfigParser, Queue
 import pgdb
-# corba stuff
-from omniORB import CORBA, PortableServer
 from fred_idl import ccReg, ccReg__POA
+
 from pyfred.utils import isInfinite
 
 
