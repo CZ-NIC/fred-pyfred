@@ -59,12 +59,14 @@ def isrunning(pid):
     return False
 
 
-def run_pyfredctl(argv):
+def run_pyfredctl(argv=None):
     """
     The main.
     """
     global pidfile
     global pyfred_server
+
+    argv = argv or sys.argv
 
     if len(argv) != 2:
         sys.stderr.write("Invalid parameter count\n")
