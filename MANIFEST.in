@@ -6,3 +6,4 @@ include MANIFEST.in
 include contrib/fedora/*
 include misc/*
 include misc/mailer_examples/*
+graft pyfred

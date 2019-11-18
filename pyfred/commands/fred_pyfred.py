@@ -128,13 +128,15 @@ def sighandler(signum, arg):
 #
 # main
 #
-def run_fred_pyfred(argv):
+def run_fred_pyfred(argv=None):
     """
     """
     global pidfile
     global fredContext
     global nsnames
     global log
+
+    argv = argv or sys.argv
 
     # if server should detach from terminal after startup
     detach = True

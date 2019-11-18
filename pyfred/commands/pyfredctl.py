@@ -59,12 +59,14 @@ def isrunning(pid):
     return False
 
 
-def run_pyfredctl(argv):
+def run_pyfredctl(argv=None):
     """
     The main.
     """
     global pidfile
     global pyfred_server
+
+    argv = argv or sys.argv
 
     if len(argv) != 2:
         sys.stderr.write("Invalid parameter count\n")
@@ -84,12 +86,13 @@ def run_pyfredctl(argv):
                     "shutdown?\n")
             os.unlink(pidfile)
 
-        args = []
+        args = [pyfred_server]
+        env = {}
         if 'PYTHONPATH' in os.environ:
-            args.append(os.environ['PYTHONPATH'])
+            env['PYTHONPATH'] = os.environ['PYTHONPATH']
         if 'PYFRED_CONFIG' in os.environ:
             args.append(os.environ['PYFRED_CONFIG'])
-        pid = os.spawnl(os.P_WAIT, pyfred_server, pyfred_server, *args)
+        pid = os.spawnve(os.P_WAIT, pyfred_server, args, env)
         sys.stdout.write(pyfred_server + " was started\n")
 
     elif command == "stop":
