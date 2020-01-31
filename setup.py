@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2007-2019  CZ.NIC, z. s. p. o.
+# Copyright (C) 2007-2020  CZ.NIC, z. s. p. o.
 #
 # This file is part of FRED.
 #
@@ -34,7 +34,7 @@ ENTRY_POINTS = {'console_scripts': [
 
 def main():
     setup(name="fred-pyfred",
-          version="2.13.0",
+          version="2.13.1",
           description="Component of FRED (Fast Registry for Enum and Domains)",
           author="Jan Kryl",
           author_email="jan.kryl@nic.cz",
