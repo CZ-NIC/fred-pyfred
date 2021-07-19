@@ -1,30 +1,5 @@
-stages:
-    - analysis
-
-########################################################################################################################
-# Basic declarations
-.requires-python: &requires-python
-    tags:
-        - python
-
-.python2-xenial: &python2-xenial
-    image: $CI_REGISTRY/ginger/base/ubuntu_xenial_python2:latest
-
-########################################################################################################################
-# Individual jobs
 licensing:
-    <<: *python2-xenial
-    stage: analysis
     before_script:
         - git clone git@gitlab.office.nic.cz:internal-tools/license-check.git --single-branch --depth 1
     script:
         - ./license-check/license-check.sh -v
-
-isort:
-    <<: *requires-python
-    <<: *python2-xenial
-    stage: analysis
-    before_script:
-        - pip install isort
-        - pip list
-    script: "make check-isort"
