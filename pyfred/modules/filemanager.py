@@ -178,7 +178,7 @@ class FileManager_i (ccReg__POA.FileManager):
         cur.close()
         if not filetype:
             filetype = 0
-        return name, path, mimetype, filetype, crdate, filesize
+        return name, path, mimetype, filetype, crdate.isoformat(), filesize
 
     def __dbGetFileTypes(self, conn):
         """
@@ -499,7 +499,7 @@ class FileSearch_i (ccReg__POA.FileSearch):
                     filetype = 0
                 self.lastrow = self.cursor.fetchone()
                 filelist.append(ccReg.FileInfo(id, name, path, mimetype,
-                    filetype, crdate, filesize))
+                    filetype, crdate.isoformat(), filesize))
 
             self.l.log(self.l.DEBUG, "<%d> Number of records returned: %d." %
                     (self.id, len(filelist)))

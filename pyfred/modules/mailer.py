@@ -25,7 +25,6 @@ import ConfigParser
 import email
 import email.Charset
 import imaplib
-import json
 import os
 import Queue
 import random
@@ -113,30 +112,6 @@ class EmailHeadersBuilder(object):
 class UndeliveredParseError(Exception):
     pass
 
-
-def list_to_pgarray(list):
-    """
-    Converts python list to pg array.
-    """
-    array = '{'
-    for item in list:
-        if isinstance(item, str):
-            item = pgdb.escape_string(item)
-        array += "%s," % str(item)
-    # trim ending ','
-    if len(array) > 1:
-        array = array[0:-1]
-    array += '}'
-    return array
-
-def pgarray_to_list(array):
-    """
-    Converts pg array to python list.
-    """
-    # trim {,} chars
-    array = array[1:-1]
-    if not array: return []
-    return array.split(',')
 
 def contentfilter(mail, ismultipart):
     """
@@ -741,7 +716,7 @@ class Mailer_i (ccReg__POA.Mailer):
         # save the generated email
         cur.execute("INSERT INTO mail_archive (id, status, mail_type_id, message_params) "
                 "VALUES (%d, %d, (SELECT id FROM mail_type WHERE name = %s), %s)",
-                [mailid, self.archstatus, mailtype, json.dumps(params_dict)])
+                [mailid, self.archstatus, mailtype, pgdb.Json(params_dict)])
         for handle in handles:
             cur.execute("INSERT INTO mail_handles (mailid, associd) VALUES "
                     "(%d, %s)", [mailid, handle])
@@ -775,11 +750,9 @@ class Mailer_i (ccReg__POA.Mailer):
         prio_stats = {}
         result = []
         for msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params, attach_ids, prio in rows:
-            # convert db array (attachids) to list
-            attach_ids_list = [int(i) for i in pgarray_to_list(attach_ids)]
             mail_type = IdNamePair(msg_type_id, msg_type_name)
             result.append(
-                EmailData(msg_id, mail_type, tmpl_version, json.loads(header_params), json.loads(tmpl_params), attach_ids_list)
+                EmailData(msg_id, mail_type, tmpl_version, header_params, tmpl_params, attach_ids)
             )
             prio_stats[prio] = prio_stats.get(prio, 0) + 1
 
@@ -834,7 +807,7 @@ class Mailer_i (ccReg__POA.Mailer):
         cur = conn.cursor()
         cur.execute("UPDATE mail_archive "
                 "SET status = 4, moddate = now(), response_header = %s "
-                "WHERE id = %d", [json.dumps(response_header), mailid])
+                "WHERE id = %d", [pgdb.Json(response_header), mailid])
         if cur.rowcount != 1:
             raise ccReg.Mailer.UnknownMailid(mailid)
         cur.close()
@@ -873,7 +846,7 @@ class Mailer_i (ccReg__POA.Mailer):
             raise ccReg.Mailer.InternalError()
 
         subject, body_tmpl, body_tmpl_ctt, footer_tmpl, tmpl_default_params, header_defaults = cur.fetchone()
-        return EmailTemplate(subject, body_tmpl, body_tmpl_ctt, footer_tmpl, json.loads(tmpl_default_params), json.loads(header_defaults))
+        return EmailTemplate(subject, body_tmpl, body_tmpl_ctt, footer_tmpl, tmpl_default_params, header_defaults)
 
     def __dbGetMailTypes(self, conn):
         """
@@ -1242,7 +1215,7 @@ class Mailer_i (ccReg__POA.Mailer):
 
             msg_id, msg_type_id, msg_type_name, tmpl_version, header_params, tmpl_params = cur.fetchone()
             mail_type = IdNamePair(msg_type_id, msg_type_name)
-            email_data = EmailData(msg_id, mail_type, tmpl_version, json.loads(header_params), json.loads(tmpl_params), None)
+            email_data = EmailData(msg_id, mail_type, tmpl_version, header_params, tmpl_params, None)
 
             email_tmpl = self.__dbGetEmailTemplate(conn, email_data.mail_type.id, email_data.template_version)
             rendered_data = self.__renderEmail(email_data, email_tmpl)
@@ -1382,9 +1355,9 @@ class MailSearch_i (ccReg__POA.MailSearch):
         curr = self.cursor.fetchone()
         id = prev[0]
         mtid = prev[1]
-        crdate = prev[2]
+        crdate = prev[2].isoformat()
         if prev[3]: # moddate may be NULL
-            moddate = prev[3]
+            moddate = prev[3].isoformat()
         else:
             moddate = ""
         if prev[4] == None: # status may be NULL
