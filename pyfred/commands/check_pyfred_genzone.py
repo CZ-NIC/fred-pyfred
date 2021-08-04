@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/python2
 #
-# Copyright (C) 2007-2019  CZ.NIC, z. s. p. o.
+# Copyright (C) 2007-2021  CZ.NIC, z. s. p. o.
 #
 # This file is part of FRED.
 #
