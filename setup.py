@@ -44,7 +44,7 @@ def main():
           packages=("pyfred", "pyfred.commands", "pyfred.unittests", "pyfred.modules"),
           include_package_data=True,
           python_requires='~=2.7',
-          install_requires=['PyGreSQL>=3.6', 'dnspython>=1.3'],
+          install_requires=['PyGreSQL>=5', 'dnspython>=1.3'],
           data_files=[
               ('libexec/pyfred', ["tc_scripts/authoritative.py",
                                   "tc_scripts/autonomous.py",

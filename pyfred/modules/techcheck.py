@@ -66,27 +66,6 @@ Convert IDL reason to numeric code used in database.
         return ccReg.CHKR_REGULAR
     return ccReg.CHKR_ANY # code of unknown reason
 
-def convList2Array(list):
-    """
-Converts python list to pg array.
-    """
-    array = '{'
-    for item in list:
-        array += "'%s'," % pgdb.escape_string(item)
-    # trim ending ','
-    if len(array) > 1:
-        array = array[0:-1]
-    array += '}'
-    return array
-
-def convArray2List(array):
-    """
-Converts pg array to python list.
-    """
-    # trim {,} chars
-    array = array[1:-1]
-    if not array: return []
-    return array.split(',')
 
 def getDomainData(cursor, lastrow):
     """
@@ -612,8 +591,7 @@ This class implements TechCheck interface.
         cur.execute("INSERT INTO check_nsset (id, nsset_hid, reason, "
                     "overallstatus, extra_fqdns, dig, attempt) "
                 "VALUES (%d, %d, %d, %d, %s, %s, %d)",
-                [archid, histid, reason_enum, status, convList2Array(fqdns),
-                    dig, attempt])
+                [archid, histid, reason_enum, status, fqdns, dig, attempt])
         # archive results of individual tests
         for resid in results:
             result = results[resid]
@@ -1134,9 +1112,9 @@ Class encapsulating results of search.
                 # create CheckItem structure
                 checklist.append(ccReg.CheckItem(self.lastrow[0],
                     self.lastrow[1], self.lastrow[6],
-                    convArray2List(self.lastrow[5]),
+                    self.lastrow[5],
                     self.lastrow[4],
-                    self.lastrow[2],
+                    self.lastrow[2].isoformat(),
                     convToReason(self.lastrow[3]),
                     resultlist))
                 self.lastrow = currow

@@ -59,16 +59,6 @@ def isExpired(timestamp):
         return True
     return False
 
-def ipaddrs2list(ipaddrs):
-    """
-    Utility function for converting a string containing ip addresses
-    ( e.g. {ip1,ip2,ip3} ) to python list of theese ip adresses. If the
-    string of ip adresses contains no ip adresses ( looks like {} ) then
-    empty list is returned.
-    """
-    list = ipaddrs.strip("{}").split(",")
-    if list[0] == "": return []
-    return list
 
 class domainClass(object):
     """

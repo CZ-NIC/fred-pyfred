@@ -31,7 +31,6 @@ import pgdb
 from fred_idl import ccReg, ccReg__POA
 
 from pyfred import dnssec
-from pyfred.utils import ipaddrs2list
 
 
 def createNs(domain, nsFqdn, addrs):
@@ -169,7 +168,7 @@ This class implements interface used for generation of a zone file.
         for i in range(cur.rowcount):
             row = cur.fetchone()
             nsFqdn = row[0]
-            nsAddrs = ipaddrs2list(row[1])
+            nsAddrs = row[1]
             ns, wmsg = createNs(zonename, nsFqdn, nsAddrs)
             if wmsg:
                 self.l.log(self.l.WARNING, "<%d> %s" % (id, wmsg))
