@@ -1,5 +1,9 @@
+variables:
+    DOCKER_REGISTRY: "archive.nic.cz:5000"
+
 licensing:
-    before_script:
-        - git clone git@gitlab.office.nic.cz:internal-tools/license-check.git --single-branch --depth 1
+    image: "$DOCKER_REGISTRY/utils/license-check:latest"
+    tags:
+        - common
     script:
-        - ./license-check/license-check.sh -v
+        - license-check -v
