@@ -1303,7 +1303,7 @@ class Mailer_i (ccReg__POA.Mailer):
                     "LEFT JOIN mail_handles mh ON (ma.id = mh.mailid) "
                     "LEFT JOIN mail_attachments mt ON (ma.id = mt.mailid) "
                     "%s ORDER BY ma.id" % cond, condvalues)
-            self.db.releaseConn(conn)
+            # self.db.releaseConn(conn)
             self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
                     (id, cur.rowcount))
 

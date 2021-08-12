@@ -420,7 +420,7 @@ class FileManager_i (ccReg__POA.FileManager):
             cur.execute("SELECT id, name, path, mimetype, filetype, crdate, "
                         "filesize FROM files %s" % cond, condvalues)
             # get meta-info from database
-            self.db.releaseConn(conn)
+            # self.db.releaseConn(conn)
 
             self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
                     (id, cur.rowcount))

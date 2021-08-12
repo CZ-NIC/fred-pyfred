@@ -300,7 +300,7 @@ This class implements interface used for generation of a zone file.
                     (id, cursor2.rowcount))
             self.l.log(self.l.DEBUG, "<%d> Number of records in cursor3: %d." %
                     (id, cursor3.rowcount))
-            self.db.releaseConn(conn)
+            # self.db.releaseConn(conn)
 
             # Create an instance of ZoneData_i and an ZoneData object ref
             zone_obj = ZoneData_i(id, cursor, cursor2, cursor3, self.l, self.dsrecord_algo)
