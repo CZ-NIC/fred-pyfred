@@ -591,7 +591,7 @@ This class implements TechCheck interface.
         cur.execute("INSERT INTO check_nsset (id, nsset_hid, reason, "
                     "overallstatus, extra_fqdns, dig, attempt) "
                 "VALUES (%d, %d, %d, %d, %s, %s, %d)",
-                [archid, histid, reason_enum, status, fqdns, dig, attempt])
+                [archid, histid, reason_enum, status, list(fqdns), dig, attempt])
         # archive results of individual tests
         for resid in results:
             result = results[resid]
