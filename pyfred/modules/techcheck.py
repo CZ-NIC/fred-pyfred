@@ -1033,7 +1033,7 @@ This class implements TechCheck interface.
                     "FROM check_nsset chn "
                     "LEFT JOIN check_result chr ON (chn.id = chr.checkid) "
                     "%s ORDER BY chn.id" % cond, condvalues)
-            self.db.releaseConn(conn)
+            # self.db.releaseConn(conn)
             self.l.log(self.l.DEBUG, "<%d> Number of records in cursor: %d" %
                     (id, cur.rowcount))
 
