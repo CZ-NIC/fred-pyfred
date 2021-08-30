@@ -1038,7 +1038,7 @@ This class implements TechCheck interface.
                     (id, cur.rowcount))
 
             # Create an instance of MailSearch_i and an MailSearch object ref
-            searchobj = TechCheckSearch_i(id, cur, self.l)
+            searchobj = TechCheckSearch_i(id, cur, self.l, conn)
             self.search_objects.put(searchobj)
             searchref = self.corba_refs.rootpoa.servant_to_reference(searchobj)
             return searchref
@@ -1060,7 +1060,7 @@ Class encapsulating results of search.
     CLOSED = 2
     IDLE = 3
 
-    def __init__(self, id, cursor, log):
+    def __init__(self, id, cursor, log, conn):
         """
     Initializes search object.
         """
@@ -1071,6 +1071,7 @@ Class encapsulating results of search.
         self.crdate = time.time()
         self.lastuse = self.crdate
         self.lastrow = cursor.fetchone()
+        self.conn = conn
 
     def getNext(self, count):
         """
@@ -1148,6 +1149,9 @@ Class encapsulating results of search.
             self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
                     (self.id, sys.exc_info()[0], e))
             raise ccReg.TechCheckSearch.InternalError("Unexpected error")
+        finally:
+            if self.conn:
+                self.conn.close()
 
 
 def init(logger, db, conf, joblist, corba_refs):

@@ -303,7 +303,7 @@ This class implements interface used for generation of a zone file.
             # self.db.releaseConn(conn)
 
             # Create an instance of ZoneData_i and an ZoneData object ref
-            zone_obj = ZoneData_i(id, cursor, cursor2, cursor3, self.l, self.dsrecord_algo)
+            zone_obj = ZoneData_i(id, cursor, cursor2, cursor3, self.l, self.dsrecord_algo, conn)
             self.zone_objects.put(zone_obj)
             zone_ref = self.corba_refs.rootpoa.servant_to_reference(zone_obj)
 
@@ -346,7 +346,7 @@ Class encapsulating zone data.
     CLOSED = 2
     IDLE = 3
 
-    def __init__(self, id, cursor, cursor2, cursor3, log, dsrecord_algo):
+    def __init__(self, id, cursor, cursor2, cursor3, log, dsrecord_algo, conn):
         """
     Initializes zonedata object.
         """
@@ -362,6 +362,7 @@ Class encapsulating zone data.
         self.lastrow = cursor.fetchone()
         self.lastds = cursor2.fetchone()
         self.lastkey = cursor3.fetchone()
+        self.conn = conn
 
     def __get_one_domain(self):
         """
@@ -506,6 +507,9 @@ Class encapsulating zone data.
             self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
                     (self.id, sys.exc_info()[0], e))
             raise ccReg.MailSearch.InternalError("Unexpected error")
+        finally:
+            if self.conn:
+                self.conn.close()
 
 
 def init(logger, db, conf, joblist, corba_refs):
