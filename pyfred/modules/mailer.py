@@ -1308,7 +1308,7 @@ class Mailer_i (ccReg__POA.Mailer):
                     (id, cur.rowcount))
 
             # Create an instance of MailSearch_i and an MailSearch object ref
-            searchobj = MailSearch_i(id, cur, self.l)
+            searchobj = MailSearch_i(id, cur, self.l, conn)
             self.search_objects.put(searchobj)
             searchref = self.corba_refs.rootpoa.servant_to_reference(searchobj)
             return searchref
@@ -1332,7 +1332,7 @@ class MailSearch_i (ccReg__POA.MailSearch):
     CLOSED = 2
     IDLE = 3
 
-    def __init__(self, id, cursor, log):
+    def __init__(self, id, cursor, log, conn):
         """
         Initializes search object.
         """
@@ -1343,6 +1343,7 @@ class MailSearch_i (ccReg__POA.MailSearch):
         self.crdate = time.time()
         self.lastuse = self.crdate
         self.lastrow = cursor.fetchone()
+        self.conn = conn
 
     def __get_one_search_result(self):
         """
@@ -1449,6 +1450,9 @@ class MailSearch_i (ccReg__POA.MailSearch):
             self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
                     (self.id, sys.exc_info()[0], e))
             raise ccReg.MailSearch.InternalError("Unexpected error")
+        finally:
+            if self.conn:
+                self.conn.close()
 
 
 def init(logger, db, conf, joblist, corba_refs):

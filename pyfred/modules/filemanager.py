@@ -426,7 +426,7 @@ class FileManager_i (ccReg__POA.FileManager):
                     (id, cur.rowcount))
 
             # Create an instance of FileSearch_i and an FileSearch object ref
-            searchobj = FileSearch_i(id, cur, self.l)
+            searchobj = FileSearch_i(id, cur, self.l, conn)
             self.search_objects.put(searchobj)
             searchref = self.corba_refs.rootpoa.servant_to_reference(searchobj)
             return searchref
@@ -452,7 +452,7 @@ class FileSearch_i (ccReg__POA.FileSearch):
     CLOSED = 2
     IDLE = 3
 
-    def __init__(self, id, cursor, log):
+    def __init__(self, id, cursor, log, conn):
         """
         Initializes search object.
         """
@@ -463,6 +463,7 @@ class FileSearch_i (ccReg__POA.FileSearch):
         self.crdate = time.time()
         self.lastuse = self.crdate
         self.lastrow = cursor.fetchone()
+        self.conn = conn
 
     def getNext(self, count):
         """
@@ -530,6 +531,9 @@ class FileSearch_i (ccReg__POA.FileSearch):
             self.l.log(self.l.ERR, "<%d> Unexpected exception: %s:%s" %
                     (self.id, sys.exc_info()[0], e))
             raise ccReg.FileSearch.InternalError("Unexpected error")
+        finally:
+            if self.conn:
+                self.conn.close()
 
 
 class FileUpload_i (ccReg__POA.FileUpload):
