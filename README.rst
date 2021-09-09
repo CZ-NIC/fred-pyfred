@@ -542,8 +542,9 @@ Example: If this is set to 'FileManager' the resulting identifier of
 * vcard [Off] - Attach to each email a vcard attachment.
 
 * sendperiod [300] - Interval (in seconds) in which are looked up and sent
-  "ready-to-be-send" emails.
-  
+  "ready-to-be-send" emails. If this is zero, sending is turned off and all
+  directives related to sending of emails are meaningless.
+
 * manconfirm [Off] - If this is turned on, all generated emails must be at first
   manually confirmed in database before they are sent.
 
