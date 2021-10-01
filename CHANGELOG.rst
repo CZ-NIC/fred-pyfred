@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+2.15.0 (2021-10-01)
+-------------------
+
+* Add possibility to disable e-mail sending procedure (``sendperiod=0``)
+
 2.14.0 (2021-08-11)
 -------------------
 
