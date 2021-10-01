@@ -498,8 +498,9 @@ class Mailer_i (ccReg__POA.Mailer):
             "period":self.checkperiod, "ticks":1 })
         # schedule regular submission of ready emails
         self.mail_type_penalization = {}
-        joblist.append({ "callback":self.__sendEmails, "context":None,
-            "period":self.sendperiod, "ticks":1 })
+        if self.sendperiod > 0:
+            joblist.append({ "callback":self.__sendEmails, "context":None,
+                "period":self.sendperiod, "ticks":1 })
         # schedule checks for unsuccessfull delivery of emails
         if self.undeliveredperiod > 0:
             joblist.append({ "callback":self.__checkUndelivered, "context":None,
