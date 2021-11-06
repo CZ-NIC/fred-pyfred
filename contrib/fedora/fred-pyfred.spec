@@ -9,12 +9,7 @@ URL:            http://fred.nic.cz
 Source0:        %{name}-%{version}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-%(%{__id_u} -n)
 BuildRequires: python2-setuptools systemd
-Requires: python2 python2-omniORB omniORB-servers fred-idl python-clearsilver PyGreSQL < 5.0 ldns postfix m2crypto
-%if 0%{?el7}
-Requires: python-dns
-%else
-Requires: python2-dns ldns-utils
-%endif
+Requires: python2 python2-omniORB omniORB-servers python2-fred-idl python2-clearsilver PyGreSQL ldns postfix m2crypto python2-dns ldns-utils
 
 %description
 FRED (Free Registry for Enum and Domain) is free registry system for 
